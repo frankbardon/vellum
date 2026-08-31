@@ -1,0 +1,61 @@
+# Claude
+.claude/settings.local.json
+.planning/*
+
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test & coverage
+*.test
+*.out
+coverage.out
+coverage.html
+*.prof
+
+# Go workspace
+go.work
+go.work.sum
+vendor/
+
+# Dependency dirs
+Godeps/
+
+# Vellum artifacts
+*.docx
+*.xlsx
+*.pptx
+*.pdf
+!testdata/**/*.docx
+!testdata/**/*.xlsx
+!testdata/**/*.pptx
+!testdata/**/*.pdf
+
+# Docs (mdBook build output)
+docs/book/
+
+# Project
+.planning/
+.worktrees/
+tmp/
+tmp-bench/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
+.planning/*/.flow-runtime/

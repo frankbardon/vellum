@@ -1,0 +1,22 @@
+name: Feature request
+description: Suggest a capability for Vellum
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: |
+        What are you trying to deliver? Describe the outcome, not the OOXML
+        element — Vellum is deliberately subtractive and the shape of the
+        solution is usually not the shape of the request.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

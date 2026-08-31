@@ -1,0 +1,396 @@
+# CLAUDE.md
+
+Vellum is a declarative artifact emitter: **spec in, document out**. DOCX, XLSX,
+PPTX and PDF, plus a *fill* mode that binds data into an existing OOXML template
+without destroying the parts it does not understand.
+
+It ships as an embeddable Go library, a thin CLI, and an MCP server with an
+embedded skill pack. **The library is the deliverable; the CLI is an adapter.**
+
+This file is the machine-checked contract. Hygiene tests parse it: they fail the
+build if the current `format_version` is missing, if an environment variable in
+source is undocumented here, or if a CI gate exists in source but is not listed
+under "Non-Skippable CI Gates". Docs cannot rot silently.
+
+**Status: bootstrap.** The repository furniture, conventions and contract are in
+place; the packages are being built epic by epic. A row below that describes a
+package which does not exist yet is a specification, not a description. It is
+written first on purpose — the capability matrix, the determinism harness and
+the error metadata table are all things that are cheap to establish and
+expensive to retrofit.
+
+## The Update Demand
+
+Any change to Vellum code, configuration, file format, or public surface MUST
+update the corresponding skill file(s) and CLAUDE.md in the same PR.
+Non-skippable CI failure if a trigger fires without the required update.
+
+| If you change... | You MUST also update... | Enforced by |
+|---|---|---|
+| A block kind (`spec.BlockKind`) | `skills/block-<kebab>.md` + `capability/matrix.go` (a row per format) + `descriptor/capabilities_blocks.go` | `TestSkillsCoverAllBlockKinds`, `TestCapabilityMatrixComplete`, `TestManifestBlocksComplete` |
+| An output format (`artifact.Format`) | `skills/format-<kebab>.md` + a full column in `capability/matrix.go` + `descriptor/capabilities_formats.go` | `TestSkillsCoverAllFormats`, `TestCapabilityMatrixComplete`, `TestManifestFormatsComplete` |
+| A capability matrix row (outcome, degradation, or the code it names) | the affected `skills/block-*.md` or `skills/format-*.md` "Gotchas" section + `descriptor/capabilities_*.go` | `TestCapabilityMatrixComplete`, `TestCapabilityCodesRegistered`, `TestSkillsCoverAllFeatures` |
+| A theme slot, colour role, font field, or box role | `skills/theme-document.md` + `theme/builtin.json` + the `Boxes()` golden | `TestBoxesGolden`, `TestSkillsCoverThemeSlots` |
+| An error code (add/remove/rename) | `errors/fixup_metadata.go` (`codeMetadata`) — `Message` plus at least one `Fixup`, or `FixupNotApplicable: true` | `TestCodesHaveFixups`, `TestManifestErrorCodesComplete` |
+| A registered MCP tool | `skills/tool-<kebab>.md` (strip the `vellum_` prefix) + `mcp/toolmeta/meta.go` | `TestSkillsCoverAllMCPTools`, `TestManifestMCPToolsComplete` |
+| A CLI leaf (add/remove) | the command index in `docs/src/cli/flags.md`, plus a dedicated page when `--help` is not enough | `TestSkillsCoverAllCliLeaves` |
+| The `--json` envelope or the `format_version` value (currently `"1.0"`) | CLAUDE.md "Output Format Contract" + `descriptor.PayloadSchemaFormatVersion` + regenerate `descriptor/testdata/payload-schema.json` | `TestClaudeMdMentionsFormatVersion`, `TestPayloadSchemaVersionMatchesEnvelope` |
+| Any `spec` type reachable from a payload, or a registry enum surfaced in the schema | regenerate `descriptor/testdata/payload-schema.json` (`go test ./descriptor/ -run TestPayloadSchemaGolden -update`) + `docs/src/contract/payload-schema.md` | `TestPayloadSchemaGolden`, `TestPayloadSchemaEnumsMatchRegistry`, `TestGoldensNotHandEdited` |
+| The hash algorithm, the normalisation before hashing, or any `spec` field that participates in it | bump `format_version` + regenerate the pinned hash vectors + CLAUDE.md "Output Format Contract" | `TestSpecHashPinnedVectors`, `TestClaudeMdMentionsFormatVersion` |
+| A byte-layout rule (zip, OPC, PDF object emission, font subsetting) | CLAUDE.md "Byte-layout invariants" + `.claude/reference/determinism.md` + rebaseline the affected goldens with `-update` | `TestGoldensNotHandEdited`, `TestDeterminismRepeat` |
+| An anchor kind, binding mode, or repeat semantic | `skills/fill-<kebab>.md` + `capability/matrix.go` (`fill.*` rows) | `TestCapabilityMatrixComplete`, `TestSkillsCoverAllBindModes` |
+| A banned FEEL builtin | `bind.AllBannedBuiltins()` + `skills/fill-binding.md` | `TestBindBannedBuiltinsComplete` |
+| A dependency (add/remove/upgrade) | CLAUDE.md "Dependencies" with purpose, licence, and determinism hazard | reviewed, plus `TestNoFontscanImport` and the cgo build step |
+| An environment variable | CLAUDE.md "Build / Env" | `TestClaudeMdMentionsAllEnvVars` |
+| A new non-skippable CI gate | CLAUDE.md "Non-Skippable CI Gates" | `TestClaudeMdMentionsAllNonSkippableGates` |
+
+Defer the doc or skill update to "a follow-up PR" and the follow-up will not
+happen. Update in the same PR or do not merge.
+
+## Architecture
+
+Three content models, each with exactly one job. Getting this wrong is the most
+expensive mistake available in this codebase, so it is stated plainly:
+
+- **`spec` is unresolved and hashable.** Author intent. Theme *by reference*,
+  marks by name, values untyped, no measurements. This is what makes
+  `Spec.Hash()` computable *before* a theme provider has answered — which is
+  what lets a consumer ask "does this artifact already exist" and skip the
+  render entirely.
+- **`fragment` is resolved and format-neutral.** Concrete font families, sizes
+  and colours; every length EMU; every value typed with its format code; every
+  asset carrying bytes, media type and content hash. Theme application, font
+  selection, number formatting, asset resolution and mark resolution happen
+  *once* here and are shared by all four writers and by fill's splicer. It knows
+  nothing about pages, sheets, slides or XML.
+- **`doc` / `sheet` / `deck` / `pdf` are resolved and laid out.** A flow
+  document, a workbook, a slide deck and a paginated page tree are genuinely
+  different things; forcing them into one IR produces a model that serves none
+  of them. Each is public, so a consumer needing format-specific reach has it.
+
+`fragment` earns its place because it has two genuinely different lowerings —
+whole-document into a format model, and bounded-sequence into a template's
+existing idiom. Fill mode never constructs a `doc.Document`.
+
+```
+Compose from blocks
+  JSON/YAML --strict decode--> spec.Spec
+                                  |  Spec.Hash() -----------> artifact name (pre-render)
+                                  v
+             capability.Validate(spec, format)
+                                  v
+        resolve.Resolve(...) --> fragment.Doc + warnings
+                                  v
+        doc.Lower | sheet.Lower | deck.Lower | pdf.Lower   <- overflow policy applied here
+                                  v
+             artifact.Writer.WriteTo(ctx, w, opts)
+                                  v
+        opc -> zipdet -> io.Writer      |      pdf/object -> io.Writer
+
+Compose from a format model
+  consumer-built doc.Document --> artifact.Writer.WriteTo --> io.Writer
+
+Fill
+  template.Open -> opc.Package (parts held as sources, never re-serialised)
+        |
+        +-- Inspect --> anchor.Inventory
+        |
+        +-- Fill: bind (FEEL) --> fragment.Sequence --> splice --> xmlcopy
+                                  only touched parts rewritten; Result.Touched is the receipt
+```
+
+### Package map
+
+| Package | Role |
+|---|---|
+| `vellum.go`, `aliases.go` | Public facade: `Options`, `New`, `Compose`, `Validate`, `Fill`, `Inspect`, `Boxes`, `Capabilities`, `ArtifactName`, `Write`. Root aliases so embedders write `vellum.Spec`. |
+| `artifact/` | `Format` enum, `AllFormats()`, the `Writer` interface, `WriteOptions`, `Report`. |
+| `errors/` | `VELLUM_*` code registry, `CodedError`, `Fixup`/`Metadata` table. |
+| `canon/` | `CanonicalHash(tag, v)` and the JSON canonicaliser. Sole owner of the algorithm. |
+| `fs/` | `afero.Fs` configuration. |
+| `numfmt/` | xlsx number-format code engine. One formatting vocabulary for all four targets. |
+| `overflow/` | Declared overflow policies and format-neutral pagination primitives. |
+| `spec/` | The primary public model: blocks, sections, tables, strict decode, YAML normalisation, `Spec.Hash()`. |
+| `theme/` | Theme document, fonts with embedding rights, colour roles, mark styles, master layouts, `Boxes(format)`, the `Provider` seam, the built-in theme. |
+| `asset/` | `AssetResolver` seam, the inline default, media sniffing, the optional `Hasher` seam. |
+| `capability/` | The (feature x format) matrix. `Profile(format)` projects the conformance allowlist out of it. |
+| `fragment/` | The resolved, format-neutral IR. |
+| `resolve/` | `spec` + theme + assets -> `fragment`. Emits the warnings. |
+| `opc/`, `opc/zipdet/` | OPC packaging and the deterministic zip. |
+| `xmlcopy/` | Token-level XML rewriter: raw-token copy with surgical subtree replacement. |
+| `doc/`, `sheet/`, `deck/` | Per-format models and OOXML writers. |
+| `pdf/` + `object|content|shape|text|font|font/sfnt|color|xmp|pdfa` | The PDF emitter. Vellum owns the object writer, the subsetter and PDF/A conformance. |
+| `template/` + `anchor|defrag|bind|splice` | Fill mode. |
+| `ingest/` | Pulse envelope JSON -> `spec.Table`. No Pulse import. |
+| `provenance/` | Record, OOXML property embedding, PDF XMP embedding. |
+| `descriptor/` | `Envelope`, `BuildManifest()`, `BuildPayloadSchema()`. **No-execute** — must not import a renderer. |
+| `skills/`, `examples/` | `go:embed` content packs. |
+| `mcp/`, `mcp/gosdk/`, `mcp/toolmeta/`, `mcpserve/` | MCP surface. Only `mcp/gosdk` imports the SDK. |
+| `internal/cli/`, `cmd/vellum/` | The CLI. The only `internal/` in the tree. |
+
+### Import-graph invariants
+
+- `artifact`, `errors`, `canon`, `numfmt`, `overflow` import nothing from Vellum except `errors`.
+- **`spec` never imports `theme`.** This is what keeps `Spec.Hash()` computable before theme resolution.
+- `fragment` may not import `doc`, `sheet`, `deck`, `pdf`, `opc`, or `encoding/xml`.
+- `descriptor` never imports `resolve`, `doc`, `sheet`, `deck`, `pdf`, or `template`.
+- `template/`, `defrag/`, `splice/` never import `encoding/xml`.
+- Nothing imports `go-text/typesetting/fontscan`.
+- Nothing imports `"C"`. There is no carve-out.
+
+## Code Conventions
+
+### Naming
+
+- Error codes: `VELLUM_<AREA>_<CATEGORY>`, SCREAMING_SNAKE. Areas: `SPEC`, `THEME`, `FONT`, `ASSET`, `TABLE`, `MARK`, `OVERFLOW`, `CAPABILITY`, `OPC`, `ZIP`, `DOC`, `SHEET`, `DECK`, `PDF`, `PDFA`, `TEMPLATE`, `ANCHOR`, `DEFRAG`, `BIND`, `INGEST`, `PROVENANCE`, `CLI`, `MCP`.
+- Block kinds and formats are lowercase wire strings (`"heading"`, `"page_break"`, `"pptx"`).
+- Constructors: `New<Thing>` exported, `new<thing>` unexported factories.
+- Registries: `<thing>Registry` unexported package var; `All<Thing>s()` exported, copy-returning.
+- Facade config is an `Options` struct; leaf packages use `With*` functional options.
+- Booleans are named so the zero value is correct (`Disable*`, not `Enable*`).
+- Test names `TestSubject_Scenario`. Gate tests use the reserved prefixes.
+
+### Error handling
+
+- One `errors` package, domain-prefixed codes. No per-package error types.
+- `NewCodedErrorWithDetails` is the dominant form. Detail keys are `snake_case`.
+- Every code needs a `codeMetadata` row. Absence of a fixup is a bug, not a
+  feature — `FixupNotApplicable: true` is the honest signal for an internal
+  invariant, and must be used deliberately.
+- Fixup paths are abstract pointers (`["Sections","*","Blocks","*","Kind"]`),
+  never concrete indices.
+- `fmt.Errorf(...%w)` only in the facade's own plumbing, never in domain
+  packages.
+
+### Determinism
+
+The compressed statement; the full table is `.claude/reference/determinism.md`.
+
+- No `time.Now()` on any output path. Timestamps come from `SourceDateEpoch`.
+- No random or counter-derived identifiers that depend on code path. Derive from
+  content: sorted walks, content hashes, canonical orderings.
+- No map iteration on an ordered output path. Registries return sorted copies.
+  Where an API *could* accept a map on an ordered path, take an ordered slice
+  instead — make the nondeterminism unrepresentable rather than tested-against.
+- No `x/text/collate`. Bytewise `sort.Strings` only.
+- EMU is `int64`. Measurements never round-trip through `float64`.
+- Assertions are on raw bytes. Normalise XML for failure *display* only.
+
+### Byte-layout invariants
+
+- `[Content_Types].xml` is the first zip entry, always.
+- Zip entries carry no extended-timestamp extra field: `zip.FileHeader.Modified`
+  stays zero and the legacy `ModifiedDate`/`ModifiedTime` fields are written
+  directly. Setting `Modified` makes Go emit the extra field.
+- No data descriptors. Entries are buffered so sizes and CRC are written up
+  front.
+- Relationship IDs are assigned by walking relationships sorted by
+  `(Type, TargetMode, Target)`.
+- Media part names are indexed by the sorted set of distinct content hashes.
+- xlsx `styles.xml` keeps the fixed preamble with builtin indices intact. Fill
+  index 0 and 1 are reserved by the spec; getting it wrong makes Excel refuse to
+  open the file.
+- PDF uses a classic xref table and trailer, never object streams.
+- PDF `/CreationDate`, `/ModDate` and the XMP dates are generated from one
+  struct so they cannot disagree. Divergence is the most common way a nearly
+  correct PDF/A file fails veraPDF.
+- Font subset tags are base-26 over a hash of `(fontHash, sorted glyph IDs)`.
+- Subset font programs pin `head.created` and `head.modified`, use a fixed table
+  order and padding, and recompute checksums with `head.checkSumAdjustment`
+  written last.
+
+### Declared, not emergent
+
+A behaviour a consumer can observe — a block degrading, an asset media type
+being refused, a table continuing onto another slide — is a row in
+`capability/matrix.go` **before** it is code. There are exactly three legitimate
+outcomes per (feature, format): `renders`, `degrades` to a stated alternative, or
+`rejects` at validate time. A consumer scheduling an unattended job must be able
+to learn the answer before the job runs; if they learn it from a support ticket,
+the matrix has failed.
+
+## Output Format Contract
+
+### `--json` envelope
+
+Current `format_version` is `"1.0"`.
+
+```json
+{
+  "format_version": "1.0",
+  "data": { },
+  "request": { },
+  "errors":   [ { "code": "VELLUM_...", "message": "...", "details": { } } ],
+  "warnings": [ { "code": "VELLUM_...", "message": "...", "details": { } } ]
+}
+```
+
+`errors` and `warnings` are always present as arrays, never `null` and never
+omitted. `request` is omitted when absent. Every `--json` and MCP output path
+goes through `descriptor.NewEnvelope`; no `fmt.Sprintf` builds JSON.
+
+Additive slots must be `omitempty` so pre-existing wire output stays
+byte-identical, and `format_version` is **not** bumped for an additive slot.
+
+`vellum schema` writes the raw JSON Schema unwrapped, because the artifact is
+self-contained and carries its own `$schema` and `$id`.
+
+### Artifact identity
+
+`Spec.Hash()` plus the asset hashes name the output, and both are **inputs**. The
+name is therefore knowable before the render runs — which is the whole point,
+because a consumer that can only learn an artifact's identity by producing it
+cannot use identity to avoid producing it.
+
+Byte-identity and spec-hash identity are separate guarantees with separate
+lifetimes. Byte-identity makes goldens and attestation work and holds for a
+fixed Go toolchain minor. Spec-hash identity makes dedupe work and holds across
+versions. Do not conflate them.
+
+## Non-Skippable CI Gates
+
+CLAUDE.md hygiene:
+- `TestClaudeMdMentionsFormatVersion` — CLAUDE.md must mention the current `format_version` `"1.0"`.
+- `TestClaudeMdMentionsAllEnvVars` — every `VELLUM_*` environment variable in Go source must appear in CLAUDE.md "Build / Env".
+- `TestClaudeMdMentionsAllNonSkippableGates` — every test name with a reserved prefix (`TestClaudeMd`, `TestUpdateDemand`, `TestGoldensNot`, `TestSkillsCover`, `TestCapability`, `TestDeterminism`, `TestNo`, `TestPerPackageCoverage`, `TestManifest`, `TestPayloadSchema`, `TestSpecHash`, `TestBind`) must be listed here.
+- `TestUpdateDemandTableCovers` — the Update Demand table must cover: block kind, output format, capability, theme, error code, MCP tool, CLI leaf, format_version, environment variable, CI gate, dependency, byte layout.
+
+Contract and registry completeness:
+- `TestCapabilityMatrixComplete` — every (feature x format) pair has a declared outcome.
+- `TestCapabilityCodesRegistered` — every code named by a matrix row parses via `errors.ParseCode`.
+- `TestCodesHaveFixups` — every error code has a `codeMetadata` row with a `Message` and a `Fixup`, or `FixupNotApplicable: true`.
+- `TestManifestBlocksComplete`, `TestManifestFormatsComplete`, `TestManifestErrorCodesComplete`, `TestManifestMCPToolsComplete` — the manifest enumerates the live registries.
+- `TestPayloadSchemaGolden`, `TestPayloadSchemaEnumsMatchRegistry`, `TestPayloadSchemaVersionMatchesEnvelope`.
+- `TestGoldensNotHandEdited` — goldens end with a valid `// golden-hash: <sha256>` line, or carry a `.sha256` sidecar listed in a hashed manifest.
+- `TestSpecHashPinnedVectors` — committed (spec, hash) vectors. Changing one requires a `format_version` bump in the same PR.
+
+Determinism:
+- `TestDeterminismRepeat` — every golden composed 1000x in one process per format; one distinct SHA-256. 25x under `-short`.
+- `TestDeterminismCrossProcess` — re-exec in fresh processes and compare digests.
+- `TestDeterminismGOMAXPROCS` — the same goldens at `GOMAXPROCS=1` and `=8` under `-race`.
+- `TestDeterminismEpochInvariance` — wall-clock time does not affect output; an explicit `SourceDateEpoch` produces a different but stable result.
+- `TestNoTimeNow` — no `time.Now(` in non-test source outside the `provenance` opt-in.
+- `TestNoUnsortedMapIteration` — AST gate over the output-path packages.
+- `TestNoFontscanImport` — `go list -deps` firewall against system font scanning.
+- `TestNoEncodingXMLInFill` — `encoding/xml` is not imported from `template/`, `defrag/` or `splice/`.
+- `TestNoCgoImports` — nothing imports `"C"`; paired with the `CGO_ENABLED=0` build step.
+
+Non-destructiveness and fill:
+- `TestNonDestructiveCorpus` — after a fill, every part not in `Result.Touched` is byte-identical to the source. The fixture carries tracked changes, comments, a custom XML part, footnotes and an embedded OLE object.
+- `TestDefragCorpusComplete` — a case directory under `testdata/corpus/defrag/` without its `expect.json` fails the build. Live from day one, including while the corpus is empty.
+- `TestBindBannedBuiltinsComplete` — the nondeterministic-builtin registry covers everything `bind.Validate` rejects.
+
+Conformance:
+- `TestPDFAConformance` — build-tagged `verapdf`; runs a digest-pinned veraPDF against every PDF golden and asserts zero errors.
+
+Skill and example coverage:
+- `TestSkillsCoverAllBlockKinds`, `TestSkillsCoverAllFormats`, `TestSkillsCoverAllFeatures`, `TestSkillsCoverAllMCPTools`, `TestSkillsCoverAllBindModes`, `TestSkillsCoverThemeSlots`, `TestSkillsCoverAllCliLeaves`.
+- `TestSkillsHaveRequiredSections`, `TestSkillTokenBudget`.
+- `TestPerPackageCoverageFloors`.
+
+## Build / Env
+
+```
+make build   # bin/vellum, version-stamped via -X main.version=$(VERSION)
+make test
+make lint    # go vet + staticcheck
+make cover
+make bench   # manual; asserts no threshold
+make docs    # mdBook
+```
+
+`CGO_ENABLED=0` is exported by the Makefile as a contract and asserted by a CI
+step. Required CI contexts: `lint` and `test (1.26)`.
+
+Environment variables:
+
+- `VELLUM_THEME_DIR` — directory the default `ThemeProvider` reads theme documents from. Unset means the built-in theme only.
+- `VELLUM_ASSET_DIR` — directory the default `AssetResolver` reads asset handles from. Unset means inline assets only.
+- `VELLUM_SOURCE_DATE_EPOCH` — RFC 3339 timestamp pinning every date Vellum writes. Unset selects the pinned 1980 epoch, which is the deterministic default. Setting a real time is a deliberate opt-out of byte-identical output and is recorded in provenance.
+- `VELLUM_MAX_ASSET_BYTES` — cap on a single resolved asset. Unset selects the built-in default.
+- `VELLUM_VERAPDF` — path or container digest for the veraPDF binary used by the build-tagged conformance gate.
+
+## Dependencies
+
+Deliberately small. Every entry justified, every licence checked, every
+determinism hazard named.
+
+| Dependency | Purpose | Licence | Hazard |
+|---|---|---|---|
+| `github.com/spf13/afero` | Filesystem seam; hermetic tests | Apache-2.0 | none |
+| `github.com/go-text/typesetting` | Shaping (harfbuzz), UAX#14 line breaking, bidi, OpenType parsing | Unlicense/BSD-3 | **`fontscan` scans system fonts** — firewalled by CI gate. Has no subsetter. |
+| `github.com/pbinitiative/feel` | FEEL evaluation for bindings; used directly, no wrapper | MIT | **`now()`/`today()` call `time.Now()`** — banned at validate time |
+| `github.com/santhosh-tekuri/jsonschema/v6` | Spec validation | Apache-2.0 | none |
+| `github.com/google/jsonschema-go` | MCP schema reflection | BSD-3 | confined to `mcp/` |
+| `sigs.k8s.io/yaml` | YAML to JSON at the boundary | Apache-2.0 + MIT | chosen *because* it routes through JSON — the round-trip is the requirement |
+| `github.com/modelcontextprotocol/go-sdk` | MCP transport | MIT | only `mcp/gosdk` imports it |
+| `github.com/urfave/cli/v3` | CLI | MIT | confined to `internal/cli` and `cmd/vellum` |
+| `sRGB2014.icc` (embedded data) | PDF/A output intent | ICC | carry the notice; not code |
+
+Permanently ruled out, with reasons, so they are not re-proposed:
+
+- **`seehuhn.de/go/pdf`** — GPL-3.0. Otherwise the ideal fit (subsetting, ICC, XMP, output intents). A permissively licensed library cannot take it. This is why Vellum owns its subsetter.
+- **`github.com/tdewolff/font`** — MIT with a real subsetter, but its write path stamps `time.Now()` into `head.modified`, inside the exact byte stream we are required to pin. Never tagged. Read as reference; do not import.
+- **`github.com/pdfcpu/pdfcpu`** — a processor for existing PDFs; a deterministic writer needs total control of object numbering and xref layout.
+- **`github.com/google/uuid`** — Vellum generates no random identifiers, ever.
+- **LibreOffice, in any form** — conversion output varies with renderer version and installed fonts, which defeats byte-identical output and the consumer dedupe that rests on it.
+
+## Extension Points
+
+Seams, each an interface with an inert default, so a host that wires nothing
+still gets a working library rather than a construction failure:
+
+- **`asset.Resolver`** — handle to bytes plus media type. Default resolves
+  inline assets only. Vellum owns nothing and fetches nothing itself. The
+  optional `asset.Hasher` seam lets a host supply content hashes without
+  transferring bytes, which is what makes `ArtifactName` cheap enough to call
+  before deciding whether to render; a resolver that does not implement it is
+  not an error, the assertion simply fails and Vellum hashes the bytes itself.
+- **`theme.Provider`** — theme id to theme document. Default serves the built-in
+  theme.
+- **`bind.Evaluator`** — expression evaluation. Default is FEEL.
+
+The asset request carries the target `Format` and a ranked `Accept` list,
+because the target format constrains what can be embedded. **PDF has no SVG
+mechanism**, so an SVG handed to a PDF render is a coded error naming the
+accepted set — not a silent drop and not an in-library rasteriser.
+
+## Skill Pack
+
+Flat `skills/*.md`, `//go:embed *.md`. Categories come from filename prefixes,
+not directories: `block-<kind>`, `format-<name>`, `tool-<name>` (one per MCP
+tool, `vellum_` stripped), `theme-<topic>`, `fill-<topic>`, and unprefixed design
+guides. Frontmatter carries `name`, `description`, `kind`, `category`, `type`,
+`applies_to`, `examples_tags`. Per-prefix required headings and per-family token
+budgets are both enforced by tests.
+
+`docs/` is for humans; `skills/` is for LLMs and is loaded via MCP at runtime.
+They are not the same document written twice.
+
+## What NOT to Do
+
+- Do not add a semantic section vocabulary ("cover", "executive summary",
+  "methodology appendix"). That is the consumer's vocabulary. A library that
+  ships one product's section types makes the next consumer fight it.
+- Do not compute anything statistical. Significance letters, margins and
+  low-base flags arrive already resolved. There is no `compute_totals` option
+  and there will not be one.
+- Do not render a chart. Vellum embeds an asset it is handed.
+- Do not rasterise anything.
+- Do not add a "lenient" or "best effort" decode mode, not even behind a flag.
+  It will be used. Silent tolerance of unknown fields is poison when an LLM
+  authors the spec: the model gets no signal that its output was partially
+  ignored.
+- Do not hand-edit a golden, including "just to fix formatting". The gate exists
+  because that is exactly how goldens stop being evidence.
+- Do not re-marshal a source part with `encoding/xml`.
+- Do not shell out to anything.
+- Do not perform network I/O.
+- Do not log. Diagnostics are returned as data.
+- Do not scaffold empty `convert/` or worker directories. They are cut
+  permanently; an empty directory invites someone to fill it.
+
+## Reference Docs
+
+- [`.claude/reference/determinism.md`](.claude/reference/determinism.md) — the full pinned-source table, the test harness, and the honest limit on byte-identity.
+- [`.claude/reference/scope.md`](.claude/reference/scope.md) — what is deliberately not in v1, and where each deferred item lands.

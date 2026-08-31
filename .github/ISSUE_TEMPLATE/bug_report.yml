@@ -1,0 +1,34 @@
+name: Bug report
+description: Report a defect in Vellum
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: |
+        Include the spec (minimised if possible), the target format, and the
+        command or Go call you made.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: viewer
+    attributes:
+      label: Application and version
+      description: |
+        For a rendering defect, which application did you open the output in?
+        (Word 2024, LibreOffice 25.2, Acrobat, veraPDF ...)
+  - type: input
+    id: version
+    attributes:
+      label: Vellum version
+    validations:
+      required: true

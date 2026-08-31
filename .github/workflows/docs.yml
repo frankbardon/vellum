@@ -1,0 +1,48 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+      - 'descriptor/testdata/payload-schema.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: peaceiris/actions-mdbook@v2
+        with:
+          mdbook-version: latest
+      - name: Build book
+        run: mdbook build docs
+      - name: Publish payload schema
+        run: |
+          if [ -f descriptor/testdata/payload-schema.json ]; then
+            sed '/^\/\/ golden-hash:/d' descriptor/testdata/payload-schema.json > docs/book/payload-schema.json
+          fi
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/book
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

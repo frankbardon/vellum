@@ -1,0 +1,18 @@
+[book]
+title = "Vellum"
+authors = ["Frank Bardon Jr."]
+description = "A declarative artifact emitter for Go: spec in, document out."
+language = "en"
+src = "src"
+
+[build]
+build-dir = "book"
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/frankbardon/vellum"
+edit-url-template = "https://github.com/frankbardon/vellum/edit/main/docs/{path}"
+
+[output.html.search]
+enable = true
