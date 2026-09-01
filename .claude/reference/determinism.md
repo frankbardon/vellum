@@ -20,11 +20,12 @@ error anywhere. That is the failure this whole discipline prevents.
 | Source | Pin |
 |---|---|
 | Entry modification time | `Options.SourceDateEpoch`; the zero value selects `artifact.PinnedEpoch` = 1980-01-01T00:00:00Z. The DOS epoch, because zip cannot represent the Go zero time. |
-| Extended-timestamp / NTFS extra field | **Trap:** setting `zip.FileHeader.Modified` makes Go emit an extra field carrying a second copy of the time. `zipdet` leaves `Modified` zero and writes the legacy `ModifiedDate`/`ModifiedTime` fields directly. `TestZipDet_NoExtraFields` reads raw local file headers and asserts the extra-field length is zero. |
+| Extended-timestamp / NTFS extra field | **Trap:** setting `zip.FileHeader.Modified` makes Go emit an extra field carrying a second copy of the time. `zipdet` leaves `Modified` zero and writes the legacy `ModifiedDate`/`ModifiedTime` fields directly. `TestWrite_NoExtraFields` reads raw local file headers and asserts the extra-field length is zero. |
 | Entry order | `opc.CanonicalOrder`: `[Content_Types].xml` first, then `_rels/.rels`, then every other part sorted bytewise by name with each part's own `_rels/*.rels` immediately following its owner. |
 | Compression method | A pure function of content type: `Store` for already-compressed media (png, jpeg, gif), `Deflate` otherwise. Never content sniffing, never size-dependent. |
 | Compression level | A pinned constant. See "the honest limit" below. |
 | Data descriptors | None. Each entry is buffered so sizes and CRC are written up front. |
+| Version made by / needed to extract | **Trap:** `archive/zip` stamps both fields inside `CreateHeader`. `zipdet` uses `CreateRaw`, which takes the header verbatim, so both were reaching the byte stream as `0` — not a version any specification defines. `unzip`, Go's own reader and Python's `zipfile` all ignore the field, so the archive tested clean everywhere the build could see it; Word reads it and refuses the package as unreadable. Both are now pinned to `20`, with the high byte of "version made by" left at `0` (MS-DOS/FAT) so the archive does not vary with the writing machine. `TestWrite_VersionFieldsArePinned` checks the raw local headers and the central directory. |
 | Zip64 | Threshold is a pure function of size, not a heuristic. |
 
 ## OPC — `opc`

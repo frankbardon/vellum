@@ -180,8 +180,11 @@ func writeEntry(zw *zip.Writer, e *Entry, raw []byte, fdate, ftime uint16, force
 		Method: method,
 
 		// Pinned rather than inherited from the platform, so an archive
-		// written on Windows and on Linux is byte-identical.
-		CreatorVersion:     0,
+		// written on Windows and on Linux is byte-identical. The version
+		// fields are set here because CreateRaw does not set them; see
+		// [zipVersion20].
+		CreatorVersion:     zipVersion20,
+		ReaderVersion:      zipVersion20,
 		ExternalAttrs:      0,
 		CRC32:              crc32.ChecksumIEEE(raw),
 		CompressedSize64:   uint64(len(payload)),

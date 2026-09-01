@@ -2,14 +2,14 @@
   "entries": {
     "docx-skeleton": {
       "file": "docx-skeleton/expected.docx",
-      "sha256": "6482966a0f0a2ae49a2b1a1b53b9cdf3a3770c15d2dbc086a82809a781d94194",
+      "sha256": "95faf4b726075e94e09a8d904ace2e6d86cd56f858db273d4483ddd8ac07a492",
       "bytes": 2222
     },
     "substrate-package": {
       "file": "substrate-package/expected.zip",
-      "sha256": "3c8dcaada07e2925dd80dee0fd3c50e0caa3f1b99de727d81abc74b8bc73272b",
+      "sha256": "979d9619d07dbc8d4560df9cb9379d3aa1f6c939ef13e92d84bade850ab8726c",
       "bytes": 1485
     }
   }
 }
-// golden-hash: ceb8fda3b7d63ff8a3ec47fcbe6dc6ff74e778121b102efb44c4bb1ac2ce67a7
+// golden-hash: f828aa8f775ab55f510e60bfd5b99023cc045fe362aa45c319d06de33578ea86

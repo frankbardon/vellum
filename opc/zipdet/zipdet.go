@@ -18,6 +18,25 @@ var PinnedEpoch = time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)
 // changing in a future Go release cannot silently move every golden.
 const deflateLevel = flate.BestCompression
 
+// zipVersion20 is the ZIP specification version stamped into every entry, in
+// both the "version made by" and "version needed to extract" header fields.
+//
+// It has to be written explicitly. archive/zip sets these fields inside
+// CreateHeader, which this package does not use — CreateRaw takes the header
+// verbatim, so a field left at its zero value reaches the byte stream as zero.
+// A "version needed to extract" of 0 is not a version any specification
+// defines: unzip and the Go reader ignore it, but Word reads it, and reports
+// the package as containing unreadable content.
+//
+// 2.0 is the correct value because 2.0 is the version that introduced deflate,
+// which is the highest-numbered feature these archives use. The high byte of
+// the "version made by" field names the host filesystem, and it is left at 0
+// (MS-DOS/FAT) so an archive written on any platform is byte-identical.
+//
+// TestWrite_VersionFieldsArePinned reads the raw headers and fails if this
+// stops being true.
+const zipVersion20 = 20
+
 // defaultMaxEntryBytes bounds a single entry's uncompressed size when reading.
 // The bound exists so a decompression bomb in an untrusted template is a coded
 // error rather than an out-of-memory kill. It is generous because legitimate

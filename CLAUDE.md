@@ -184,6 +184,12 @@ The compressed statement; the full table is `.claude/reference/determinism.md`.
   directly. Setting `Modified` makes Go emit the extra field.
 - No data descriptors. Entries are buffered so sizes and CRC are written up
   front.
+- Zip version fields are written explicitly as `20` (ZIP 2.0, the version that
+  introduced deflate), in both the local header and the central directory.
+  `archive/zip` sets them inside `CreateHeader`, which `zipdet` does not call —
+  `CreateRaw` takes the header verbatim, so an unset field reaches the bytes as
+  `0`. Every reader in the toolchain ignores it; Word does not, and reports the
+  package as containing unreadable content.
 - Relationship IDs are assigned by walking relationships sorted by
   `(Type, TargetMode, Target)`.
 - Media part names are indexed by the sorted set of distinct content hashes.

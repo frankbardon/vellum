@@ -82,6 +82,49 @@ func TestWrite_NoDataDescriptors(t *testing.T) {
 	}
 }
 
+// TestWrite_VersionFieldsArePinned is the regression test for a defect that
+// every ZIP reader in the toolchain hid. archive/zip stamps the two version
+// fields inside CreateHeader, which this package does not call: CreateRaw
+// takes the header verbatim, so both fields reached the byte stream as 0.
+//
+// unzip, Go's own reader and Python's zipfile all ignore them, so the archive
+// tested clean everywhere the build could see. Word does not ignore them, and
+// reported the document as containing unreadable content — which is how the
+// defect was actually found, by opening the golden.
+//
+// Both the local header and the central directory carry the field, and Word
+// reads both, so both are checked here.
+func TestWrite_VersionFieldsArePinned(t *testing.T) {
+	const want = 20 // ZIP 2.0, the version that introduced deflate
+
+	raw := writeFixture(t, zipdet.WriteOptions{})
+
+	for _, h := range localHeaders(t, raw) {
+		if h.readerVersion != want {
+			t.Errorf("entry %q local header has version-needed-to-extract %d, want %d; CreateRaw does not set it, so zipdet must",
+				h.name, h.readerVersion, want)
+		}
+	}
+
+	zr, err := zip.NewReader(bytes.NewReader(raw), int64(len(raw)))
+	if err != nil {
+		t.Fatalf("NewReader: %v", err)
+	}
+	for _, f := range zr.File {
+		if f.ReaderVersion != want {
+			t.Errorf("entry %q central directory has version-needed-to-extract %d, want %d",
+				f.Name, f.ReaderVersion, want)
+		}
+		// The low byte is the specification version; the high byte names the
+		// host filesystem and stays 0 (MS-DOS/FAT) so the archive does not
+		// vary with the machine that wrote it.
+		if f.CreatorVersion != want {
+			t.Errorf("entry %q central directory has version-made-by 0x%04x, want 0x%04x",
+				f.Name, f.CreatorVersion, want)
+		}
+	}
+}
+
 // TestWrite_TimestampsArePinned checks the actual encoded MS-DOS fields rather
 // than trusting the reader's interpretation.
 func TestWrite_TimestampsArePinned(t *testing.T) {
@@ -304,6 +347,7 @@ func TestWrite_EnforcesBoundOnLazySource(t *testing.T) {
 // localHeader is the subset of a ZIP local file header this test file needs.
 type localHeader struct {
 	name             string
+	readerVersion    uint16
 	flags            uint16
 	modTime          uint16
 	modDate          uint16
@@ -325,6 +369,7 @@ func localHeaders(t *testing.T, raw []byte) []localHeader {
 			break // central directory reached
 		}
 		h := localHeader{
+			readerVersion:    binary.LittleEndian.Uint16(raw[off+4:]),
 			flags:            binary.LittleEndian.Uint16(raw[off+6:]),
 			modTime:          binary.LittleEndian.Uint16(raw[off+10:]),
 			modDate:          binary.LittleEndian.Uint16(raw[off+12:]),
