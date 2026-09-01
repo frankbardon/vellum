@@ -28,6 +28,30 @@ type pdfExpectation struct {
 
 	// WantInfo are information-dictionary fields and their required values.
 	WantInfo [][2]string
+
+	// WantImages is what a reader must find when it decodes the document's
+	// pictures, in order. Empty means the golden has none, which is asserted
+	// rather than skipped: a stray image is as much a defect as a missing one.
+	WantImages []wantImage
+}
+
+// wantImage is one expected row of pdfimages output.
+//
+// Only the columns that say something about correctness. The size and
+// compression ratio columns are omitted deliberately: they vary with the
+// encoder and asserting them would make this a byte comparison against a tool's
+// output, which is the thing the oracles must never become.
+type wantImage struct {
+	// Kind is "image" or "smask".
+	Kind string
+
+	Width, Height string
+
+	// Color is the colour space the reader resolved, and Enc the encoding it
+	// found. Together they are the assertion that matters: "jpeg" means the
+	// file's own DCT data went in untouched, and "image" means a Flate stream.
+	Color, Enc string
+	BPC        string
 }
 
 // pdfExpectations is the per-case expectation table. Every PDF golden needs a
@@ -64,6 +88,29 @@ var pdfExpectations = map[string]pdfExpectation{
 			{"Pages", "20"},
 			{"Encrypted", "no"},
 			{"Metadata Stream", "yes"},
+		},
+	},
+	"pdf-image": {
+		WantText: []string{
+			"Assets, embedded rather than redrawn",
+			"JPEG: DCTDecode, the file's own bytes",
+			"PNG with alpha: colour and mask separated",
+		},
+		WantInfo: [][2]string{
+			{"Title", "Assets, embedded rather than redrawn"},
+			{"Pages", "1"},
+			{"Metadata Stream", "yes"},
+		},
+		// The fourth row is the one this golden exists for. A reader reporting
+		// a soft mask beside the third image is the only evidence available
+		// that the alpha channel was separated correctly rather than dropped —
+		// and a dropped alpha channel produces a document that opens, draws,
+		// and is wrong.
+		WantImages: []wantImage{
+			{Kind: "image", Width: "8", Height: "8", Color: "rgb", BPC: "8", Enc: "jpeg"},
+			{Kind: "image", Width: "8", Height: "8", Color: "rgb", BPC: "8", Enc: "image"},
+			{Kind: "image", Width: "8", Height: "8", Color: "rgb", BPC: "8", Enc: "image"},
+			{Kind: "smask", Width: "8", Height: "8", Color: "gray", BPC: "8", Enc: "image"},
 		},
 	},
 	"pdf-prose": {
@@ -137,10 +184,55 @@ func TestPDFReaderSeesTheContent(t *testing.T) {
 						want, indentText(text))
 				}
 			}
+
+			images, err := tool.Images(ctx, path)
+			if err != nil {
+				t.Fatalf("listing the document's images failed.\n%v", err)
+			}
+			assertImages(t, exp.WantImages, images)
 		})
 	}
 
 	assertNoOrphanPDFExpectations(t)
+}
+
+// assertImages compares what a reader decoded against what the fixture put in.
+//
+// Exact, including the count. An image the fixture did not place is a resource
+// dictionary naming something it should not, and an image the reader could not
+// decode simply does not appear in this list — so a check that only looked for
+// the ones it expected would pass on a document missing every other one.
+func assertImages(t *testing.T, want []wantImage, got []pdfvalidate.ImageInfo) {
+	t.Helper()
+
+	if len(got) != len(want) {
+		t.Fatalf("a reader found %d images, want %d.\n\n"+
+			"An image it could not decode does not appear here at all, so a short list is the shape "+
+			"a wrong colour space or a malformed stream takes.\n\nWhat it found:\n%s",
+			len(got), len(want), indentText(rawImages(got)))
+	}
+	for i, w := range want {
+		g := got[i]
+		if g.Kind != w.Kind || g.Width != w.Width || g.Height != w.Height ||
+			g.Color != w.Color || g.BPC != w.BPC || g.Enc != w.Enc {
+			t.Errorf("image %d is %s %sx%s %s %s-bit %s, want %s %sx%s %s %s-bit %s.\n"+
+				"The reader's line:\n    %s",
+				i, g.Kind, g.Width, g.Height, g.Color, g.BPC, g.Enc,
+				w.Kind, w.Width, w.Height, w.Color, w.BPC, w.Enc, g.Raw)
+		}
+	}
+}
+
+// rawImages renders a reader's image list for a failure message.
+func rawImages(got []pdfvalidate.ImageInfo) string {
+	var b strings.Builder
+	for _, g := range got {
+		b.WriteString(g.Raw + "\n")
+	}
+	if b.Len() == 0 {
+		return "(none)"
+	}
+	return b.String()
 }
 
 // locatePoppler finds the reader, skipping loudly when it is absent.

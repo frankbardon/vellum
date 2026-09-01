@@ -8,12 +8,15 @@ import (
 	"time"
 
 	"github.com/frankbardon/vellum/artifact"
+	"github.com/frankbardon/vellum/asset"
 	"github.com/frankbardon/vellum/doc"
+	"github.com/frankbardon/vellum/internal/imagetest"
 	"github.com/frankbardon/vellum/opc"
 	"github.com/frankbardon/vellum/opc/zipdet"
 	"github.com/frankbardon/vellum/pdf"
 	"github.com/frankbardon/vellum/pdf/content"
 	pdffont "github.com/frankbardon/vellum/pdf/font"
+	pdfimage "github.com/frankbardon/vellum/pdf/image"
 	"github.com/frankbardon/vellum/pdf/object"
 	"github.com/frankbardon/vellum/pdf/shape"
 	"github.com/frankbardon/vellum/pdf/text"
@@ -37,7 +40,118 @@ func Cases() []Case {
 		pdfSpikeCase(),
 		pdfPagesCase(),
 		pdfProseCase(),
+		pdfImageCase(),
 	}
+}
+
+// pdfImageCase exercises the asset path: the three embeddings that differ.
+//
+// A JPEG passing through as DCTDecode, an opaque PNG passing through as
+// FlateDecode with its own predictor, and a PNG whose alpha channel had to be
+// separated into a soft mask. The third is the one worth a golden — it is the
+// only image form whose bytes Vellum rearranges, and the only one where a
+// mistake produces a document that opens and is wrong.
+func pdfImageCase() Case {
+	return Case{
+		Name:  "pdf-image",
+		Ext:   "pdf",
+		Write: writePDFImage,
+	}
+}
+
+// writePDFImage composes the image document.
+func writePDFImage(w io.Writer, epoch time.Time) error {
+	const title = "Assets, embedded rather than redrawn"
+
+	face, err := pdffont.New(pdffont.Options{
+		Resource: "F1",
+		BaseName: "GoRegular",
+		Program:  goregular.TTF,
+		Plan:     pdffont.PlanSubset,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Named for what each proves rather than for what it depicts, because the
+	// picture is eight pixels of gradient and the path is the point.
+	plates := []struct {
+		resource object.Name
+		media    string
+		bytes    []byte
+		caption  string
+	}{
+		{"ImJpeg", asset.MediaJPEG, imagetest.JPEGColor(),
+			"JPEG: DCTDecode, the file's own bytes"},
+		{"ImPng", asset.MediaPNG, imagetest.RGB(),
+			"PNG: FlateDecode with the PNG predictor"},
+		{"ImAlpha", asset.MediaPNG, imagetest.RGBA(),
+			"PNG with alpha: colour and mask separated"},
+	}
+
+	var c content.Builder
+	images := make([]*pdfimage.XObject, 0, len(plates))
+
+	titleGlyphs, err := face.Encode(title)
+	if err != nil {
+		return err
+	}
+	c.BeginText().
+		SetFont("F1", object.Points(18)).
+		MoveText(object.Points(72), object.Points(700)).
+		ShowGlyphs(titleGlyphs).
+		EndText()
+
+	// A filled rule behind the plates, so a soft mask that failed to apply is
+	// visible as a solid square rather than as a slightly different white.
+	c.Save().
+		SetFillRGB(object.Ratio(240, 255), object.Ratio(240, 255), object.Ratio(230, 255)).
+		Rect(object.Points(60), object.Points(430), object.Points(492), object.Points(220)).
+		Fill().
+		Restore()
+
+	for i, p := range plates {
+		im, err := pdfimage.New(pdfimage.Options{
+			Resource:  p.resource,
+			Handle:    string(p.resource),
+			MediaType: p.media,
+			Bytes:     p.bytes,
+		})
+		if err != nil {
+			return err
+		}
+		images = append(images, im)
+
+		x := object.Points(int64(80 + i*160))
+		c.DrawImage(p.resource, x, object.Points(480), object.Points(120), object.Points(120))
+
+		glyphs, err := face.Encode(p.caption)
+		if err != nil {
+			return err
+		}
+		c.BeginText().
+			SetFont("F1", object.Points(8)).
+			MoveText(x, object.Points(462)).
+			ShowGlyphs(glyphs).
+			EndText()
+	}
+
+	d := pdf.Document{
+		Metadata: xmp.Metadata{
+			Title:    title,
+			Creator:  "Vellum determinism fixture",
+			Producer: "Vellum 0.0.0-golden",
+			Date:     epoch,
+		},
+		Pages: []pdf.Page{{
+			Width:   object.Points(612),
+			Height:  object.Points(792),
+			Content: c.Bytes(),
+			Fonts:   []*pdffont.Face{face},
+			Images:  images,
+		}},
+	}
+	return d.WriteTo(w, pdf.WriteOptions{SourceDateEpoch: epoch})
 }
 
 // pdfProseCase exercises shaping, line breaking and justification.

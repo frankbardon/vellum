@@ -63,6 +63,9 @@ error anywhere. That is the failure this whole discipline prevents.
 | Cross-reference | Classic xref table and trailer. No object streams, no xref streams — both are permitted by PDF/A-2b, and the classic form is byte-simpler, easier to diff, and friendlier to veraPDF triage. |
 | Line breaking | Integer 1/1000-em arithmetic throughout. Never accumulate widths in `float64`. |
 | Font source | The theme, only. `go-text/typesetting/fontscan` scans system fonts and is firewalled by `TestNoFontscanImport`, a `go list -deps` gate. |
+| Image data | The asset's own encoded bytes, verbatim. A JPEG becomes the DCTDecode stream and an opaque PNG's IDAT becomes the FlateDecode stream with `/Predictor 15`, which is exactly what PNG already filtered its scanlines with. Nothing is decoded, so nothing depends on a decoder's version. A PNG carrying an alpha channel is the one exception — PNG interleaves alpha with colour and PDF does not — and there the samples are unfiltered, split and recompressed at the pinned level, which puts it under the same honest limit as every other deflate stream. |
+| Image variants | Interlaced PNG, progressive JPEG, CMYK JPEG and twelve-bit JPEG are named rejections (`VELLUM_PDF_IMAGE_UNSUPPORTED`), not silent re-encodes. Carrying them would mean decoding and recompressing an image, which changes the bytes a consumer supplied to work around how they chose to save the file. Declared as capability matrix rows before they were code. |
+| Image source | The host, only. `internal/imagetest` draws the fixtures and is firewalled by `TestNoImagetestOnTheLibraryPath`. The firewall cannot be drawn at `image/png` and `image/jpeg` themselves: `go-text/typesetting` reads colour bitmap glyph tables, so both encoders are already in the graph transitively. |
 
 ## Fill mode
 

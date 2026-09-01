@@ -38,6 +38,12 @@ var matrix = Matrix{
 		Note: "Word 2016 and later read an SVG only when a raster blip accompanies it. The caller supplies the pair; Vellum will not rasterise, because it never renders.",
 	},
 
+	{Feature: FeatureAssetPNGAlpha, Format: artifact.FormatDOCX, Outcome: Renders,
+		Note: "The asset becomes a package part verbatim and Word decodes it, so every encoding variant of an accepted media type passes through untouched."},
+	{Feature: FeatureAssetPNGInterlaced, Format: artifact.FormatDOCX, Outcome: Renders},
+	{Feature: FeatureAssetJPEGProgressive, Format: artifact.FormatDOCX, Outcome: Renders},
+	{Feature: FeatureAssetJPEGCMYK, Format: artifact.FormatDOCX, Outcome: Renders},
+
 	{
 		Feature: FeatureFontEmbedSubset, Format: artifact.FormatDOCX, Outcome: Degrades,
 		Degrade: "the family referenced by name", Code: verr.VELLUM_CAPABILITY_DEGRADED,
@@ -109,6 +115,11 @@ var matrix = Matrix{
 	{Feature: FeatureAssetPNG, Format: artifact.FormatXLSX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED},
 	{Feature: FeatureAssetJPEG, Format: artifact.FormatXLSX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED},
 	{Feature: FeatureAssetSVG, Format: artifact.FormatXLSX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED},
+	{Feature: FeatureAssetPNGAlpha, Format: artifact.FormatXLSX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED,
+		Note: "This format takes no assets at all, so the encoding variant never arises. The row exists so the answer is a lookup rather than an inference from a missing cell."},
+	{Feature: FeatureAssetPNGInterlaced, Format: artifact.FormatXLSX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED},
+	{Feature: FeatureAssetJPEGProgressive, Format: artifact.FormatXLSX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED},
+	{Feature: FeatureAssetJPEGCMYK, Format: artifact.FormatXLSX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED},
 
 	{
 		Feature: FeatureFontEmbedSubset, Format: artifact.FormatXLSX, Outcome: Degrades,
@@ -163,6 +174,11 @@ var matrix = Matrix{
 		Degrade: "raster fallback with the vector embedded alongside", Code: verr.VELLUM_CAPABILITY_DEGRADED,
 	},
 
+	{Feature: FeatureAssetPNGAlpha, Format: artifact.FormatPPTX, Outcome: Renders},
+	{Feature: FeatureAssetPNGInterlaced, Format: artifact.FormatPPTX, Outcome: Renders},
+	{Feature: FeatureAssetJPEGProgressive, Format: artifact.FormatPPTX, Outcome: Renders},
+	{Feature: FeatureAssetJPEGCMYK, Format: artifact.FormatPPTX, Outcome: Renders},
+
 	{
 		Feature: FeatureFontEmbedSubset, Format: artifact.FormatPPTX, Outcome: Degrades,
 		Degrade: "the family referenced by name", Code: verr.VELLUM_CAPABILITY_DEGRADED,
@@ -214,6 +230,26 @@ var matrix = Matrix{
 		Feature: FeatureAssetSVG, Format: artifact.FormatPDF, Outcome: Rejects,
 		Code: verr.VELLUM_ASSET_MEDIA_UNSUPPORTED,
 		Note: "PDF has no SVG mechanism. Vellum will not rasterise, because it never renders, and will not ship an SVG-to-PDF translator, which would be a second renderer with its own text layout and font matching, free to drift from whatever produced the asset. Supply a raster, or ask Boxes what size to render at.",
+	},
+
+	{
+		Feature: FeatureAssetPNGAlpha, Format: artifact.FormatPDF, Outcome: Renders,
+		Note: "The alpha channel becomes an /SMask, which PDF/A-2 permits and PDF/A-1 did not — one of the reasons the target is 2b. It is the one PNG form whose colour samples are rebuilt rather than passed through, because PNG interleaves alpha with colour in the same scanline and PDF keeps them in two streams. The pixels are unchanged; only the arrangement is.",
+	},
+	{
+		Feature: FeatureAssetPNGInterlaced, Format: artifact.FormatPDF, Outcome: Rejects,
+		Code: verr.VELLUM_PDF_IMAGE_UNSUPPORTED,
+		Note: "Adam7 reorders the pixels into seven passes, which no PDF filter describes. De-interlacing means fully decoding the image and recompressing it — changing the bytes a consumer supplied, silently, to work around how they chose to save the file. Save it non-interlaced instead.",
+	},
+	{
+		Feature: FeatureAssetJPEGProgressive, Format: artifact.FormatPDF, Outcome: Rejects,
+		Code: verr.VELLUM_PDF_IMAGE_UNSUPPORTED,
+		Note: "DCTDecode is defined over baseline and extended sequential JPEG. Progressive is legal JPEG that a conforming PDF reader is not obliged to decode, so embedding it produces a file that opens in the reader it was tested against and shows a blank frame in the next one. Refused rather than accepted on the strength of one reader.",
+	},
+	{
+		Feature: FeatureAssetJPEGCMYK, Format: artifact.FormatPDF, Outcome: Rejects,
+		Code: verr.VELLUM_PDF_IMAGE_UNSUPPORTED,
+		Note: "A DeviceCMYK image needs a CMYK output intent for the file to stay PDF/A conforming, and Vellum ships one intent: sRGB. Converting CMYK to RGB is a colour management decision with no single right answer, and making it silently would change the colours a consumer chose. Supply RGB or greyscale.",
 	},
 
 	{Feature: FeatureFontEmbedSubset, Format: artifact.FormatPDF, Outcome: Renders,

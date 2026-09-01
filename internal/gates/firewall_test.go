@@ -97,6 +97,31 @@ func TestNoTestFontOnTheLibraryPath(t *testing.T) {
 			"to be used, and a fallback makes the same specification render differently on two machines.")
 }
 
+// TestNoImagetestOnTheLibraryPath keeps the generated image fixtures out of the
+// shipped library.
+//
+// internal/imagetest draws gradients and encodes them, which is one step from
+// rasterising — the thing Vellum does not do. A shipped package reaching it
+// would have a source of pictures the host did not supply, and the whole asset
+// seam exists so that every image in a document came from the host.
+//
+// It is the same argument as the test face, applied to the other kind of asset:
+// what makes a fallback dangerous is that it works.
+//
+// The check is on this package and not on image/png and image/jpeg, which would
+// be the stronger statement and is not available: go-text/typesetting's font
+// package reads colour bitmap glyph tables, so both encoders are already in the
+// graph transitively, through the dependency Vellum takes for shaping. Vellum
+// asks for neither. That the firewall cannot be drawn at the stdlib boundary is
+// worth knowing rather than worth pretending — the boundary that is actually
+// enforceable is this one.
+func TestNoImagetestOnTheLibraryPath(t *testing.T) {
+	assertNotReachableFromShipped(t,
+		[]string{"github.com/frankbardon/vellum/internal/imagetest"},
+		"images come from the host, only. Vellum embeds bytes it is handed: it does not draw them "+
+			"and does not re-encode them.")
+}
+
 // assertNotReachableFromShipped fails when any target is in the dependency
 // graph of a package outside internal/.
 func assertNotReachableFromShipped(t *testing.T, targets []string, why string) {

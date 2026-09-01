@@ -270,6 +270,23 @@ const (
 	// with a notdef box, because a document that silently renders a row of
 	// empty rectangles is one nobody notices until it has been sent.
 	VELLUM_PDF_GLYPH_MISSING Code = "VELLUM_PDF_GLYPH_MISSING"
+
+	// VELLUM_PDF_IMAGE_INVALID indicates asset bytes that do not parse as the
+	// media type they were typed as: a truncated PNG, a chunk length running
+	// past the end of the file, a JPEG with no frame header. The asset reached
+	// the writer, so it passed the sniffer; this is the deeper read failing.
+	VELLUM_PDF_IMAGE_INVALID Code = "VELLUM_PDF_IMAGE_INVALID"
+
+	// VELLUM_PDF_IMAGE_UNSUPPORTED indicates a well-formed image in an encoding
+	// form PDF cannot carry without re-encoding it.
+	//
+	// Distinct from VELLUM_ASSET_MEDIA_UNSUPPORTED, which is about the media
+	// type. This is about a variant *within* an accepted type — an interlaced
+	// PNG, a progressive or CMYK JPEG — and it is separate because the fix is
+	// different: not "supply a different format" but "save this one plainly".
+	// Re-encoding it here would mean decoding and recompressing an image, which
+	// changes the pixels a consumer supplied without saying so.
+	VELLUM_PDF_IMAGE_UNSUPPORTED Code = "VELLUM_PDF_IMAGE_UNSUPPORTED"
 )
 
 // THEME domain — the theme document and what a specification asks of it.
@@ -393,6 +410,8 @@ var allCodes = []Code{
 	VELLUM_PDF_GLYPH_MISSING,
 	VELLUM_PDF_SCRIPT_UNSUPPORTED,
 	VELLUM_PDF_TEXT_OVERFLOW,
+	VELLUM_PDF_IMAGE_INVALID,
+	VELLUM_PDF_IMAGE_UNSUPPORTED,
 
 	// INTERNAL
 	VELLUM_INTERNAL_INVARIANT,

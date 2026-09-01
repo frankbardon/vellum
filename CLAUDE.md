@@ -206,6 +206,16 @@ The compressed statement; the full table is `.claude/reference/determinism.md`.
   index 0 and 1 are reserved by the spec; getting it wrong makes Excel refuse to
   open the file.
 - PDF uses a classic xref table and trailer, never object streams.
+- **Image data is embedded verbatim.** A JPEG's own bytes become the DCTDecode
+  stream and an opaque PNG's own IDAT becomes the FlateDecode stream, carrying
+  the PNG predictor its scanlines are already filtered with. Nothing is decoded
+  and nothing is recompressed, so the picture in the document is the picture on
+  disk and a consumer's choice of compression survives. The single exception is
+  a PNG with an alpha channel: PNG interleaves alpha with colour on one
+  scanline and PDF keeps them in two streams, so those are unfiltered, split and
+  recompressed — every sample preserved, only the arrangement changed. The
+  variants no PDF filter describes are named rejections in the matrix, not
+  silent re-encodes.
 - The PDF page tree is balanced at a fixed branching factor, folded from the
   leaves up. Its shape is a function of the page count alone. Pages are
   numbered before interior nodes, in order, so page one is the lowest-numbered
@@ -352,6 +362,7 @@ Contract and registry completeness:
 - `TestNoSemanticSectionVocabulary` — no built-in section type ("cover", "methodology"). That vocabulary belongs to the consumer.
 - `TestNoExternalToolingOnTheLibraryPath` — no shipped package reaches `internal/exttool`, `internal/oovalidate` or `internal/pdfvalidate`. The library runs no subprocess. See "The external reader oracles".
 - `TestNoTestFontOnTheLibraryPath` — no shipped package reaches the test face. Fonts come from the theme, only; a face reachable from the library is a fallback waiting to be used. The other half of `TestNoFontscanImport`.
+- `TestNoImagetestOnTheLibraryPath` — no shipped package reaches `internal/imagetest`. Pictures come from the host, only. It cannot be drawn at `image/png` and `image/jpeg`, which `go-text/typesetting` already pulls in transitively for colour bitmap glyph tables; that is worth knowing rather than worth pretending.
 - `TestCodesHaveFixups` — every error code has a `codeMetadata` row with a `Message` and a `Fixup`, or `FixupNotApplicable: true`.
 - `TestManifestBlocksComplete`, `TestManifestFormatsComplete`, `TestManifestErrorCodesComplete`, `TestManifestMCPToolsComplete` — the manifest enumerates the live registries.
 - `TestPayloadSchemaGolden`, `TestPayloadSchemaEnumsMatchRegistry`, `TestPayloadSchemaVersionMatchesEnvelope`.
@@ -435,6 +446,7 @@ determinism hazard named.
 | `github.com/modelcontextprotocol/go-sdk` | MCP transport | MIT | only `mcp/gosdk` imports it |
 | `github.com/urfave/cli/v3` | CLI | MIT | confined to `internal/cli` and `cmd/vellum` |
 | `golang.org/x/image` | The test face (`gofont/goregular`) and an independent SFNT parser to check the subsetter against | BSD-3 | **test-only.** Firewalled by `TestNoTestFontOnTheLibraryPath`: a font reachable from the library is a fallback waiting to be used |
+| `image/png`, `image/jpeg` (stdlib) | Generating the raster fixtures in `internal/imagetest` | BSD-3 | **test-only**, and firewalled at `internal/imagetest` rather than at the stdlib packages: `go-text/typesetting`'s font package reads colour bitmap glyph tables, so both are already in the graph transitively. Vellum asks for neither |
 
 Permanently ruled out, with reasons, so they are not re-proposed:
 

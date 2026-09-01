@@ -401,6 +401,33 @@ var codeMetadata = map[Code]Metadata{
 		},
 	},
 
+	VELLUM_PDF_IMAGE_INVALID: {
+		Message: "the asset's bytes do not parse as the image format they claim",
+		Fixups: []Fixup{{
+			Action: FixupSetField,
+			Path:   []string{"Sections", "*", "Blocks", "*", "Asset", "Handle"},
+			Hint:   "The bytes matched the format's signature and then failed the full read, which usually means a truncated or partially written file. Re-export the asset and check its byte length end to end.",
+		}},
+	},
+
+	VELLUM_PDF_IMAGE_UNSUPPORTED: {
+		Message: "the image is in an encoding variant a PDF cannot carry unmodified",
+		Fixups: []Fixup{
+			{
+				Action:   FixupSetField,
+				Path:     []string{"Sections", "*", "Blocks", "*", "Asset", "Handle"},
+				Hint:     "Save the asset in the plain form of the same format: a non-interlaced PNG, or a baseline RGB or greyscale JPEG. Vellum embeds the encoded bytes it is handed rather than decoding and recompressing them, so the variant has to be chosen where the asset is produced.",
+				Examples: []any{"non-interlaced PNG", "baseline JPEG"},
+			},
+			{
+				Action:   FixupSetField,
+				Path:     []string{"Format"},
+				Hint:     "An OOXML target has no such restriction: it stores the asset as a package part and the application decodes it, so every variant of PNG and JPEG passes through.",
+				Examples: []any{"docx", "pptx"},
+			},
+		},
+	},
+
 	VELLUM_TABLE_FORMAT_INVALID: {
 		Message: "the cell's number-format code does not parse",
 		Fixups: []Fixup{{

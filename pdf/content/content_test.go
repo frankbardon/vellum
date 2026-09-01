@@ -107,3 +107,36 @@ func TestBuilder_IsDeterministic(t *testing.T) {
 		}
 	}
 }
+
+// TestDrawImage_PlacesTheUnitSquare pins the one thing about image placement
+// that is easy to get wrong and impossible to notice from the operators alone.
+//
+// An image XObject paints into the unit square. Its size and position come
+// entirely from the matrix, so the scale factors have to be the box's width and
+// height in points — not a ratio, not the pixel dimensions. An image drawn with
+// an identity matrix is one point across in the corner of the page, which reads
+// as "the image did not embed" rather than as "the matrix is wrong".
+func TestDrawImage_PlacesTheUnitSquare(t *testing.T) {
+	var b content.Builder
+	b.DrawImage("Im1", object.Points(72), object.Points(600), object.Points(180), object.Points(120))
+
+	want := "q\n180 0 0 120 72 600 cm\n/Im1 Do\nQ\n"
+	if got := string(b.Bytes()); got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// TestDrawImage_RestoresTheGraphicsState checks the matrix does not leak.
+//
+// Without the surrounding q/Q, everything drawn after an image inherits its
+// scale — so a caption under a 180-point-wide picture is set at 180 times its
+// size, off the page, and the page looks like the caption was never written.
+func TestDrawImage_RestoresTheGraphicsState(t *testing.T) {
+	var b content.Builder
+	b.DrawImage("Im1", 0, 0, object.Points(10), object.Points(10))
+
+	out := string(b.Bytes())
+	if !strings.HasPrefix(out, "q\n") || !strings.HasSuffix(out, "Q\n") {
+		t.Errorf("the placement is not bracketed by q and Q:\n%s", out)
+	}
+}

@@ -30,6 +30,7 @@ import (
 
 	verr "github.com/frankbardon/vellum/errors"
 	"github.com/frankbardon/vellum/pdf/font"
+	pdfimage "github.com/frankbardon/vellum/pdf/image"
 	"github.com/frankbardon/vellum/pdf/object"
 	"github.com/frankbardon/vellum/pdf/pdfa"
 	"github.com/frankbardon/vellum/pdf/xmp"
@@ -46,6 +47,12 @@ type Page struct {
 	// Fonts are the faces this page's content stream selects. A face shared
 	// between pages is embedded once.
 	Fonts []*font.Face
+
+	// Images are the image XObjects this page's content stream draws. As with
+	// fonts, one shared between pages is embedded once: the identity is the
+	// pointer, so a caller that resolved an asset once and placed it on five
+	// slides gets one copy of the bytes.
+	Images []*pdfimage.XObject
 }
 
 // Document is a PDF/A-2b document ready to be written.
@@ -107,10 +114,14 @@ func (d *Document) WriteTo(w io.Writer, opts WriteOptions) error {
 	if err != nil {
 		return err
 	}
+	imageRefs, err := d.writeImages(&doc)
+	if err != nil {
+		return err
+	}
 
 	dicts := make([]object.Dict, len(d.Pages))
 	for i := range d.Pages {
-		dicts[i], err = d.pageDict(&doc, &d.Pages[i], fontRefs)
+		dicts[i], err = d.pageDict(&doc, &d.Pages[i], fontRefs, imageRefs)
 		if err != nil {
 			return err
 		}
@@ -163,13 +174,35 @@ func (d *Document) writeFonts(doc *object.Document) (map[*font.Face]object.Ref, 
 	return refs, nil
 }
 
+// writeImages embeds each distinct image once and returns its reference.
+//
+// The same identity rule as fonts, for the same reason: the caller said whether
+// two placements are the same asset by whether they pass the same value.
+func (d *Document) writeImages(doc *object.Document) (map[*pdfimage.XObject]object.Ref, error) {
+	refs := make(map[*pdfimage.XObject]object.Ref)
+	for i := range d.Pages {
+		for _, im := range d.Pages[i].Images {
+			if _, seen := refs[im]; seen {
+				continue
+			}
+			ref, err := im.Write(doc)
+			if err != nil {
+				return nil, err
+			}
+			refs[im] = ref
+		}
+	}
+	return refs, nil
+}
+
 // pageDict builds one page's dictionary and its content stream.
 //
 // It sets neither /Type nor /Parent: both belong to the page tree, which knows
 // the parent and would otherwise be trusting this function to have agreed with
 // it. The media box is set here and may be lifted onto the tree's root if every
 // page shares it.
-func (d *Document) pageDict(doc *object.Document, p *Page, fontRefs map[*font.Face]object.Ref) (object.Dict, error) {
+func (d *Document) pageDict(doc *object.Document, p *Page,
+	fontRefs map[*font.Face]object.Ref, imageRefs map[*pdfimage.XObject]object.Ref) (object.Dict, error) {
 	contents, err := doc.AddStream(object.Dict{}, p.Content)
 	if err != nil {
 		return object.Dict{}, err
@@ -189,8 +222,30 @@ func (d *Document) pageDict(doc *object.Document, p *Page, fontRefs map[*font.Fa
 		fonts.Set(f.Resource(), ref)
 	}
 
-	resources := object.NewDict("ProcSet", object.Array{object.Name("PDF"), object.Name("Text")})
+	// Built the same way and for the same reason: the page's own slice, not the
+	// reference map, so the key order is the caller's declaration order.
+	var xobjects object.Dict
+	for _, im := range p.Images {
+		ref, ok := imageRefs[im]
+		if !ok {
+			return object.Dict{}, verr.NewCodedErrorWithDetails(verr.VELLUM_PDF_OBJECT_UNRESOLVED,
+				"a page names an image that was not embedded",
+				map[string]any{"resource": string(im.Resource()), "handle": im.Handle()})
+		}
+		xobjects.Set(im.Resource(), ref)
+	}
+
+	// ProcSet has been deprecated since PDF 1.4 and is ignored by every reader
+	// in use, but it costs three names and a very old reader that does consult
+	// it will refuse to paint an image the page never declared.
+	procSet := object.Array{object.Name("PDF"), object.Name("Text")}
+	if xobjects.Len() > 0 {
+		procSet = append(procSet, object.Name("ImageB"), object.Name("ImageC"), object.Name("ImageI"))
+	}
+
+	resources := object.NewDict("ProcSet", procSet)
 	resources.SetIf(fonts.Len() > 0, "Font", fonts)
+	resources.SetIf(xobjects.Len() > 0, "XObject", xobjects)
 
 	return object.NewDict(
 		"MediaBox", object.Array{object.Int(0), object.Int(0), p.Width, p.Height},
@@ -217,6 +272,13 @@ func (d *Document) fileID(meta xmp.Metadata) [2][]byte {
 	for i := range d.Pages {
 		h.Write([]byte{0})
 		h.Write(d.Pages[i].Content)
+		// The content stream names an image by resource name, so without the
+		// image's own bytes two documents drawing different pictures under the
+		// same name would claim one identity.
+		for _, im := range d.Pages[i].Images {
+			h.Write([]byte{0})
+			h.Write(im.Fingerprint())
+		}
 	}
 
 	sum := h.Sum(nil)[:16]

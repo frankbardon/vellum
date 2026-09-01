@@ -33,18 +33,26 @@ var popplerInfo = exttool.Spec{
 	Install:  "brew install poppler, or apt install poppler-utils",
 }
 
-// Poppler is a located poppler installation.
-type Poppler struct {
-	text exttool.Tool
-	info exttool.Tool
+// popplerImages describes pdfimages.
+var popplerImages = exttool.Spec{
+	Name:     "pdfimages",
+	Commands: []string{"pdfimages"},
+	Install:  "brew install poppler, or apt install poppler-utils",
 }
 
-// FindPoppler locates pdftotext and pdfinfo.
+// Poppler is a located poppler installation.
+type Poppler struct {
+	text   exttool.Tool
+	info   exttool.Tool
+	images exttool.Tool
+}
+
+// FindPoppler locates pdftotext, pdfinfo and pdfimages.
 //
-// Both are required rather than one being optional, because the two checks they
-// support answer different halves of the same question — that the document
-// parses, and that its content survived — and a suite reporting only half of
-// that is reporting something other than what it claims.
+// All three are required rather than any being optional, because the checks
+// they support answer different parts of one question — that the document
+// parses, that its text survived, and that its pictures did — and a suite
+// reporting some of that is reporting something other than what it claims.
 func FindPoppler() (Poppler, error) {
 	text, err := exttool.Find(popplerText)
 	if err != nil {
@@ -54,7 +62,11 @@ func FindPoppler() (Poppler, error) {
 	if err != nil {
 		return Poppler{}, err
 	}
-	return Poppler{text: text, info: info}, nil
+	images, err := exttool.Find(popplerImages)
+	if err != nil {
+		return Poppler{}, err
+	}
+	return Poppler{text: text, info: info, images: images}, nil
 }
 
 // Text extracts the document's text.
@@ -96,6 +108,60 @@ func (p Poppler) Info(ctx context.Context, path string) (Info, error) {
 		})
 	}
 	return out, nil
+}
+
+// Images lists the image XObjects a reader finds, in page order.
+//
+// Text extraction says nothing about pictures, and a picture is the one part of
+// a document where "it opened" and "it is correct" come apart most quietly: an
+// image whose colour space, bit depth or soft mask is wrong still draws. This
+// asks a reader that has decoded them what it found.
+func (p Poppler) Images(ctx context.Context, path string) ([]ImageInfo, error) {
+	res, err := p.images.Run(ctx, nil, "-list", path)
+	if err != nil {
+		return nil, err
+	}
+	if res.ExitCode != 0 {
+		return nil, &ReadError{Tool: "pdfimages", ExitCode: res.ExitCode, Output: res.Combined()}
+	}
+
+	var out []ImageInfo
+	for _, line := range strings.Split(string(res.Stdout), "\n") {
+		f := strings.Fields(line)
+		// page num type width height color comp bpc enc interp object ID ...
+		if len(f) < 9 || f[0] == "page" {
+			continue
+		}
+		out = append(out, ImageInfo{
+			Kind:   f[2],
+			Width:  f[3],
+			Height: f[4],
+			Color:  f[5],
+			BPC:    f[7],
+			Enc:    f[8],
+			Raw:    strings.TrimSpace(line),
+		})
+	}
+	return out, nil
+}
+
+// ImageInfo is one row of what pdfimages reported.
+//
+// The numbers stay strings. They are compared for equality against what the
+// fixture put in, and parsing them would add a failure mode — a malformed
+// column becoming a zero — between the reader's answer and the assertion.
+type ImageInfo struct {
+	// Kind is "image" for a painted image and "smask" for a soft mask, which is
+	// how a reader reports that the alpha channel arrived as its own image.
+	Kind string
+
+	Width, Height string
+	Color         string
+	BPC           string
+	Enc           string
+
+	// Raw is the whole line, for a failure message.
+	Raw string
 }
 
 // Info is what pdfinfo reported, in the order it reported it.

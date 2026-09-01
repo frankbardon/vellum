@@ -151,6 +151,45 @@ func (b *Builder) Rect(x, y, w, h object.Real) *Builder {
 // Fill emits f, filling the current path.
 func (b *Builder) Fill() *Builder { return b.op("f") }
 
+// Concat emits cm, concatenating a matrix onto the current transformation.
+//
+// The six numbers are the matrix in the order PDF writes it: a b c d e f, where
+// a and d scale, b and c shear, and e and f translate.
+func (b *Builder) Concat(a, bb, c, d, e, f object.Real) *Builder {
+	b.arg(a)
+	b.arg(bb)
+	b.arg(c)
+	b.arg(d)
+	b.arg(e)
+	b.arg(f)
+	return b.op("cm")
+}
+
+// XObject emits Do, painting a named resource.
+func (b *Builder) XObject(resource object.Name) *Builder {
+	b.arg(resource)
+	return b.op("Do")
+}
+
+// DrawImage places an image resource in a rectangle, in points.
+//
+// An image XObject paints into the unit square, so its size and position come
+// entirely from the transformation matrix rather than from any operand: an
+// image drawn without a cm is one pixel across, in the bottom-left corner. The
+// state is saved and restored around it so the matrix does not leak into
+// whatever the page draws next.
+//
+// Nothing here preserves the aspect ratio. The rectangle is what a layout
+// decided, and an image asked to fill a box it does not match should be
+// stretched by the code that chose the box or not at all — silently letterboxing
+// it would put a picture somewhere the layout did not put it.
+func (b *Builder) DrawImage(resource object.Name, x, y, w, h object.Real) *Builder {
+	return b.Save().
+		Concat(w, 0, 0, h, x, y).
+		XObject(resource).
+		Restore()
+}
+
 // Save emits q, pushing the graphics state.
 func (b *Builder) Save() *Builder { return b.op("q") }
 

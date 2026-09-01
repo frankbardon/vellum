@@ -82,6 +82,25 @@ const (
 	FeatureAssetSVG  Feature = "asset.media.image/svg+xml"
 )
 
+// Encoding variants within an accepted media type.
+//
+// Separate rows from the media types above, because accepting "image/png" is
+// not one answer. A PDF carries the asset's own encoded bytes — that is what
+// makes embedding lossless and what keeps Vellum out of the business of
+// deciding how a picture should be compressed — and the price is that the
+// encoding has to be one PDF's own filters already describe. An OOXML target
+// stores the part and lets the application decode it, so every variant passes.
+//
+// Declared rather than discovered, because "my chart is transparent" and "my
+// photo is progressive" are questions a consumer asks before an unattended job
+// runs, not after it fails.
+const (
+	FeatureAssetPNGAlpha        Feature = "asset.png.alpha"
+	FeatureAssetPNGInterlaced   Feature = "asset.png.interlaced"
+	FeatureAssetJPEGProgressive Feature = "asset.jpeg.progressive"
+	FeatureAssetJPEGCMYK        Feature = "asset.jpeg.cmyk"
+)
+
 // Font features.
 //
 // The two embed modes are what a theme asks for. The outline format is a
@@ -137,6 +156,11 @@ var allFeatures = []Feature{
 	FeatureAssetPNG,
 	FeatureAssetJPEG,
 	FeatureAssetSVG,
+
+	FeatureAssetPNGAlpha,
+	FeatureAssetPNGInterlaced,
+	FeatureAssetJPEGProgressive,
+	FeatureAssetJPEGCMYK,
 
 	FeatureFontEmbedSubset,
 	FeatureFontEmbedWhole,
