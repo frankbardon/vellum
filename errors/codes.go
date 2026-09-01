@@ -81,6 +81,28 @@ const (
 	VELLUM_SPEC_BLOCK_KIND_UNKNOWN Code = "VELLUM_SPEC_BLOCK_KIND_UNKNOWN"
 )
 
+// TABLE domain — the analytical table model.
+const (
+	// VELLUM_TABLE_INVALID indicates a structurally invalid table: no body, a
+	// negative span, or a cell carrying a value kind that does not match the
+	// field it populates.
+	VELLUM_TABLE_INVALID Code = "VELLUM_TABLE_INVALID"
+
+	// VELLUM_TABLE_HEADER_SPAN_MISMATCH indicates a header node whose declared
+	// span does not equal the total span of its children. A banner that does
+	// not tile its axis renders as a table with a hole in it, which is worse
+	// than a refusal because it looks deliberate.
+	VELLUM_TABLE_HEADER_SPAN_MISMATCH Code = "VELLUM_TABLE_HEADER_SPAN_MISMATCH"
+
+	// VELLUM_TABLE_SPAN_OVERLAP indicates two cells claim the same grid
+	// position, or a span runs past the edge of the table.
+	VELLUM_TABLE_SPAN_OVERLAP Code = "VELLUM_TABLE_SPAN_OVERLAP"
+
+	// VELLUM_TABLE_ROW_ARITY indicates a row whose cells do not cover exactly
+	// the width the column headers declare.
+	VELLUM_TABLE_ROW_ARITY Code = "VELLUM_TABLE_ROW_ARITY"
+)
+
 // DOC domain — WordprocessingML.
 const (
 	// VELLUM_DOC_BLOCK_UNSUPPORTED indicates a block kind the DOCX writer does
@@ -125,6 +147,12 @@ var allCodes = []Code{
 	// SPEC
 	VELLUM_SPEC_INVALID,
 	VELLUM_SPEC_BLOCK_KIND_UNKNOWN,
+
+	// TABLE
+	VELLUM_TABLE_INVALID,
+	VELLUM_TABLE_HEADER_SPAN_MISMATCH,
+	VELLUM_TABLE_SPAN_OVERLAP,
+	VELLUM_TABLE_ROW_ARITY,
 
 	// DOC
 	VELLUM_DOC_BLOCK_UNSUPPORTED,

@@ -117,6 +117,42 @@ var codeMetadata = map[Code]Metadata{
 		}},
 	},
 
+	VELLUM_TABLE_INVALID: {
+		Message: "the table is structurally invalid",
+		Fixups: []Fixup{{
+			Action: FixupSetField,
+			Path:   []string{"Sections", "*", "Blocks", "*", "Table"},
+			Hint:   "A table needs a body. Spans are counts, so they are at least one, and a cell carries either a typed value or text but is not required to carry both.",
+		}},
+	},
+
+	VELLUM_TABLE_HEADER_SPAN_MISMATCH: {
+		Message: "a header node's declared span does not match the total span of its children",
+		Fixups: []Fixup{{
+			Action: FixupSetField,
+			Path:   []string{"Sections", "*", "Blocks", "*", "Table", "ColumnHeaders", "*", "Span"},
+			Hint:   "Omit the span and let it be derived from the children, or set it to their total. A banner that does not tile its axis renders as a table with a hole in it, which reads as deliberate.",
+		}},
+	},
+
+	VELLUM_TABLE_SPAN_OVERLAP: {
+		Message: "two cells claim the same grid position, or a span runs past the edge of the table",
+		Fixups: []Fixup{{
+			Action: FixupSetField,
+			Path:   []string{"Sections", "*", "Blocks", "*", "Table", "Body", "*", "*"},
+			Hint:   "Reduce the row or column span, or remove the cell it collides with. The reported coordinates are the first collision, not necessarily the only one.",
+		}},
+	},
+
+	VELLUM_TABLE_ROW_ARITY: {
+		Message: "a row does not cover exactly the width the column headers declare",
+		Fixups: []Fixup{{
+			Action: FixupSetField,
+			Path:   []string{"Sections", "*", "Blocks", "*", "Table", "Body", "*"},
+			Hint:   "Add or remove cells so the row's total column span equals the header width. A short row is usually a missing margin column rather than a header that is too wide.",
+		}},
+	},
+
 	VELLUM_DOC_BLOCK_UNSUPPORTED: {
 		Message: "the DOCX writer does not render this block kind yet",
 		Fixups: []Fixup{{

@@ -88,6 +88,13 @@ type Section struct {
 	// not interpret it.
 	ID string `json:"id,omitempty"`
 
+	// Layout names the theme master layout to render this section against.
+	// Empty selects the theme's default.
+	Layout string `json:"layout,omitempty"`
+
+	// Marks are consumer-defined style hooks for the section as a whole.
+	Marks []string `json:"marks,omitempty"`
+
 	// Blocks are the section's content, in order.
 	Blocks []Block `json:"blocks"`
 }
@@ -107,6 +114,33 @@ type Block struct {
 
 	// Text is set when Kind is BlockText.
 	Text *Text `json:"text,omitempty"`
+
+	// Asset is set when Kind is BlockAsset.
+	Asset *Asset `json:"asset,omitempty"`
+
+	// Table is set when Kind is BlockTable.
+	Table *Table `json:"table,omitempty"`
+
+	// PageBreak is set when Kind is BlockPageBreak.
+	PageBreak *PageBreak `json:"page_break,omitempty"`
+
+	// Notes is set when Kind is BlockNotes.
+	Notes *Notes `json:"notes,omitempty"`
+
+	// Spacer is set when Kind is BlockSpacer.
+	Spacer *Spacer `json:"spacer,omitempty"`
+
+	// Marks are consumer-defined style hooks.
+	//
+	// Vellum never learns what a mark means. The theme maps a mark name to a
+	// style, and nothing in this library branches on a mark's value — if it
+	// ever did, the seam would have leaked and the consumer's vocabulary would
+	// have become Vellum's business.
+	//
+	// The motivating case is a document whose underlying data has moved and
+	// which must be visibly flagged as stale. Vellum renders the flag without
+	// ever learning what "stale" is.
+	Marks []string `json:"marks,omitempty"`
 }
 
 // Heading is a titled division.
@@ -122,6 +156,47 @@ type Heading struct {
 type Text struct {
 	// Content is the paragraph text.
 	Content string `json:"content"`
+}
+
+// Asset embeds an artifact the host resolves.
+//
+// The block references a handle, never bytes. Keeping bytes out of the model
+// is what makes the content hash cheap to compute, and what keeps Vellum
+// ignorant of where the host stores anything — which is precisely what makes
+// it reusable rather than one product's document writer.
+type Asset struct {
+	// Handle identifies the asset to the host's resolver. Vellum does not
+	// interpret it.
+	Handle string `json:"handle"`
+
+	// Role names the theme box this asset fills, so its size comes from the
+	// theme rather than from the block. An empty role selects the theme's
+	// default asset box.
+	Role string `json:"role,omitempty"`
+
+	// AltText is the accessible description.
+	AltText string `json:"alt_text,omitempty"`
+}
+
+// PageBreak starts a new page, slide or sheet, depending on the target format.
+//
+// It carries no fields today and is a struct rather than a bare kind so that
+// it can gain one — a break type, say — without changing the shape of every
+// other block.
+type PageBreak struct{}
+
+// Notes is annotation content: speaker notes in a deck, a footnote in a
+// document, a cell comment in a workbook. What it becomes in each format is
+// declared by the capability matrix rather than discovered at render time.
+type Notes struct {
+	// Content is the note text.
+	Content string `json:"content"`
+}
+
+// Spacer is vertical space.
+type Spacer struct {
+	// Height is the space to insert.
+	Height Length `json:"height"`
 }
 
 // Validate reports structural problems with the specification.
@@ -173,8 +248,7 @@ func (b *Block) validate(sectionIndex, blockIndex int, sectionID string) error {
 	switch b.Kind {
 	case BlockHeading:
 		if b.Heading == nil {
-			return verr.NewCodedErrorWithDetails(verr.VELLUM_SPEC_INVALID,
-				"block is a heading but carries no heading content", where)
+			return missingArm(where, "heading")
 		}
 		if b.Heading.Level < 1 {
 			return verr.NewCodedErrorWithDetails(verr.VELLUM_SPEC_INVALID,
@@ -182,9 +256,117 @@ func (b *Block) validate(sectionIndex, blockIndex int, sectionID string) error {
 		}
 	case BlockText:
 		if b.Text == nil {
+			return missingArm(where, "text")
+		}
+	case BlockAsset:
+		if b.Asset == nil {
+			return missingArm(where, "asset")
+		}
+		if b.Asset.Handle == "" {
 			return verr.NewCodedErrorWithDetails(verr.VELLUM_SPEC_INVALID,
-				"block is text but carries no text content", where)
+				"asset block has no handle", where)
+		}
+	case BlockTable:
+		if b.Table == nil {
+			return missingArm(where, "table")
+		}
+		if err := b.Table.Validate(); err != nil {
+			return withLocation(err, where)
+		}
+	case BlockPageBreak:
+		if b.PageBreak == nil {
+			return missingArm(where, "page_break")
+		}
+	case BlockNotes:
+		if b.Notes == nil {
+			return missingArm(where, "notes")
+		}
+	case BlockSpacer:
+		if b.Spacer == nil {
+			return missingArm(where, "spacer")
+		}
+		if _, err := b.Spacer.Height.EMU(); err != nil {
+			return withLocation(err, where)
 		}
 	}
+
+	// A block must not carry an arm for a kind it is not. A spec that sets
+	// both a heading and a table has been assembled wrongly, and silently
+	// honouring whichever one the discriminator names would hide the mistake.
+	if err := b.checkNoStrayArms(where); err != nil {
+		return err
+	}
 	return nil
+}
+
+// checkNoStrayArms rejects a block carrying content for a kind other than its
+// own.
+func (b *Block) checkNoStrayArms(where map[string]any) error {
+	present := make([]string, 0, 2)
+	add := func(name string, set bool, isOwn bool) {
+		if set && !isOwn {
+			present = append(present, name)
+		}
+	}
+	add("heading", b.Heading != nil, b.Kind == BlockHeading)
+	add("text", b.Text != nil, b.Kind == BlockText)
+	add("asset", b.Asset != nil, b.Kind == BlockAsset)
+	add("table", b.Table != nil, b.Kind == BlockTable)
+	add("page_break", b.PageBreak != nil, b.Kind == BlockPageBreak)
+	add("notes", b.Notes != nil, b.Kind == BlockNotes)
+	add("spacer", b.Spacer != nil, b.Kind == BlockSpacer)
+
+	if len(present) == 0 {
+		return nil
+	}
+	detail := make(map[string]any, len(where)+1)
+	for k, v := range where {
+		detail[k] = v
+	}
+	detail["stray_arms"] = present
+	return verr.NewCodedErrorWithDetails(verr.VELLUM_SPEC_INVALID,
+		"block carries content for a kind other than its own", detail)
+}
+
+func missingArm(where map[string]any, arm string) error {
+	detail := make(map[string]any, len(where)+1)
+	for k, v := range where {
+		detail[k] = v
+	}
+	detail["missing_arm"] = arm
+	return verr.NewCodedErrorWithDetails(verr.VELLUM_SPEC_INVALID,
+		"block declares a kind but carries no content for it", detail)
+}
+
+// withLocation re-raises a nested error with the block's coordinates attached,
+// so a table fault reports where in the document it is rather than only what
+// it is.
+func withLocation(err error, where map[string]any) error {
+	var ce *verr.CodedError
+	if !asCodedError(err, &ce) {
+		return err
+	}
+	detail := make(map[string]any, len(ce.Details)+len(where))
+	for k, v := range ce.Details {
+		detail[k] = v
+	}
+	for k, v := range where {
+		detail[k] = v
+	}
+	return verr.NewCodedErrorWithDetails(ce.Code, ce.Message, detail)
+}
+
+func asCodedError(err error, target **verr.CodedError) bool {
+	for err != nil {
+		if ce, ok := err.(*verr.CodedError); ok {
+			*target = ce
+			return true
+		}
+		u, ok := err.(interface{ Unwrap() error })
+		if !ok {
+			return false
+		}
+		err = u.Unwrap()
+	}
+	return false
 }

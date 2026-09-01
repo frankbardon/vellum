@@ -151,3 +151,144 @@ func TestNoSemanticSectionVocabulary(t *testing.T) {
 		}
 	}
 }
+
+func TestValidate_AllBlockKindsAccepted(t *testing.T) {
+	blocks := []spec.Block{
+		{Kind: spec.BlockHeading, Heading: &spec.Heading{Level: 1, Content: "Title"}},
+		{Kind: spec.BlockText, Text: &spec.Text{Content: "Prose"}},
+		{Kind: spec.BlockAsset, Asset: &spec.Asset{Handle: "chart-1", Role: "asset.full", AltText: "A chart"}},
+		{Kind: spec.BlockTable, Table: &spec.Table{
+			ColumnHeaders: spec.HeaderTree{{Label: "A"}, {Label: "B"}},
+			Body:          [][]spec.Cell{{{Text: "1"}, {Text: "2"}}},
+		}},
+		{Kind: spec.BlockPageBreak, PageBreak: &spec.PageBreak{}},
+		{Kind: spec.BlockNotes, Notes: &spec.Notes{Content: "Speaker note"}},
+		{Kind: spec.BlockSpacer, Spacer: &spec.Spacer{Height: spec.Points(12)}},
+	}
+	if len(blocks) != len(spec.AllBlockKinds()) {
+		t.Fatalf("this test covers %d kinds but the vocabulary has %d; add the missing one", len(blocks), len(spec.AllBlockKinds()))
+	}
+
+	s := &spec.Spec{
+		FormatVersion: spec.FormatVersion,
+		Sections:      []spec.Section{{ID: "all", Blocks: blocks}},
+	}
+	if err := s.Validate(); err != nil {
+		t.Errorf("a spec exercising every block kind was rejected: %v", err)
+	}
+}
+
+func TestValidate_MissingArms(t *testing.T) {
+	bare := map[spec.BlockKind]spec.Block{
+		spec.BlockHeading:   {Kind: spec.BlockHeading},
+		spec.BlockText:      {Kind: spec.BlockText},
+		spec.BlockAsset:     {Kind: spec.BlockAsset},
+		spec.BlockTable:     {Kind: spec.BlockTable},
+		spec.BlockPageBreak: {Kind: spec.BlockPageBreak},
+		spec.BlockNotes:     {Kind: spec.BlockNotes},
+		spec.BlockSpacer:    {Kind: spec.BlockSpacer},
+	}
+	for _, kind := range spec.AllBlockKinds() {
+		t.Run(string(kind), func(t *testing.T) {
+			s := &spec.Spec{Sections: []spec.Section{{Blocks: []spec.Block{bare[kind]}}}}
+			err := s.Validate()
+			if !verr.HasCode(err, verr.VELLUM_SPEC_INVALID) {
+				t.Fatalf("error = %v, want VELLUM_SPEC_INVALID", err)
+			}
+			ce, _ := err.(*verr.CodedError)
+			if ce == nil {
+				t.Fatal("error is not a CodedError")
+			}
+			if got, ok := ce.Detail("missing_arm"); !ok || got != string(kind) {
+				t.Errorf("detail missing_arm = %v, want %q", got, kind)
+			}
+		})
+	}
+}
+
+// TestValidate_RejectsStrayArms covers a construction mistake that would
+// otherwise be invisible: a block carrying content for a kind it is not.
+// Honouring whichever arm the discriminator names would hide the mistake and
+// silently drop the other content.
+func TestValidate_RejectsStrayArms(t *testing.T) {
+	s := &spec.Spec{Sections: []spec.Section{{Blocks: []spec.Block{{
+		Kind:    spec.BlockText,
+		Text:    &spec.Text{Content: "the declared arm"},
+		Heading: &spec.Heading{Level: 1, Content: "a stray arm"},
+	}}}}}
+
+	err := s.Validate()
+	if !verr.HasCode(err, verr.VELLUM_SPEC_INVALID) {
+		t.Fatalf("error = %v, want VELLUM_SPEC_INVALID", err)
+	}
+	ce, _ := err.(*verr.CodedError)
+	if ce == nil {
+		t.Fatal("error is not a CodedError")
+	}
+	stray, ok := ce.Detail("stray_arms")
+	if !ok {
+		t.Fatal("the error does not name the stray arm")
+	}
+	names, ok := stray.([]string)
+	if !ok || len(names) != 1 || names[0] != "heading" {
+		t.Errorf("stray_arms = %v, want [heading]", stray)
+	}
+}
+
+// TestValidate_TableFaultCarriesBlockLocation checks that a nested table fault
+// reports where in the document it is, not only what it is.
+func TestValidate_TableFaultCarriesBlockLocation(t *testing.T) {
+	s := &spec.Spec{Sections: []spec.Section{
+		{ID: "first", Blocks: []spec.Block{{Kind: spec.BlockText, Text: &spec.Text{Content: "fine"}}}},
+		{ID: "second", Blocks: []spec.Block{
+			{Kind: spec.BlockText, Text: &spec.Text{Content: "fine"}},
+			{Kind: spec.BlockTable, Table: &spec.Table{
+				ColumnHeaders: spec.HeaderTree{{Label: "A"}, {Label: "B"}, {Label: "C"}},
+				Body:          [][]spec.Cell{{{Text: "1"}}},
+			}},
+		}},
+	}}
+
+	err := s.Validate()
+	if !verr.HasCode(err, verr.VELLUM_TABLE_ROW_ARITY) {
+		t.Fatalf("error = %v, want VELLUM_TABLE_ROW_ARITY", err)
+	}
+	ce, _ := err.(*verr.CodedError)
+	if ce == nil {
+		t.Fatal("error is not a CodedError")
+	}
+	for key, want := range map[string]any{"section_index": 1, "block_index": 1, "section_id": "second"} {
+		if got, ok := ce.Detail(key); !ok || got != want {
+			t.Errorf("detail %q = %v, want %v", key, got, want)
+		}
+	}
+	// The table's own coordinates must survive the re-raise, or the caller
+	// learns which block is wrong but not which row.
+	if got, ok := ce.Detail("table_width"); !ok || got != 3 {
+		t.Errorf("detail table_width = %v, want 3", got)
+	}
+}
+
+// TestMarksAreOpaque is a structural guard: nothing in this package may branch
+// on a mark's value. If it ever does, the seam has leaked and the consumer's
+// vocabulary has become Vellum's business.
+func TestMarksAreOpaque(t *testing.T) {
+	build := func(mark string) *spec.Spec {
+		return &spec.Spec{
+			FormatVersion: spec.FormatVersion,
+			Sections: []spec.Section{{
+				Marks: []string{mark},
+				Blocks: []spec.Block{{
+					Kind:  spec.BlockText,
+					Text:  &spec.Text{Content: "x"},
+					Marks: []string{mark},
+				}},
+			}},
+		}
+	}
+	for _, mark := range []string{"stale", "low-base", "", "  ", "significance", "中文", "anything at all"} {
+		if err := build(mark).Validate(); err != nil {
+			t.Errorf("validation rejected the mark %q; marks are opaque and Vellum must never interpret one: %v", mark, err)
+		}
+	}
+}

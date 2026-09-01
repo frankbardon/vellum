@@ -106,6 +106,20 @@ func TestWriteTo_PreservesWhitespace(t *testing.T) {
 // silently drop content". The error must name the kind and where it was, so
 // the caller can act rather than go looking.
 func TestLower_RejectsUnsupportedBlockKinds(t *testing.T) {
+	// Blocks are well formed on purpose. A malformed one would fail spec
+	// validation first, and this test is about the writer refusing a kind it
+	// cannot render — not about validation catching a construction mistake.
+	wellFormed := map[spec.BlockKind]spec.Block{
+		spec.BlockAsset:     {Kind: spec.BlockAsset, Asset: &spec.Asset{Handle: "chart-1"}},
+		spec.BlockPageBreak: {Kind: spec.BlockPageBreak, PageBreak: &spec.PageBreak{}},
+		spec.BlockNotes:     {Kind: spec.BlockNotes, Notes: &spec.Notes{Content: "a note"}},
+		spec.BlockSpacer:    {Kind: spec.BlockSpacer, Spacer: &spec.Spacer{Height: spec.Points(12)}},
+		spec.BlockTable: {Kind: spec.BlockTable, Table: &spec.Table{
+			ColumnHeaders: spec.HeaderTree{{Label: "A"}, {Label: "B"}},
+			Body:          [][]spec.Cell{{{Text: "1"}, {Text: "2"}}},
+		}},
+	}
+
 	for _, kind := range []spec.BlockKind{
 		spec.BlockAsset, spec.BlockTable, spec.BlockPageBreak, spec.BlockNotes, spec.BlockSpacer,
 	} {
@@ -116,7 +130,7 @@ func TestLower_RejectsUnsupportedBlockKinds(t *testing.T) {
 					ID: "s1",
 					Blocks: []spec.Block{
 						{Kind: spec.BlockText, Text: &spec.Text{Content: "before"}},
-						{Kind: kind},
+						wellFormed[kind],
 					},
 				}},
 			}
