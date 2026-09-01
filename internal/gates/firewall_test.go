@@ -47,23 +47,60 @@ func TestNoCollateImport(t *testing.T) {
 			"enumerate differently on two machines.")
 }
 
-// TestNoOfficeToolingOnTheLibraryPath keeps the LibreOffice test oracle out of
-// the shipped library.
+// TestNoExternalToolingOnTheLibraryPath keeps the test oracles out of the
+// shipped library.
 //
-// internal/oovalidate drives an installed LibreOffice, which means it shells
-// out — the one thing CLAUDE.md's "do not shell out to anything" forbids. That
-// rule governs the library: a consumer embedding Vellum gets a pure-Go writer
-// that runs no subprocess, performs no I/O it was not handed, and behaves
-// identically whether or not an office suite is installed. The oracle is a test
-// fixture that reads artifacts Vellum already wrote, and it stays one.
+// internal/exttool and the packages built on it drive installed programs —
+// LibreOffice, poppler, veraPDF — which means they shell out, the one thing
+// CLAUDE.md's "do not shell out to anything" forbids. That rule governs the
+// library: a consumer embedding Vellum gets a pure-Go writer that runs no
+// subprocess, performs no I/O it was not handed, and behaves identically
+// whether or not any of those programs is installed. The oracles are test
+// fixtures that read artifacts Vellum already wrote, and they stay that.
 //
-// Two mechanisms hold that line and this is the second. The first is the
-// `soffice` build tag, which keeps the implementation from linking into a build
-// that did not ask for it. That alone would be enough today and would stop
-// being enough the moment somebody removes the tag for convenience, so the
-// import graph is checked as well.
-func TestNoOfficeToolingOnTheLibraryPath(t *testing.T) {
-	const target = "github.com/frankbardon/vellum/internal/oovalidate"
+// Two mechanisms hold the line and this is the second. The first is the build
+// tags on the heavier oracles, which keep them from linking into a build that
+// did not ask for them. That alone would be enough today and would stop being
+// enough the moment somebody removed a tag for convenience, so the import graph
+// is checked as well — and the poppler oracle deliberately carries no tag, so
+// for that one this test is the only thing holding it.
+func TestNoExternalToolingOnTheLibraryPath(t *testing.T) {
+	assertNotReachableFromShipped(t,
+		[]string{
+			"github.com/frankbardon/vellum/internal/exttool",
+			"github.com/frankbardon/vellum/internal/oovalidate",
+			"github.com/frankbardon/vellum/internal/pdfvalidate",
+		},
+		"these packages run subprocesses. The library runs none: a consumer embedding Vellum "+
+			"must get the same bytes whether or not an office suite or a PDF validator is installed.")
+}
+
+// TestNoTestFontOnTheLibraryPath keeps the test face out of the shipped
+// library.
+//
+// The determinism fixtures embed Go Regular, which is a font program compiled
+// into the module. A shipped package reaching it would have a font available
+// without the theme having supplied one — and the moment a fallback face is
+// reachable, some code path will eventually reach for it. Fonts come from the
+// theme, only: a face that arrives any other way makes the same specification
+// render differently depending on what happened to be linked in.
+//
+// This is the same invariant TestNoFontscanImport defends from the other side.
+// That one keeps the machine's fonts out; this one keeps ours out.
+func TestNoTestFontOnTheLibraryPath(t *testing.T) {
+	assertNotReachableFromShipped(t,
+		[]string{
+			"golang.org/x/image/font/gofont/goregular",
+			"golang.org/x/image/font/sfnt",
+		},
+		"fonts come from the theme, only. A face reachable from the library is a fallback waiting "+
+			"to be used, and a fallback makes the same specification render differently on two machines.")
+}
+
+// assertNotReachableFromShipped fails when any target is in the dependency
+// graph of a package outside internal/.
+func assertNotReachableFromShipped(t *testing.T, targets []string, why string) {
+	t.Helper()
 
 	shipped := shippedPackages(t)
 	args := append([]string{"list", "-deps"}, shipped...)
@@ -71,12 +108,15 @@ func TestNoOfficeToolingOnTheLibraryPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("go list -deps: %v\n%s", err, out)
 	}
+
+	reachable := make(map[string]bool)
 	for _, line := range strings.Split(string(out), "\n") {
-		if strings.TrimSpace(line) == target {
-			t.Fatalf("%s is reachable from a shipped package.\n\n"+
-				"It drives an installed LibreOffice and therefore runs a subprocess. The library runs none: "+
-				"a consumer embedding Vellum must get the same bytes whether or not an office suite is installed.\n\n"+
-				"Find the importer with:\n  go mod why %s", target, target)
+		reachable[strings.TrimSpace(line)] = true
+	}
+	for _, target := range targets {
+		if reachable[target] {
+			t.Errorf("%s is reachable from a shipped package.\n\n%s\n\n"+
+				"Find the importer with:\n  go mod why %s", target, why, target)
 		}
 	}
 }

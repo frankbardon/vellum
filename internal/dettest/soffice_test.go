@@ -6,15 +6,13 @@ import (
 	"bytes"
 	"context"
 	stderrors "errors"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/frankbardon/vellum/internal/dettest"
+	"github.com/frankbardon/vellum/internal/exttool"
 	"github.com/frankbardon/vellum/internal/oovalidate"
-	"github.com/frankbardon/vellum/opc/zipdet"
 )
 
 // officeExpectation is what an installed office reader must be able to see in a
@@ -110,7 +108,7 @@ func TestOfficeReaderOpensGoldens(t *testing.T) {
 		t.Run(c.Name, func(t *testing.T) {
 			t.Parallel()
 
-			src := writeGoldenToDisk(t, c)
+			src := writeGoldenFile(t, c)
 
 			// The open check. Converting to PDF is the cheapest way to make
 			// LibreOffice parse, lay out and re-serialise the whole document:
@@ -179,78 +177,24 @@ func locateOffice(t *testing.T) oovalidate.Tool {
 
 	tool, err := oovalidate.Find()
 	if err == nil {
-		t.Logf("using LibreOffice at %s", tool.Path)
+		t.Logf("using LibreOffice at %s", tool.Path())
 		return tool
 	}
 
-	var notFound *oovalidate.ErrNotFound
+	var notFound *exttool.NotFoundError
 	if !stderrors.As(err, &notFound) {
 		// A misconfigured override is a real failure. Skipping it would hide
 		// the fact that the tool the runner asked for is not the tool that ran.
 		t.Fatalf("%v", err)
 	}
-	if oovalidate.RequireOptional() {
+	if exttool.RequireOptional() {
 		t.Fatalf("%v\n\n%s is set, so a missing external tool fails rather than skips.",
-			err, oovalidate.EnvRequireOptional)
+			err, exttool.EnvRequireOptional)
 	}
 	t.Skipf("SKIPPING the office reader check: %v\n\n"+
 		"Nothing else in this suite establishes that these artifacts open. "+
-		"Set %s in CI so this cannot pass unnoticed forever.", err, oovalidate.EnvRequireOptional)
+		"Set %s in CI so this cannot pass unnoticed forever.", err, exttool.EnvRequireOptional)
 	return oovalidate.Tool{}
-}
-
-// writeGoldenToDisk materialises a case's committed golden into a temp file.
-//
-// The committed golden rather than a fresh emission, deliberately: the artifact
-// checked here is the one under review in the diff. Emitting afresh would let a
-// stale golden pass this check while the file a reader would actually receive
-// differs from it.
-func writeGoldenToDisk(t *testing.T, c dettest.Case) string {
-	t.Helper()
-
-	m, err := dettest.LoadManifest(dettest.GoldenRoot)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-	raw, err := dettest.ReadGolden(dettest.GoldenRoot, c, m)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-	// Sanity: the golden must be what the current code emits, or this check is
-	// reporting on an artifact nobody is shipping.
-	got, err := c.Bytes(zipdet.PinnedEpoch)
-	if err != nil {
-		t.Fatalf("emit: %v", err)
-	}
-	if !bytes.Equal(raw, got) {
-		t.Skipf("the golden and the current output differ; TestGoldensNotHandEdited owns that failure. " +
-			"Checking a stale artifact against a reader would report on a file nobody ships.")
-	}
-
-	path := filepath.Join(t.TempDir(), c.Name+"."+c.Ext)
-	if err := os.WriteFile(path, raw, 0o644); err != nil {
-		t.Fatalf("writing the artifact for conversion: %v", err)
-	}
-	return path
-}
-
-// indentText renders extracted text for a failure message, bounded so a long
-// document does not bury the assertion that failed.
-func indentText(s string) string {
-	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
-	const max = 40
-	truncated := false
-	if len(lines) > max {
-		lines, truncated = lines[:max], true
-	}
-	for i := range lines {
-		lines[i] = "    " + lines[i]
-	}
-	out := strings.Join(lines, "\n")
-	if truncated {
-		out += "\n    ... (truncated)"
-	}
-	return out
 }
 
 // sortedCaseNames is used by the diagnostics above; kept so the failure text is

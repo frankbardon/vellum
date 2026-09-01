@@ -229,6 +229,36 @@ const (
 	VELLUM_FONT_UNAVAILABLE Code = "VELLUM_FONT_UNAVAILABLE"
 )
 
+// PDF domain — the object layer, the emitter, and the font programs it embeds.
+const (
+	// VELLUM_PDF_OBJECT_UNRESOLVED indicates a document assembled with a
+	// reference that names no object: a number reserved for a forward reference
+	// and never filled, or a catalogue that was never set. It is caught before
+	// the file is written, because a dangling reference produces a PDF that
+	// opens to a blank page in one reader and an error in another.
+	VELLUM_PDF_OBJECT_UNRESOLVED Code = "VELLUM_PDF_OBJECT_UNRESOLVED"
+
+	// VELLUM_PDF_STREAM_INVALID indicates a stream that could not be produced —
+	// compression failing, or data a filter cannot accept.
+	VELLUM_PDF_STREAM_INVALID Code = "VELLUM_PDF_STREAM_INVALID"
+
+	// VELLUM_PDF_WRITE_FAILED indicates the destination writer returned an
+	// error. The document itself was well formed; what it was being written to
+	// was not available.
+	VELLUM_PDF_WRITE_FAILED Code = "VELLUM_PDF_WRITE_FAILED"
+
+	// VELLUM_PDF_FONT_INVALID indicates a font program Vellum could not parse
+	// or could not subset: a missing required table, a format it does not
+	// implement, or a glyph outline it cannot follow.
+	VELLUM_PDF_FONT_INVALID Code = "VELLUM_PDF_FONT_INVALID"
+
+	// VELLUM_PDF_GLYPH_MISSING indicates text containing a character the
+	// selected face has no glyph for. It is an error rather than a substitution
+	// with a notdef box, because a document that silently renders a row of
+	// empty rectangles is one nobody notices until it has been sent.
+	VELLUM_PDF_GLYPH_MISSING Code = "VELLUM_PDF_GLYPH_MISSING"
+)
+
 // THEME domain — the theme document and what a specification asks of it.
 const (
 	// VELLUM_THEME_NOT_FOUND indicates the provider has no theme under the id
@@ -341,6 +371,13 @@ var allCodes = []Code{
 	VELLUM_FONT_NOT_EMBEDDABLE,
 	VELLUM_FONT_EMBED_UNSUPPORTED,
 	VELLUM_FONT_UNAVAILABLE,
+
+	// PDF
+	VELLUM_PDF_OBJECT_UNRESOLVED,
+	VELLUM_PDF_STREAM_INVALID,
+	VELLUM_PDF_WRITE_FAILED,
+	VELLUM_PDF_FONT_INVALID,
+	VELLUM_PDF_GLYPH_MISSING,
 
 	// INTERNAL
 	VELLUM_INTERNAL_INVARIANT,

@@ -10,6 +10,11 @@
       "sha256": "1e839b3d41e7a37b44acb299cd49bbd6c55f596d94642ae1bb8d82eec8bce29c",
       "bytes": 3550
     },
+    "pdf-spike": {
+      "file": "pdf-spike/expected.pdf",
+      "sha256": "234f91951f8f6b2471619301b00d2e713d81cb7fa42f78a592ccf9ad30a3dfed",
+      "bytes": 15019
+    },
     "substrate-package": {
       "file": "substrate-package/expected.zip",
       "sha256": "a76180b3bf30f2f81e28a85d733527b11e0534c84e8111fe871f87d3b36f1946",
@@ -17,4 +22,4 @@
     }
   }
 }
-// golden-hash: c741be9aafb7fcde02ea7408f245f63c4be09f0dc1d2967a2676ed6bbb6a36b8
+// golden-hash: 8ed203523a7cc63a123c45f59d493737fc72578065295e191d0afe7ddf4c81ea

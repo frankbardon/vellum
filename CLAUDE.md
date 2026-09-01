@@ -198,52 +198,71 @@ The compressed statement; the full table is `.claude/reference/determinism.md`.
   open the file.
 - PDF uses a classic xref table and trailer, never object streams.
 - PDF `/CreationDate`, `/ModDate` and the XMP dates are generated from one
-  struct so they cannot disagree. Divergence is the most common way a nearly
-  correct PDF/A file fails veraPDF.
+  struct so they cannot disagree. ISO 19005 requires them to match; veraPDF's
+  2b profile was observed *not* to check it, which is a reason to keep the
+  invariant structural rather than to rely on the validator for it — the next
+  profile, and every other conforming reader, may well check.
+- The PDF file identifier is derived from the document's content. A generated
+  one is the easiest way to lose byte-identity and the hardest to notice: the
+  file differs between runs in sixteen bytes buried in the trailer and
+  everything else matches.
+- The sRGB output-intent profile is built rather than embedded as a shipped
+  blob, and contains no floating-point computation: a sampled transfer curve
+  would need `math.Pow`, whose results are not guaranteed identical across
+  platforms and Go versions.
 - Font subset tags are base-26 over a hash of `(fontHash, sorted glyph IDs)`.
 - Subset font programs pin `head.created` and `head.modified`, use a fixed table
   order and padding, and recompute checksums with `head.checkSumAdjustment`
   written last.
 
-### The office-reader oracle
+### The external reader oracles
 
 Every assertion in the determinism harness compares our bytes against our bytes.
 That proves determinism and proves nothing about whether the file opens: an
-artifact can be byte-identical across a thousand runs and still be one no office
-application will accept. Three defects have reached a human that way — zip
-version fields left at zero, ECMA-376 children emitted out of schema order, and
-a golden "PNG" carrying no IDAT chunk. Every Go-side reader accepted all three.
-Word accepted none.
+artifact can be byte-identical across a thousand runs and still be one no reader
+accepts. Three defects have reached a human that way — zip version fields left
+at zero, ECMA-376 children emitted out of schema order, and a golden "PNG"
+carrying no IDAT chunk. Every Go-side reader accepted all three. Word accepted
+none.
 
 The gap is structural: **the readers available to the build are more tolerant
-than the readers that matter.** `internal/oovalidate` narrows it by driving an
-installed LibreOffice over the committed goldens — converting each to PDF, which
-forces a full parse and layout, and extracting the text a reader would see.
+than the readers that matter.** Three oracles narrow it, sharing the plumbing in
+`internal/exttool`:
+
+| Oracle | Question it answers | Tag | Where |
+|---|---|---|---|
+| poppler | Does the PDF open, and does its text extract? | none | `internal/pdfvalidate` |
+| LibreOffice | Does the OOXML package open, and did its content survive? | `soffice` | `internal/oovalidate` |
+| veraPDF | Is the PDF/A-2b claim the file makes about itself true? | `verapdf` | `internal/pdfvalidate` |
 
 This does not reopen the LibreOffice question. That ruling is about *producing*
-artifacts and stands unchanged. Here LibreOffice is an oracle: it reads bytes
-Vellum already wrote and reports whether it could. Its output is examined for
+artifacts and stands unchanged. Here these are oracles: they read bytes Vellum
+already wrote and report whether they could. Their output is examined for
 presence and content and **never compared for equality**, because a conversion's
-bytes vary with renderer version and installed fonts — the exact nondeterminism
-the ruling exists to exclude.
+bytes vary with tool version and installed fonts — the exact nondeterminism the
+ruling exists to exclude.
 
-Two mechanisms keep it out of the library. The implementation is behind the
-`soffice` build tag, so it cannot link into a build that did not ask for it, and
-`TestNoOfficeToolingOnTheLibraryPath` asserts no shipped package reaches it. The
-tag alone would suffice today and would stop sufficing the moment somebody
-removed it for convenience.
+Two mechanisms keep them out of the library. The heavier two are behind build
+tags, so they cannot link into a build that did not ask for them, and
+`TestNoExternalToolingOnTheLibraryPath` asserts no shipped package reaches any of
+them. The poppler oracle deliberately carries no tag, so for that one the import
+graph check is the only thing holding the line.
 
-**It is evidence, not proof.** LibreOffice is not Word, it is more tolerant on
-several of the constraints above, and it is less tolerant on some legitimate
-constructs — so a failure is read before it is believed. It is worth having
-because the failures it does catch, a package that will not open and content
-that silently vanished, are the expensive ones, and nothing else catches them
-before a human opens the file by hand.
+**They are evidence, not proof.** LibreOffice is not Word; it is more tolerant on
+several of the byte-layout constraints above and less tolerant on some
+legitimate constructs, so a failure is read before it is believed. veraPDF
+implements the clauses its profile covers and not every clause of the standard —
+observed directly: an XMP date deliberately made to disagree with the
+information dictionary still passes 2b. They are worth having because the
+failures they do catch — a package that will not open, content that silently
+vanished, a conformance claim that is false — are the expensive ones, and
+nothing else catches them before a human opens the file by hand.
 
-Run it with `make test-office`. `make test` prints a warning naming what it did
-not check when no installation is found, because a skip is invisible in a
-non-verbose run and an optional gate nobody is told about is one nobody
-provisions.
+Run them with `make test-office` and `make test-pdfa`; poppler runs in `make
+test`. When a tool is absent the check skips and `make test` prints a warning
+naming what went unchecked, because a skip is invisible in a non-verbose run and
+an optional gate nobody is told about is one nobody provisions. CI sets
+`VELLUM_REQUIRE_OPTIONAL_GATES`, which turns every such skip into a failure.
 
 ### Declared, not emergent
 
@@ -311,7 +330,8 @@ Contract and registry completeness:
 - `TestPayloadSchemaEmbedsSpecDefinitions` — the schema carries the `spec` definitions rather than referencing them out of band.
 - `TestNoPulseCodes` — no `PULSE_*` error code leaks in through `ingest`. Vellum reads a Pulse envelope; it does not import Pulse and does not re-emit its vocabulary.
 - `TestNoSemanticSectionVocabulary` — no built-in section type ("cover", "methodology"). That vocabulary belongs to the consumer.
-- `TestNoOfficeToolingOnTheLibraryPath` — no shipped package reaches `internal/oovalidate`. See "The office-reader oracle".
+- `TestNoExternalToolingOnTheLibraryPath` — no shipped package reaches `internal/exttool`, `internal/oovalidate` or `internal/pdfvalidate`. The library runs no subprocess. See "The external reader oracles".
+- `TestNoTestFontOnTheLibraryPath` — no shipped package reaches the test face. Fonts come from the theme, only; a face reachable from the library is a fallback waiting to be used. The other half of `TestNoFontscanImport`.
 - `TestCodesHaveFixups` — every error code has a `codeMetadata` row with a `Message` and a `Fixup`, or `FixupNotApplicable: true`.
 - `TestManifestBlocksComplete`, `TestManifestFormatsComplete`, `TestManifestErrorCodesComplete`, `TestManifestMCPToolsComplete` — the manifest enumerates the live registries.
 - `TestPayloadSchemaGolden`, `TestPayloadSchemaEnumsMatchRegistry`, `TestPayloadSchemaVersionMatchesEnvelope`.
@@ -342,7 +362,8 @@ Fuzz (bounded smoke run per PR; the job is to keep the targets compiling and re-
 
 Conformance (externally provisioned; skipped when the tool is absent unless `VELLUM_REQUIRE_OPTIONAL_GATES` is set):
 - `TestPDFAConformance` — build-tagged `verapdf`; runs a digest-pinned veraPDF against every PDF golden and asserts zero errors.
-- `TestOfficeReaderOpensGoldens` — build-tagged `soffice`; opens every OOXML golden with an installed LibreOffice and asserts the content a reader sees. See "The office-reader oracle".
+- `TestOfficeReaderOpensGoldens` — build-tagged `soffice`; opens every OOXML golden with an installed LibreOffice and asserts the content a reader sees.
+- `TestPDFReaderSeesTheContent` — poppler over every PDF golden: the document opens, and its text extracts. Untagged, because poppler is small and fast enough for the ordinary suite; it still skips when absent.
 
 Skill and example coverage:
 - `TestSkillsCoverAllBlockKinds`, `TestSkillsCoverAllFormats`, `TestSkillsCoverAllFeatures`, `TestSkillsCoverAllMCPTools`, `TestSkillsCoverAllBindModes`, `TestSkillsCoverThemeSlots`, `TestSkillsCoverAllCliLeaves`.
@@ -357,6 +378,7 @@ make test
 make lint    # go vet + staticcheck
 make cover
 make test-office  # build-tagged; needs a LibreOffice installation
+make test-pdfa    # build-tagged; needs veraPDF
 make bench   # manual; asserts no threshold
 make docs    # mdBook
 ```
@@ -392,7 +414,7 @@ determinism hazard named.
 | `golang.org/x/text` | `message`/`language`, to render JSON Schema validator faults | BSD-3 | `jsonschema`'s `LocalizedString` dereferences its printer without a nil check, so a printer is required rather than optional. Confined to error prose; **never** use `x/text/collate` — locale-aware ordering is nondeterminism with extra steps |
 | `github.com/modelcontextprotocol/go-sdk` | MCP transport | MIT | only `mcp/gosdk` imports it |
 | `github.com/urfave/cli/v3` | CLI | MIT | confined to `internal/cli` and `cmd/vellum` |
-| `sRGB2014.icc` (embedded data) | PDF/A output intent | ICC | carry the notice; not code |
+| `golang.org/x/image` | The test face (`gofont/goregular`) and an independent SFNT parser to check the subsetter against | BSD-3 | **test-only.** Firewalled by `TestNoTestFontOnTheLibraryPath`: a font reachable from the library is a fallback waiting to be used |
 
 Permanently ruled out, with reasons, so they are not re-proposed:
 
@@ -400,6 +422,7 @@ Permanently ruled out, with reasons, so they are not re-proposed:
 - **`github.com/tdewolff/font`** — MIT with a real subsetter, but its write path stamps `time.Now()` into `head.modified`, inside the exact byte stream we are required to pin. Never tagged. Read as reference; do not import.
 - **`github.com/pdfcpu/pdfcpu`** — a processor for existing PDFs; a deterministic writer needs total control of object numbering and xref layout.
 - **`github.com/google/uuid`** — Vellum generates no random identifiers, ever.
+- **`sRGB2014.icc`, or any shipped ICC blob** — the output-intent profile is built in `pdf/color` instead. Around eight hundred bytes of entirely specified structure, which removes a redistributed binary and its licence notice, removes the possibility of blob and code disagreeing, and makes the bytes reviewable. veraPDF accepts it.
 - **LibreOffice, in any form, on the output path** — conversion output varies with renderer version and installed fonts, which defeats byte-identical output and the consumer dedupe that rests on it. Vellum never converts. It is permitted in one place and one only: as a build-tagged *test oracle* that reads artifacts Vellum already wrote and reports whether a real reader accepts them, never comparing bytes. See "The office-reader oracle". It is not a module dependency and the library runs no subprocess.
 
 ## Extension Points

@@ -30,6 +30,75 @@ jobs:
       - name: Assert no cgo
         run: CGO_ENABLED=0 go build ./...
 
+  # The oracles: readers Vellum did not write, reading artifacts it did.
+  #
+  # Everything in the `test` job compares Vellum's bytes against Vellum's bytes.
+  # That proves determinism and proves nothing about whether a file opens —
+  # three defects have reached a human that way. This job is the only thing in
+  # CI that establishes the artifacts are readable at all.
+  #
+  # VELLUM_REQUIRE_OPTIONAL_GATES makes a missing tool fail rather than skip, so
+  # a runner that loses an installation finds out by going red instead of by
+  # quietly stopping checking.
+  readers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26"
+
+      - name: Install poppler
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      - name: PDF reader checks
+        run: go test -run 'TestPDFReaderSeesTheContent' -v ./internal/dettest/
+        env:
+          VELLUM_REQUIRE_OPTIONAL_GATES: "1"
+
+      - name: Install LibreOffice
+        run: sudo apt-get install -y libreoffice-writer libreoffice-calc libreoffice-impress
+      - name: Office reader checks
+        run: go test -tags soffice -run 'TestOfficeReader' -v ./internal/dettest/
+        env:
+          VELLUM_REQUIRE_OPTIONAL_GATES: "1"
+
+  # PDF/A conformance, checked against the reference validator.
+  #
+  # The documents assert PDF/A-2b in their own metadata, to any consumer that
+  # reads them. An assertion nothing verifies is worse than none: a consumer
+  # archiving on the strength of it has been told something false by the
+  # artifact itself.
+  pdfa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # Pinned by version rather than tracking latest, so a validator release
+      # cannot turn the build red without a commit saying so.
+      - name: Install veraPDF
+        env:
+          VERAPDF_VERSION: "1.28.1"
+        run: |
+          set -euo pipefail
+          curl -fsSL -o verapdf-installer.zip \
+            "https://software.verapdf.org/rel/${VERAPDF_VERSION%.*}/verapdf-greenfield-${VERAPDF_VERSION}-installer.zip"
+          unzip -q verapdf-installer.zip -d verapdf-installer
+          printf '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<AutomatedInstallation langpack="eng">\n<com.izforge.izpack.panels.htmlhello.HTMLHelloPanel id="welcome"/>\n<com.izforge.izpack.panels.target.TargetPanel id="install_dir"><installpath>%s/verapdf</installpath></com.izforge.izpack.panels.target.TargetPanel>\n<com.izforge.izpack.panels.packs.PacksPanel id="sdk_pack_select"><pack index="0" name="veraPDF GUI" selected="true"/><pack index="1" name="veraPDF Mac and *nix Scripts" selected="true"/></com.izforge.izpack.panels.packs.PacksPanel>\n<com.izforge.izpack.panels.install.InstallPanel id="install"/>\n<com.izforge.izpack.panels.finish.FinishPanel id="finish"/>\n</AutomatedInstallation>\n' "$HOME" > auto-install.xml
+          java -jar verapdf-installer/verapdf-greenfield-*/verapdf-izpack-installer-*.jar auto-install.xml
+
+      - name: PDF/A conformance
+        run: go test -tags verapdf -run 'TestPDFAConformance' -v ./internal/dettest/
+        env:
+          VELLUM_VERAPDF: ${{ github.workspace }}/../verapdf/verapdf
+          VELLUM_REQUIRE_OPTIONAL_GATES: "1"
+
   fuzz:
     runs-on: ubuntu-latest
     steps:
@@ -58,6 +127,8 @@ jobs:
           go-version: "1.26"
       - name: Vet
         run: go vet ./...
+      - name: Vet (build-tagged oracles)
+        run: go vet -tags "soffice verapdf" ./...
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@latest
       - name: Staticcheck

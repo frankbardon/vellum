@@ -30,8 +30,9 @@
 //
 // The implementation is behind the `soffice` build tag, so it cannot link into
 // a build that did not ask for it, and it lives under internal/ so it is not
-// public API. TestNoOfficeToolingOnTheLibraryPath proves no shipped package
-// reaches it.
+// public API. TestNoExternalToolingOnTheLibraryPath proves no shipped package
+// reaches it. The machinery for finding and running the program is shared with
+// the other oracles in [exttool].
 //
 // # Honest limits
 //

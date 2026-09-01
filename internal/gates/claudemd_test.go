@@ -70,10 +70,16 @@ func TestClaudeMdMentionsFormatVersion(t *testing.T) {
 // it alters output on a machine that has it set, and the reader of the source
 // has no list to check against.
 //
-// Variables are found by resolving the argument of every os.Getenv and
-// os.LookupEnv call, rather than by grepping for the VELLUM_ prefix. A grep
-// would sweep up the whole error-code registry, which shares the prefix and is
-// not configuration.
+// Variables are found by collecting every VELLUM_-prefixed string constant in
+// the module, minus the error-code registry, which shares the prefix and is not
+// configuration.
+//
+// The first version instead resolved the argument of each os.Getenv call, which
+// is more precise and turned out to be too precise: internal/exttool reads a
+// variable whose name arrives in a struct field, and no check without dataflow
+// analysis can follow that. Rejecting the indirection would have been the gate
+// dictating how the code is written to suit itself. Collecting the constants
+// catches the same variables and does not care how they reach the call.
 func TestClaudeMdMentionsAllEnvVars(t *testing.T) {
 	doc := readClaudeMd(t)
 
@@ -187,106 +193,39 @@ func sectionOf(t *testing.T, doc, heading string) string {
 	return rest
 }
 
-// environmentVariables returns every variable name reachable through os.Getenv
-// or os.LookupEnv, sorted.
+// environmentVariables returns every VELLUM_-prefixed configuration variable
+// named in the module, sorted.
 func environmentVariables(t *testing.T) []string {
 	t.Helper()
 
 	found := map[string]bool{}
-	walkAllSource(t, func(_ string, file *ast.File, _ *token.FileSet) {
-		consts := stringConstants(file)
+	walkAllSource(t, func(path string, file *ast.File, _ *token.FileSet) {
+		// The error-code registry uses the same prefix and is not
+		// configuration. It is excluded by location rather than by pattern,
+		// because a code and a variable are not distinguishable by their names.
+		if strings.HasPrefix(path, "errors/") {
+			return
+		}
 		ast.Inspect(file, func(n ast.Node) bool {
-			call, ok := n.(*ast.CallExpr)
-			if !ok || len(call.Args) != 1 {
+			lit, ok := n.(*ast.BasicLit)
+			if !ok || lit.Kind != token.STRING {
 				return true
 			}
-			sel, ok := call.Fun.(*ast.SelectorExpr)
-			if !ok {
-				return true
-			}
-			pkg, ok := sel.X.(*ast.Ident)
-			if !ok || pkg.Name != "os" {
-				return true
-			}
-			if sel.Sel.Name != "Getenv" && sel.Sel.Name != "LookupEnv" {
-				return true
-			}
-			if name, ok := resolveString(call.Args[0], consts); ok {
-				found[name] = true
-			} else {
-				// A dynamically computed variable name cannot be documented,
-				// and would let a real one through unnoticed.
-				t.Errorf("%s: the environment variable name is not a constant, "+
-					"so it cannot be checked against CLAUDE.md", sel.Sel.Name)
+			v, err := strconv.Unquote(lit.Value)
+			if err == nil && envVarRe.MatchString(v) {
+				found[v] = true
 			}
 			return true
 		})
 	})
+	if len(found) == 0 {
+		t.Fatal("no environment variables were found; the walk is wrong and this gate would pass vacuously")
+	}
 	return sortedKeys(found)
 }
 
-// stringConstants maps the string-valued constants declared in a file to their
-// values, so a Getenv call naming one can be resolved.
-func stringConstants(file *ast.File) map[string]string {
-	out := map[string]string{}
-	for _, decl := range file.Decls {
-		gen, ok := decl.(*ast.GenDecl)
-		if !ok || gen.Tok != token.CONST {
-			continue
-		}
-		for _, s := range gen.Specs {
-			vs, ok := s.(*ast.ValueSpec)
-			if !ok {
-				continue
-			}
-			for i, name := range vs.Names {
-				if i >= len(vs.Values) {
-					continue
-				}
-				if v, ok := literalString(vs.Values[i]); ok {
-					out[name.Name] = v
-				}
-			}
-		}
-	}
-	return out
-}
-
-// resolveString reduces an expression to a string, following a same-file
-// constant by name.
-func resolveString(e ast.Expr, consts map[string]string) (string, bool) {
-	if v, ok := literalString(e); ok {
-		return v, true
-	}
-	if id, ok := e.(*ast.Ident); ok {
-		if v, ok := consts[id.Name]; ok {
-			return v, true
-		}
-	}
-	// A qualified constant from another package: the name carries the package,
-	// so the value is not visible here. Resolved by scanning for the constant's
-	// value wherever it was declared, which stringConstants already collected
-	// per file — so this arm reports only genuinely opaque expressions.
-	if sel, ok := e.(*ast.SelectorExpr); ok {
-		if v, ok := consts[sel.Sel.Name]; ok {
-			return v, true
-		}
-	}
-	return "", false
-}
-
-// literalString unquotes a string literal.
-func literalString(e ast.Expr) (string, bool) {
-	lit, ok := e.(*ast.BasicLit)
-	if !ok || lit.Kind != token.STRING {
-		return "", false
-	}
-	v, err := strconv.Unquote(lit.Value)
-	if err != nil {
-		return "", false
-	}
-	return v, true
-}
+// envVarRe matches a VELLUM_ configuration variable name.
+var envVarRe = regexp.MustCompile(`^VELLUM_[A-Z0-9_]+$`)
 
 // testFuncRe matches a top-level test function declaration.
 var testFuncRe = regexp.MustCompile(`(?m)^func (Test[A-Za-z0-9_]+)\(`)

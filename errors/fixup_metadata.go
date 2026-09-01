@@ -326,6 +326,48 @@ var codeMetadata = map[Code]Metadata{
 		},
 	},
 
+	VELLUM_PDF_OBJECT_UNRESOLVED: {
+		Message:            "the document holds a reference to an object that was never supplied",
+		FixupNotApplicable: true,
+	},
+
+	VELLUM_PDF_STREAM_INVALID: {
+		Message:            "the stream could not be produced",
+		FixupNotApplicable: true,
+	},
+
+	VELLUM_PDF_WRITE_FAILED: {
+		Message:            "writing the document to its destination failed",
+		FixupNotApplicable: true,
+	},
+
+	VELLUM_PDF_FONT_INVALID: {
+		Message: "the font program could not be parsed or subsetted",
+		Fixups: []Fixup{
+			{
+				Action: FixupSupplyAsset,
+				Hint:   "Supply a TrueType or OpenType font with glyf outlines under this handle. Vellum subsets glyf; a CFF face is embedded whole, and a face that is neither is not a font program Vellum can read.",
+			},
+			{
+				Action:   FixupSetField,
+				Path:     []string{"Fonts", "*", "Embeddable"},
+				Hint:     "Declare the face non-embeddable and name a substitute, if the program cannot be supplied.",
+				Examples: []any{false},
+			},
+		},
+	},
+
+	VELLUM_PDF_GLYPH_MISSING: {
+		Message: "the selected face has no glyph for a character in the text",
+		Fixups: []Fixup{
+			{
+				Action: FixupSetField,
+				Path:   []string{"Fonts", "*", "Handle"},
+				Hint:   "Point the role at a face whose coverage includes this text. Vellum will not fall back to another installed font: a system fallback makes the same document render differently on two machines.",
+			},
+		},
+	},
+
 	VELLUM_TABLE_FORMAT_INVALID: {
 		Message: "the cell's number-format code does not parse",
 		Fixups: []Fixup{{

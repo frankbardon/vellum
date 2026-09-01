@@ -8,11 +8,18 @@ import (
 
 	"github.com/frankbardon/vellum/artifact"
 	"github.com/frankbardon/vellum/doc"
+	verr "github.com/frankbardon/vellum/errors"
 	"github.com/frankbardon/vellum/opc"
 	"github.com/frankbardon/vellum/opc/zipdet"
+	"github.com/frankbardon/vellum/pdf"
+	"github.com/frankbardon/vellum/pdf/content"
+	"github.com/frankbardon/vellum/pdf/font/sfnt"
+	"github.com/frankbardon/vellum/pdf/object"
+	"github.com/frankbardon/vellum/pdf/xmp"
 	"github.com/frankbardon/vellum/provenance"
 	"github.com/frankbardon/vellum/resolve"
 	"github.com/frankbardon/vellum/spec"
+	"golang.org/x/image/font/gofont/goregular"
 )
 
 // Cases returns every registered determinism and golden case.
@@ -25,7 +32,128 @@ func Cases() []Case {
 		substrateCase(),
 		docxSkeletonCase(),
 		docxProfileCase(),
+		pdfSpikeCase(),
 	}
+}
+
+// pdfSpikeCase is the PDF substrate proved end to end on one page.
+//
+// One page, one line, one subsetted face, an sRGB output intent and XMP that
+// agrees with the information dictionary. Small, and it touches every hard part
+// of the PDF work at once — the object writer, the cross-reference table, the
+// subsetter, the composite font encoding and the conformance metadata — so a
+// wrong assumption in any of them surfaces here rather than after the rest is
+// built on top of it.
+//
+// The face is Go Regular. It is BSD-3, it arrives as a Go package rather than
+// as a binary in testdata, and it carries composite glyphs, which is the part
+// of subsetting a naive implementation gets wrong.
+func pdfSpikeCase() Case {
+	return Case{
+		Name:  "pdf-spike",
+		Ext:   "pdf",
+		Write: writePDFSpike,
+	}
+}
+
+// writePDFSpike composes the spike document.
+func writePDFSpike(w io.Writer, epoch time.Time) error {
+	face, err := sfnt.Parse(goregular.TTF)
+	if err != nil {
+		return err
+	}
+
+	const (
+		heading = "Hello, PDF/A"
+		body    = "Composed by Vellum. Every glyph here is embedded as a subset."
+	)
+
+	font := &pdf.Font{
+		Resource: "F1",
+		BaseName: "GoRegular",
+		Program:  face,
+	}
+	gids, err := glyphRuns(face, heading, body)
+	if err != nil {
+		return err
+	}
+	font.Glyphs = gids.all
+
+	var c content.Builder
+	// A filled rule above the heading, which puts a DeviceRGB colour in the
+	// file. Without one the output intent is present but unexercised, and the
+	// spike would not have proved the part of conformance most likely to be
+	// wrong.
+	c.Save().
+		SetFillRGB(object.Ratio(37, 255), object.Ratio(99, 235), object.Ratio(235, 255)).
+		Rect(object.Points(72), object.Points(724), object.Points(180), object.Points(4)).
+		Fill().
+		Restore()
+
+	c.BeginText().
+		SetFont("F1", object.Points(24)).
+		MoveText(object.Points(72), object.Points(684)).
+		ShowGlyphs(gids.runs[0]).
+		EndText()
+
+	c.BeginText().
+		SetFont("F1", object.Points(11)).
+		MoveText(object.Points(72), object.Points(652)).
+		ShowGlyphs(gids.runs[1]).
+		EndText()
+
+	d := pdf.Document{
+		Metadata: xmp.Metadata{
+			Title:    heading,
+			Creator:  "Vellum determinism fixture",
+			Producer: "Vellum 0.0.0-golden",
+			Date:     epoch,
+		},
+		Pages: []pdf.Page{{
+			Width:   object.Points(612),
+			Height:  object.Points(792),
+			Content: c.Bytes(),
+			Fonts:   []*pdf.Font{font},
+		}},
+	}
+	return d.WriteTo(w, pdf.WriteOptions{SourceDateEpoch: epoch})
+}
+
+// glyphSet is the glyph ids for each text run, and their union.
+type glyphSet struct {
+	runs [][]uint16
+	all  []sfnt.GlyphID
+}
+
+// glyphRuns maps each string to glyph ids, failing on a character the face does
+// not cover.
+//
+// A missing glyph is an error rather than a substitution. A document that
+// silently renders a row of empty boxes is one nobody notices until it has been
+// sent, and Vellum will not reach for another installed face because that makes
+// the same specification render differently on two machines.
+func glyphRuns(face *sfnt.Font, texts ...string) (glyphSet, error) {
+	var out glyphSet
+	seen := map[sfnt.GlyphID]bool{}
+
+	for _, text := range texts {
+		var run []uint16
+		for _, r := range text {
+			g, ok := face.GlyphFor(r)
+			if !ok {
+				return glyphSet{}, verr.NewCodedErrorWithDetails(verr.VELLUM_PDF_GLYPH_MISSING,
+					"the face has no glyph for this character",
+					map[string]any{"character": string(r), "code_point": int(r)})
+			}
+			run = append(run, uint16(g))
+			if !seen[g] {
+				seen[g] = true
+				out.all = append(out.all, g)
+			}
+		}
+		out.runs = append(out.runs, run)
+	}
+	return out, nil
 }
 
 // docxSkeletonCase is the first real artifact: a heading and a paragraph

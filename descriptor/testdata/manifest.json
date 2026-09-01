@@ -630,6 +630,7 @@
     "DOC",
     "ZIP",
     "FONT",
+    "PDF",
     "INTERNAL"
   ],
   "error_codes": [
@@ -669,9 +670,14 @@
     "VELLUM_FONT_NOT_EMBEDDABLE",
     "VELLUM_FONT_EMBED_UNSUPPORTED",
     "VELLUM_FONT_UNAVAILABLE",
+    "VELLUM_PDF_OBJECT_UNRESOLVED",
+    "VELLUM_PDF_STREAM_INVALID",
+    "VELLUM_PDF_WRITE_FAILED",
+    "VELLUM_PDF_FONT_INVALID",
+    "VELLUM_PDF_GLYPH_MISSING",
     "VELLUM_INTERNAL_INVARIANT"
   ],
-  "error_codes_count": 37,
+  "error_codes_count": 42,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: efbcf7823521e602ccfb0d368e5c6a7e8f1da9f08e70fbe61e8eef961d983d7b
+// golden-hash: 4ff71a62c5886058977b8c1bfad1644b95b7794ff07162405c2d5eb38a60d371
