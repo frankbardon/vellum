@@ -197,3 +197,24 @@ func normalizeNumber(n json.Number) string {
 	// was written.
 	return strconv.FormatFloat(f, 'g', -1, 64)
 }
+
+// BytesHash returns a deterministic hash of raw bytes, in the same shape and
+// with the same domain-tagging rule as [CanonicalHash].
+//
+// Assets are the reason this exists. An asset is bytes, not a struct, and
+// routing it through JSON to hash it would base64 the whole payload to no
+// purpose. The two functions share the tag-NUL-content construction and the
+// truncation so that every hash Vellum produces is the same width and the same
+// kind of thing, and so that the algorithm has exactly one owner.
+//
+// The tag matters here for the same reason it matters there: an asset and a
+// specification that happened to serialise identically must not collide, and a
+// caller keying a cache on a hash alone must not be served one for the other.
+func BytesHash(tag string, raw []byte) string {
+	h := sha256.New()
+	h.Write([]byte(tag))
+	h.Write([]byte{0})
+	h.Write(raw)
+	sum := h.Sum(nil)
+	return hex.EncodeToString(sum[:HashLength/2])
+}

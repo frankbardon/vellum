@@ -639,6 +639,7 @@
     "VELLUM_ASSET_RESOLVE_FAILED",
     "VELLUM_ASSET_MEDIA_UNKNOWN",
     "VELLUM_ASSET_TOO_LARGE",
+    "VELLUM_ASSET_MEDIA_MISMATCH",
     "VELLUM_THEME_NOT_FOUND",
     "VELLUM_THEME_INVALID",
     "VELLUM_THEME_LAYOUT_NOT_FOUND",
@@ -660,7 +661,7 @@
     "VELLUM_FONT_UNAVAILABLE",
     "VELLUM_INTERNAL_INVARIANT"
   ],
-  "error_codes_count": 36,
+  "error_codes_count": 37,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: 3a149c9176eb73cc593b91fe38c26e5f9665d0c1d4320726c53ece0622a105d4
+// golden-hash: 8f3ce374c516861c7ace0afda4ba8582345f763bc07b83b0c567b84e83d33521

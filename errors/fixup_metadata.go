@@ -194,6 +194,22 @@ var codeMetadata = map[Code]Metadata{
 		},
 	},
 
+	VELLUM_ASSET_MEDIA_MISMATCH: {
+		Message: "the asset's declared media type contradicts its own bytes",
+		Fixups: []Fixup{
+			{
+				Action:   FixupSetField,
+				Path:     []string{"Asset", "MediaType"},
+				Hint:     "Return the media type the bytes actually are, or return none and let Vellum sniff them. Vellum will not write bytes into a package under a content type they do not match: a reader that checks refuses the whole document, and the failure then reads as \"this file is corrupt\" several layers from the mistake.",
+				Examples: []any{"image/png", "image/jpeg", "image/svg+xml"},
+			},
+			{
+				Action: FixupSupplyAsset,
+				Hint:   "If the declaration is right, the stored bytes are the wrong ones. Re-upload the asset.",
+			},
+		},
+	},
+
 	VELLUM_THEME_NOT_FOUND: {
 		Message: "the provider has no theme under this id",
 		Fixups: []Fixup{

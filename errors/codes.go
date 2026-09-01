@@ -139,6 +139,19 @@ const (
 	// VELLUM_ASSET_TOO_LARGE indicates a resolved asset exceeding the
 	// configured per-asset bound. See VELLUM_MAX_ASSET_BYTES.
 	VELLUM_ASSET_TOO_LARGE Code = "VELLUM_ASSET_TOO_LARGE"
+
+	// VELLUM_ASSET_MEDIA_MISMATCH indicates a declared media type that the
+	// asset's own bytes contradict.
+	//
+	// Trusting the declaration would put bytes into a package under a content
+	// type they do not match, and a reader that checks — Word and Excel both do
+	// — refuses the whole document rather than the one part. The failure then
+	// surfaces as "this file is corrupt", several layers from the mistake.
+	//
+	// Checked only against the signatures Vellum knows, so it is a
+	// contradiction rather than a failure to recognise: bytes that match no
+	// signature at all are VELLUM_ASSET_MEDIA_UNKNOWN instead.
+	VELLUM_ASSET_MEDIA_MISMATCH Code = "VELLUM_ASSET_MEDIA_MISMATCH"
 )
 
 // TABLE domain — the analytical table model.
@@ -296,6 +309,7 @@ var allCodes = []Code{
 	VELLUM_ASSET_RESOLVE_FAILED,
 	VELLUM_ASSET_MEDIA_UNKNOWN,
 	VELLUM_ASSET_TOO_LARGE,
+	VELLUM_ASSET_MEDIA_MISMATCH,
 
 	// THEME
 	VELLUM_THEME_NOT_FOUND,
