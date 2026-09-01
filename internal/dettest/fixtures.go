@@ -9,12 +9,11 @@ import (
 
 	"github.com/frankbardon/vellum/artifact"
 	"github.com/frankbardon/vellum/doc"
-	verr "github.com/frankbardon/vellum/errors"
 	"github.com/frankbardon/vellum/opc"
 	"github.com/frankbardon/vellum/opc/zipdet"
 	"github.com/frankbardon/vellum/pdf"
 	"github.com/frankbardon/vellum/pdf/content"
-	"github.com/frankbardon/vellum/pdf/font/sfnt"
+	pdffont "github.com/frankbardon/vellum/pdf/font"
 	"github.com/frankbardon/vellum/pdf/object"
 	"github.com/frankbardon/vellum/pdf/xmp"
 	"github.com/frankbardon/vellum/provenance"
@@ -61,37 +60,36 @@ func pdfPagesCase() Case {
 const pageCount = 20
 
 func writePDFPages(w io.Writer, epoch time.Time) error {
-	face, err := sfnt.Parse(goregular.TTF)
+	face, err := pdffont.New(pdffont.Options{
+		Resource: "F1",
+		BaseName: "GoRegular",
+		Program:  goregular.TTF,
+		Plan:     pdffont.PlanSubset,
+	})
 	if err != nil {
 		return err
 	}
-
-	labels := make([]string, pageCount)
-	for i := range labels {
-		labels[i] = "Page " + strconv.Itoa(i+1) + " of " + strconv.Itoa(pageCount)
-	}
-
-	font := &pdf.Font{Resource: "F1", BaseName: "GoRegular", Program: face}
-	gids, err := glyphRuns(face, labels...)
-	if err != nil {
-		return err
-	}
-	font.Glyphs = gids.all
 
 	pages := make([]pdf.Page, pageCount)
 	for i := range pages {
+		label := "Page " + strconv.Itoa(i+1) + " of " + strconv.Itoa(pageCount)
+		gids, err := face.Encode(label)
+		if err != nil {
+			return err
+		}
+
 		var c content.Builder
 		c.BeginText().
 			SetFont("F1", object.Points(18)).
 			MoveText(object.Points(72), object.Points(700)).
-			ShowGlyphs(gids.runs[i]).
+			ShowGlyphs(gids).
 			EndText()
 
 		pages[i] = pdf.Page{
 			Width:   object.Points(612),
 			Height:  object.Points(792),
 			Content: c.Bytes(),
-			Fonts:   []*pdf.Font{font},
+			Fonts:   []*pdffont.Face{face},
 		}
 	}
 
@@ -129,26 +127,28 @@ func pdfSpikeCase() Case {
 
 // writePDFSpike composes the spike document.
 func writePDFSpike(w io.Writer, epoch time.Time) error {
-	face, err := sfnt.Parse(goregular.TTF)
-	if err != nil {
-		return err
-	}
-
 	const (
 		heading = "Hello, PDF/A"
 		body    = "Composed by Vellum. Every glyph here is embedded as a subset."
 	)
 
-	font := &pdf.Font{
+	face, err := pdffont.New(pdffont.Options{
 		Resource: "F1",
 		BaseName: "GoRegular",
-		Program:  face,
-	}
-	gids, err := glyphRuns(face, heading, body)
+		Program:  goregular.TTF,
+		Plan:     pdffont.PlanSubset,
+	})
 	if err != nil {
 		return err
 	}
-	font.Glyphs = gids.all
+	headingGlyphs, err := face.Encode(heading)
+	if err != nil {
+		return err
+	}
+	bodyGlyphs, err := face.Encode(body)
+	if err != nil {
+		return err
+	}
 
 	var c content.Builder
 	// A filled rule above the heading, which puts a DeviceRGB colour in the
@@ -164,13 +164,13 @@ func writePDFSpike(w io.Writer, epoch time.Time) error {
 	c.BeginText().
 		SetFont("F1", object.Points(24)).
 		MoveText(object.Points(72), object.Points(684)).
-		ShowGlyphs(gids.runs[0]).
+		ShowGlyphs(headingGlyphs).
 		EndText()
 
 	c.BeginText().
 		SetFont("F1", object.Points(11)).
 		MoveText(object.Points(72), object.Points(652)).
-		ShowGlyphs(gids.runs[1]).
+		ShowGlyphs(bodyGlyphs).
 		EndText()
 
 	d := pdf.Document{
@@ -184,47 +184,10 @@ func writePDFSpike(w io.Writer, epoch time.Time) error {
 			Width:   object.Points(612),
 			Height:  object.Points(792),
 			Content: c.Bytes(),
-			Fonts:   []*pdf.Font{font},
+			Fonts:   []*pdffont.Face{face},
 		}},
 	}
 	return d.WriteTo(w, pdf.WriteOptions{SourceDateEpoch: epoch})
-}
-
-// glyphSet is the glyph ids for each text run, and their union.
-type glyphSet struct {
-	runs [][]uint16
-	all  []sfnt.GlyphID
-}
-
-// glyphRuns maps each string to glyph ids, failing on a character the face does
-// not cover.
-//
-// A missing glyph is an error rather than a substitution. A document that
-// silently renders a row of empty boxes is one nobody notices until it has been
-// sent, and Vellum will not reach for another installed face because that makes
-// the same specification render differently on two machines.
-func glyphRuns(face *sfnt.Font, texts ...string) (glyphSet, error) {
-	var out glyphSet
-	seen := map[sfnt.GlyphID]bool{}
-
-	for _, text := range texts {
-		var run []uint16
-		for _, r := range text {
-			g, ok := face.GlyphFor(r)
-			if !ok {
-				return glyphSet{}, verr.NewCodedErrorWithDetails(verr.VELLUM_PDF_GLYPH_MISSING,
-					"the face has no glyph for this character",
-					map[string]any{"character": string(r), "code_point": int(r)})
-			}
-			run = append(run, uint16(g))
-			if !seen[g] {
-				seen[g] = true
-				out.all = append(out.all, g)
-			}
-		}
-		out.runs = append(out.runs, run)
-	}
-	return out, nil
 }
 
 // docxSkeletonCase is the first real artifact: a heading and a paragraph

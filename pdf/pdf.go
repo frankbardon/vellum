@@ -29,6 +29,7 @@ import (
 	"time"
 
 	verr "github.com/frankbardon/vellum/errors"
+	"github.com/frankbardon/vellum/pdf/font"
 	"github.com/frankbardon/vellum/pdf/object"
 	"github.com/frankbardon/vellum/pdf/pdfa"
 	"github.com/frankbardon/vellum/pdf/xmp"
@@ -42,9 +43,9 @@ type Page struct {
 	// Content is the page's content stream, as built by [content.Builder].
 	Content []byte
 
-	// Fonts are the fonts this page's content stream selects, by resource name.
-	// A font shared between pages is embedded once.
-	Fonts []*Font
+	// Fonts are the faces this page's content stream selects. A face shared
+	// between pages is embedded once.
+	Fonts []*font.Face
 }
 
 // Document is a PDF/A-2b document ready to be written.
@@ -141,18 +142,18 @@ func (d *Document) WriteTo(w io.Writer, opts WriteOptions) error {
 
 // writeFonts embeds each distinct font once and returns its reference.
 //
-// Identity is the Font pointer, so a caller sharing one value across pages gets
-// one embedding and a caller building two equivalent values gets two. That is
-// the honest reading of what was asked for: two Font values with the same face
-// and different glyph sets are two different subsets.
-func (d *Document) writeFonts(doc *object.Document) (map[*Font]object.Ref, error) {
-	refs := make(map[*Font]object.Ref)
+// Identity is the [font.Face] pointer, so a caller sharing one across pages gets
+// one embedding and a caller building two gets two. That is the honest reading
+// of what was asked for: two faces over the same program with different glyph
+// sets are two different subsets.
+func (d *Document) writeFonts(doc *object.Document) (map[*font.Face]object.Ref, error) {
+	refs := make(map[*font.Face]object.Ref)
 	for i := range d.Pages {
 		for _, f := range d.Pages[i].Fonts {
 			if _, seen := refs[f]; seen {
 				continue
 			}
-			ref, err := f.write(doc)
+			ref, err := f.Write(doc)
 			if err != nil {
 				return nil, err
 			}
@@ -168,7 +169,7 @@ func (d *Document) writeFonts(doc *object.Document) (map[*Font]object.Ref, error
 // the parent and would otherwise be trusting this function to have agreed with
 // it. The media box is set here and may be lifted onto the tree's root if every
 // page shares it.
-func (d *Document) pageDict(doc *object.Document, p *Page, fontRefs map[*Font]object.Ref) (object.Dict, error) {
+func (d *Document) pageDict(doc *object.Document, p *Page, fontRefs map[*font.Face]object.Ref) (object.Dict, error) {
 	contents, err := doc.AddStream(object.Dict{}, p.Content)
 	if err != nil {
 		return object.Dict{}, err
@@ -183,9 +184,9 @@ func (d *Document) pageDict(doc *object.Document, p *Page, fontRefs map[*Font]ob
 		if !ok {
 			return object.Dict{}, verr.NewCodedErrorWithDetails(verr.VELLUM_PDF_OBJECT_UNRESOLVED,
 				"a page names a font that was not embedded",
-				map[string]any{"resource": string(f.Resource)})
+				map[string]any{"resource": string(f.Resource())})
 		}
-		fonts.Set(f.Resource, ref)
+		fonts.Set(f.Resource(), ref)
 	}
 
 	resources := object.NewDict("ProcSet", object.Array{object.Name("PDF"), object.Name("Text")})

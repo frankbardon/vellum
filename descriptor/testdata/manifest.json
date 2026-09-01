@@ -76,6 +76,7 @@
         "asset.media.image/png",
         "asset.media.image/jpeg",
         "font.embed.subset",
+        "font.embed.whole",
         "overflow.continue_repeat_headers"
       ],
       "note": "PDF/A-2b, emitted directly rather than converted. Every font is embedded, because the archival profile requires it."
@@ -205,6 +206,14 @@
       "note": "As above."
     },
     {
+      "feature": "font.outlines.cff",
+      "format": "docx",
+      "outcome": "degrades",
+      "degrade": "the family referenced by name",
+      "code": "VELLUM_FONT_SUBSTITUTED",
+      "note": "The outline format does not change the answer here, because this format embeds no font programs in v1: every face is referenced by name whatever its outlines are."
+    },
+    {
       "feature": "overflow.continue_repeat_headers",
       "format": "docx",
       "outcome": "degrades",
@@ -323,6 +332,14 @@
       "note": "As above."
     },
     {
+      "feature": "font.outlines.cff",
+      "format": "xlsx",
+      "outcome": "degrades",
+      "degrade": "the family referenced by name",
+      "code": "VELLUM_FONT_SUBSTITUTED",
+      "note": "The outline format does not change the answer here, because this format embeds no font programs in v1: every face is referenced by name whatever its outlines are."
+    },
+    {
       "feature": "overflow.continue_repeat_headers",
       "format": "xlsx",
       "outcome": "degrades",
@@ -427,6 +444,14 @@
       "note": "As above."
     },
     {
+      "feature": "font.outlines.cff",
+      "format": "pptx",
+      "outcome": "degrades",
+      "degrade": "the family referenced by name",
+      "code": "VELLUM_FONT_SUBSTITUTED",
+      "note": "The outline format does not change the answer here, because this format embeds no font programs in v1: every face is referenced by name whatever its outlines are."
+    },
+    {
       "feature": "overflow.continue_repeat_headers",
       "format": "pptx",
       "outcome": "renders",
@@ -516,15 +541,21 @@
       "feature": "font.embed.subset",
       "format": "pdf",
       "outcome": "renders",
-      "note": "PDF/A-2b requires every font embedded. TrueType outlines are subsetted."
+      "note": "PDF/A-2b requires every font embedded, and TrueType outlines are subsetted. A face with CFF outlines cannot be subsetted; see font.outlines.cff, which is where that answer lives."
     },
     {
       "feature": "font.embed.whole",
       "format": "pdf",
+      "outcome": "renders",
+      "note": "The whole program is embedded, which is what the theme asked for. A licence forbidding subsetting is the usual reason to ask."
+    },
+    {
+      "feature": "font.outlines.cff",
+      "format": "pdf",
       "outcome": "degrades",
       "degrade": "the whole font program embedded rather than a subset",
       "code": "VELLUM_CAPABILITY_DEGRADED",
-      "note": "CFF subsetting is deferred, so a CFF face embeds whole. A theme demanding a subset gets a hard error instead, because subset-only may be a licence condition and must never be silently ignored."
+      "note": "Vellum subsets glyf and not CFF: a CFF subsetter means a second outline format and a charstring interpreter, and the size it saves is not worth the ways it can be subtly wrong. The face is embedded whole and the document is conforming. A theme demanding embed: \"subset\" of a CFF face gets VELLUM_FONT_EMBED_UNSUPPORTED rather than this degradation, because subset-only may be a licence condition and must never be silently ignored."
     },
     {
       "feature": "overflow.continue_repeat_headers",
@@ -680,4 +711,4 @@
   "error_codes_count": 42,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: 4ff71a62c5886058977b8c1bfad1644b95b7794ff07162405c2d5eb38a60d371
+// golden-hash: 20ca7152e6159fee689537b4b2f1de4296c23446c98eca3af8318a422453c1ef

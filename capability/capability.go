@@ -83,9 +83,16 @@ const (
 )
 
 // Font features.
+//
+// The two embed modes are what a theme asks for. The outline format is a
+// property of the face itself, and it is a separate row because it changes the
+// answer independently: a PDF honours a subset request for TrueType outlines
+// and cannot honour one for CFF, and no single outcome on font.embed.subset
+// states both.
 const (
 	FeatureFontEmbedSubset Feature = "font.embed.subset"
 	FeatureFontEmbedWhole  Feature = "font.embed.whole"
+	FeatureFontOutlinesCFF Feature = "font.outlines.cff"
 )
 
 // Overflow and fill.
@@ -115,6 +122,7 @@ var allFeatures = []Feature{
 
 	FeatureFontEmbedSubset,
 	FeatureFontEmbedWhole,
+	FeatureFontOutlinesCFF,
 
 	FeatureOverflowContinue,
 	FeatureFill,

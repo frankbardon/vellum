@@ -50,6 +50,12 @@ var matrix = Matrix{
 	},
 
 	{
+		Feature: FeatureFontOutlinesCFF, Format: artifact.FormatDOCX, Outcome: Degrades,
+		Degrade: "the family referenced by name", Code: verr.VELLUM_FONT_SUBSTITUTED,
+		Note: "The outline format does not change the answer here, because this format embeds no font programs in v1: every face is referenced by name whatever its outlines are.",
+	},
+
+	{
 		Feature: FeatureOverflowContinue, Format: artifact.FormatDOCX, Outcome: Degrades,
 		Degrade: "flow", Code: verr.VELLUM_CAPABILITY_DEGRADED,
 		Note: "A flowing format paginates itself. Vellum does not lay out OOXML, and a split it computed would disagree with the one Word performs.",
@@ -110,6 +116,12 @@ var matrix = Matrix{
 	},
 
 	{
+		Feature: FeatureFontOutlinesCFF, Format: artifact.FormatXLSX, Outcome: Degrades,
+		Degrade: "the family referenced by name", Code: verr.VELLUM_FONT_SUBSTITUTED,
+		Note: "The outline format does not change the answer here, because this format embeds no font programs in v1: every face is referenced by name whatever its outlines are.",
+	},
+
+	{
 		Feature: FeatureOverflowContinue, Format: artifact.FormatXLSX, Outcome: Degrades,
 		Degrade: "one continuous sheet", Code: verr.VELLUM_CAPABILITY_DEGRADED,
 		Note: "A sheet has no page, so a long table simply continues.",
@@ -150,6 +162,12 @@ var matrix = Matrix{
 		Note: "As above.",
 	},
 
+	{
+		Feature: FeatureFontOutlinesCFF, Format: artifact.FormatPPTX, Outcome: Degrades,
+		Degrade: "the family referenced by name", Code: verr.VELLUM_FONT_SUBSTITUTED,
+		Note: "The outline format does not change the answer here, because this format embeds no font programs in v1: every face is referenced by name whatever its outlines are.",
+	},
+
 	{Feature: FeatureOverflowContinue, Format: artifact.FormatPPTX, Outcome: Renders,
 		Note: "A table longer than a slide continues onto the next with its headers repeated. Capacity is theme-derived rather than measured, so the split is reproducible."},
 	{Feature: FeatureFill, Format: artifact.FormatPPTX, Outcome: Renders},
@@ -181,11 +199,13 @@ var matrix = Matrix{
 	},
 
 	{Feature: FeatureFontEmbedSubset, Format: artifact.FormatPDF, Outcome: Renders,
-		Note: "PDF/A-2b requires every font embedded. TrueType outlines are subsetted."},
+		Note: "PDF/A-2b requires every font embedded, and TrueType outlines are subsetted. A face with CFF outlines cannot be subsetted; see font.outlines.cff, which is where that answer lives."},
+	{Feature: FeatureFontEmbedWhole, Format: artifact.FormatPDF, Outcome: Renders,
+		Note: "The whole program is embedded, which is what the theme asked for. A licence forbidding subsetting is the usual reason to ask."},
 	{
-		Feature: FeatureFontEmbedWhole, Format: artifact.FormatPDF, Outcome: Degrades,
+		Feature: FeatureFontOutlinesCFF, Format: artifact.FormatPDF, Outcome: Degrades,
 		Degrade: "the whole font program embedded rather than a subset", Code: verr.VELLUM_CAPABILITY_DEGRADED,
-		Note: "CFF subsetting is deferred, so a CFF face embeds whole. A theme demanding a subset gets a hard error instead, because subset-only may be a licence condition and must never be silently ignored.",
+		Note: "Vellum subsets glyf and not CFF: a CFF subsetter means a second outline format and a charstring interpreter, and the size it saves is not worth the ways it can be subtly wrong. The face is embedded whole and the document is conforming. A theme demanding embed: \"subset\" of a CFF face gets VELLUM_FONT_EMBED_UNSUPPORTED rather than this degradation, because subset-only may be a licence condition and must never be silently ignored.",
 	},
 
 	{Feature: FeatureOverflowContinue, Format: artifact.FormatPDF, Outcome: Renders,

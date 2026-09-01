@@ -133,6 +133,8 @@ func TestCapabilityKnownDecisions(t *testing.T) {
 			"a flowing format paginates itself; a split Vellum computed would disagree with Word's"},
 		{capability.FeatureFontEmbedSubset, artifact.FormatPDF, capability.Renders,
 			"PDF/A-2b requires every font embedded"},
+		{capability.FeatureFontOutlinesCFF, artifact.FormatPDF, capability.Degrades,
+			"Vellum subsets glyf and not CFF, so a CFF face is embedded whole"},
 	}
 	for _, tt := range tests {
 		e, ok := capability.Lookup(tt.feature, tt.format)

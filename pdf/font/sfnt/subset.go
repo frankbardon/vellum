@@ -373,6 +373,15 @@ func tableChecksum(b []byte) uint32 {
 // fileChecksum sums the whole program the same way.
 func fileChecksum(b []byte) uint32 { return tableChecksum(b) }
 
+// SubsetTag derives the six-letter subset prefix from a program and a glyph
+// set.
+//
+// Exported because a whole-program embedding needs one too: two documents
+// embedding the same face with different glyph sets are different subsets from
+// a consumer's point of view, and PDF requires the base font name to
+// distinguish them even when the programs are byte-identical.
+func SubsetTag(program []byte, glyphs []GlyphID) string { return subsetTag(program, glyphs) }
+
 // subsetTag derives the six-letter prefix from the source program and the
 // retained glyphs.
 //
