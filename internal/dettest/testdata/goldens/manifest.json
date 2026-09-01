@@ -1,0 +1,10 @@
+{
+  "entries": {
+    "substrate-package": {
+      "file": "substrate-package/expected.zip",
+      "sha256": "3c8dcaada07e2925dd80dee0fd3c50e0caa3f1b99de727d81abc74b8bc73272b",
+      "bytes": 1485
+    }
+  }
+}
+// golden-hash: 1aff213db0b185bea6efdb81e0a478163d279cb8c248e4027084a5800f9d938e
