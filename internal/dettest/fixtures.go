@@ -42,6 +42,7 @@ func Cases() []Case {
 		pptxMasterCase(),
 		pptxComposeCase(),
 		pptxTableCase(),
+		pptxAssetsCase(),
 		pdfSpikeCase(),
 		pdfPagesCase(),
 		pdfProseCase(),
@@ -821,6 +822,66 @@ func writePPTXTable(w io.Writer, epoch time.Time) error {
 					Body:       body,
 					Caption:    "Percentages. Base: all adults.",
 				}},
+			},
+		}},
+	}
+
+	res, err := resolve.Resolve(context.Background(), s, resolve.Options{Format: artifact.FormatPPTX})
+	if err != nil {
+		return err
+	}
+
+	d, err := deck.Lower(res.Doc)
+	if err != nil {
+		return err
+	}
+	return d.WriteTo(w, deck.WriteOptions{SourceDateEpoch: epoch})
+}
+
+// pptxAssetsCase is the deck's asset path, including the one degradation it
+// declares.
+//
+// A vector reaches PowerPoint only alongside a raster: the raster is the blip
+// and the vector rides in an extension on it, so a reader that understands SVG
+// draws the vector and every other reader draws the raster. Vellum does not
+// rasterise, so the pair has to arrive together — and the arrangement is
+// invisible to every check that only asks whether the package opens.
+//
+// The alt text is here for the same reason. It reaches a deck as the drawing's
+// descr attribute and it is the only place a screen reader looks, so a golden
+// that carried a picture and no description would exercise the half of the path
+// nobody depends on.
+func pptxAssetsCase() Case {
+	return Case{
+		Name:  "pptx-assets",
+		Ext:   "pptx",
+		Write: writePPTXAssets,
+	}
+}
+
+// deckSVG is a vector with a stated viewBox, so the placed height follows a
+// ratio rather than a default.
+const deckSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"/>`
+
+// writePPTXAssets composes the deck of pictures.
+func writePPTXAssets(w io.Writer, epoch time.Time) error {
+	png := "data:image/png;base64," + base64.StdEncoding.EncodeToString(fixturePNG())
+	svg := "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString([]byte(deckSVG))
+
+	s := &spec.Spec{
+		FormatVersion: spec.FormatVersion,
+		Title:         "Pictures In A Deck",
+		Sections: []spec.Section{{
+			ID: "figures",
+			Blocks: []spec.Block{
+				{Kind: spec.BlockHeading, Heading: &spec.Heading{Level: 1, Content: "A raster"}},
+				{Kind: spec.BlockAsset, Asset: &spec.Asset{
+					Handle: png, AltText: "A placeholder raster, described for a screen reader."}},
+				{Kind: spec.BlockHeading, Heading: &spec.Heading{Level: 1, Content: "A vector, with its fallback"}},
+				{Kind: spec.BlockAsset, Asset: &spec.Asset{
+					Handle: svg, AltText: "A placeholder vector."}},
+				{Kind: spec.BlockNotes, Notes: &spec.Notes{
+					Content: "The vector rides in an extension on the blip beside the raster."}},
 			},
 		}},
 	}

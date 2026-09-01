@@ -489,6 +489,7 @@ Determinism:
 - `TestDeterminismCrossProcess` — re-exec in fresh processes and compare digests.
 - `TestDeterminismGOMAXPROCS` — the same goldens at `GOMAXPROCS=1` and `=8` under `-race`.
 - `TestDeterminismEpochInvariance` — wall-clock time does not affect output; an explicit `SourceDateEpoch` produces a different but stable result.
+- `TestDeterminismOverflowIsPinned` — each overflowing golden's split is committed as values: rows per slide and the label at each boundary, read back out of the written package. The harness already proves the split cannot drift between runs; this makes it visible, because a change to the row-height arithmetic otherwise moves the boundary and hides inside a few thousand bytes of rebaselined XML.
 - `TestNoTimeNow` — no `time.Now(` in non-test source outside the `provenance` opt-in.
 - `TestNoUnsortedMapIteration` — AST gate over the output-path packages.
 - `TestNoFontscanImport` — `go list -deps` firewall against system font scanning.

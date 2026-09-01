@@ -105,6 +105,20 @@ var officeExpectations = map[string]officeExpectation{
 			"Percentages. Base: all adults.",
 		},
 	},
+	"pptx-assets": {
+		TextFilter: "fodp:OpenDocument Presentation Flat XML",
+		TextExt:    "fodp",
+		WantText: []string{
+			"A raster",
+			"A vector, with its fallback",
+			// The accessible description, which reaches a deck as the
+			// drawing's descr and is the only place a screen reader looks. A
+			// reader that carries it through the round trip is one that found
+			// it where it belongs.
+			"A placeholder raster, described for a screen reader.",
+			"The vector rides in an extension on the blip beside the raster.",
+		},
+	},
 	"docx-profile": {
 		TextFilter: "txt:Text",
 		TextExt:    "txt",
