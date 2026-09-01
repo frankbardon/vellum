@@ -179,13 +179,6 @@ func writeEntry(zw *zip.Writer, e *Entry, raw []byte, fdate, ftime uint16, force
 		Name:   e.Name,
 		Method: method,
 
-		// Modified stays zero deliberately. A non-zero Modified makes
-		// archive/zip append an Info-ZIP extended timestamp extra field, which
-		// puts a second copy of the time into the header bytes. The legacy
-		// MS-DOS fields below carry the timestamp instead.
-		ModifiedDate: fdate,
-		ModifiedTime: ftime,
-
 		// Pinned rather than inherited from the platform, so an archive
 		// written on Windows and on Linux is byte-identical.
 		CreatorVersion:     0,
@@ -194,6 +187,7 @@ func writeEntry(zw *zip.Writer, e *Entry, raw []byte, fdate, ftime uint16, force
 		CompressedSize64:   uint64(len(payload)),
 		UncompressedSize64: uint64(len(raw)),
 	}
+	setMSDOSTime(fh, fdate, ftime)
 
 	w, err := zw.CreateRaw(fh)
 	if err != nil {
@@ -211,4 +205,24 @@ func tooLarge(name string, size, limit int64) error {
 	return verr.NewCodedErrorWithDetails(verr.VELLUM_ZIP_TOO_LARGE,
 		"entry exceeds the configured uncompressed size bound",
 		map[string]any{"entry_name": name, "size_bytes": size, "limit_bytes": limit})
+}
+
+// setMSDOSTime writes the timestamp into the legacy MS-DOS header fields,
+// leaving FileHeader.Modified at its zero value.
+//
+// Those two fields are deprecated, and the deprecation notice says to use
+// Modified instead. Doing so is exactly what this package must not do: a
+// non-zero Modified makes archive/zip append an Info-ZIP extended timestamp
+// extra field, which puts a second copy of the time into the header bytes and
+// varies the header length. The deprecated fields are the only way to write a
+// timestamp without that extra field, so the deprecation is suppressed here
+// deliberately rather than worked around.
+//
+// TestWrite_NoExtraFields reads the raw local headers and fails if this ever
+// stops being true.
+func setMSDOSTime(fh *zip.FileHeader, fdate, ftime uint16) {
+	//lint:ignore SA1019 Modified would emit an extended-timestamp extra field; see the comment above.
+	fh.ModifiedDate = fdate
+	//lint:ignore SA1019 Modified would emit an extended-timestamp extra field; see the comment above.
+	fh.ModifiedTime = ftime
 }
