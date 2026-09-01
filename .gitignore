@@ -26,14 +26,17 @@ vendor/
 Godeps/
 
 # Vellum artifacts
+#
+# Generated documents are build output and are not tracked. Committed goldens
+# live under a testdata/ directory somewhere in the tree, so that whole subtree
+# is negated — a pattern anchored at the repository root would miss
+# internal/dettest/testdata/ and quietly leave a golden untracked, which is how
+# a determinism gate comes to pass locally and fail in CI.
 *.docx
 *.xlsx
 *.pptx
 *.pdf
-!testdata/**/*.docx
-!testdata/**/*.xlsx
-!testdata/**/*.pptx
-!testdata/**/*.pdf
+!**/testdata/**
 
 # Docs (mdBook build output)
 docs/book/
