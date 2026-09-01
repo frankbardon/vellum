@@ -191,15 +191,17 @@
     {
       "feature": "font.embed.subset",
       "format": "docx",
-      "outcome": "rejects",
-      "code": "VELLUM_CAPABILITY_REJECTED",
-      "note": "Font embedding in OOXML is a document-settings feature Vellum does not author in v1; the theme's declared faces are referenced by name."
+      "outcome": "degrades",
+      "degrade": "the family referenced by name",
+      "code": "VELLUM_CAPABILITY_DEGRADED",
+      "note": "Font embedding in OOXML is a document-settings feature Vellum does not author in v1, so a theme's faces are referenced by name and the reader resolves them. Degrades rather than rejects because a theme that merely permits embedding should still render; a theme that explicitly demands it gets VELLUM_FONT_EMBED_UNSUPPORTED instead, because an explicit demand is a statement about a licence and must not be silently downgraded."
     },
     {
       "feature": "font.embed.whole",
       "format": "docx",
-      "outcome": "rejects",
-      "code": "VELLUM_CAPABILITY_REJECTED",
+      "outcome": "degrades",
+      "degrade": "the family referenced by name",
+      "code": "VELLUM_CAPABILITY_DEGRADED",
       "note": "As above."
     },
     {
@@ -307,14 +309,18 @@
     {
       "feature": "font.embed.subset",
       "format": "xlsx",
-      "outcome": "rejects",
-      "code": "VELLUM_CAPABILITY_REJECTED"
+      "outcome": "degrades",
+      "degrade": "the family referenced by name",
+      "code": "VELLUM_CAPABILITY_DEGRADED",
+      "note": "As DOCX: xlsx references a family by name and never carries the program."
     },
     {
       "feature": "font.embed.whole",
       "format": "xlsx",
-      "outcome": "rejects",
-      "code": "VELLUM_CAPABILITY_REJECTED"
+      "outcome": "degrades",
+      "degrade": "the family referenced by name",
+      "code": "VELLUM_CAPABILITY_DEGRADED",
+      "note": "As above."
     },
     {
       "feature": "overflow.continue_repeat_headers",
@@ -407,14 +413,18 @@
     {
       "feature": "font.embed.subset",
       "format": "pptx",
-      "outcome": "rejects",
-      "code": "VELLUM_CAPABILITY_REJECTED"
+      "outcome": "degrades",
+      "degrade": "the family referenced by name",
+      "code": "VELLUM_CAPABILITY_DEGRADED",
+      "note": "As DOCX. A deck is the case where a missing face is most visible, because a slide's type is large and its layout is fixed — which is why the substitution is warned rather than assumed harmless."
     },
     {
       "feature": "font.embed.whole",
       "format": "pptx",
-      "outcome": "rejects",
-      "code": "VELLUM_CAPABILITY_REJECTED"
+      "outcome": "degrades",
+      "degrade": "the family referenced by name",
+      "code": "VELLUM_CAPABILITY_DEGRADED",
+      "note": "As above."
     },
     {
       "feature": "overflow.continue_repeat_headers",
@@ -664,4 +674,4 @@
   "error_codes_count": 37,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: 8f3ce374c516861c7ace0afda4ba8582345f763bc07b83b0c567b84e83d33521
+// golden-hash: efbcf7823521e602ccfb0d368e5c6a7e8f1da9f08e70fbe61e8eef961d983d7b

@@ -2,6 +2,7 @@ package theme
 
 import (
 	"fmt"
+	"maps"
 	"regexp"
 	"sort"
 
@@ -382,9 +383,7 @@ func requirePositive(themeID, field string, l spec.Length) error {
 // map is never mutated by an error that merely borrowed it.
 func withValue(where map[string]any, key string, value any) map[string]any {
 	out := make(map[string]any, len(where)+1)
-	for k, v := range where {
-		out[k] = v
-	}
+	maps.Copy(out, where)
 	out[key] = value
 	return out
 }

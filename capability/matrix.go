@@ -38,10 +38,16 @@ var matrix = Matrix{
 		Note: "Word 2016 and later read an SVG only when a raster blip accompanies it. The caller supplies the pair; Vellum will not rasterise, because it never renders.",
 	},
 
-	{Feature: FeatureFontEmbedSubset, Format: artifact.FormatDOCX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED,
-		Note: "Font embedding in OOXML is a document-settings feature Vellum does not author in v1; the theme's declared faces are referenced by name."},
-	{Feature: FeatureFontEmbedWhole, Format: artifact.FormatDOCX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED,
-		Note: "As above."},
+	{
+		Feature: FeatureFontEmbedSubset, Format: artifact.FormatDOCX, Outcome: Degrades,
+		Degrade: "the family referenced by name", Code: verr.VELLUM_CAPABILITY_DEGRADED,
+		Note: "Font embedding in OOXML is a document-settings feature Vellum does not author in v1, so a theme's faces are referenced by name and the reader resolves them. Degrades rather than rejects because a theme that merely permits embedding should still render; a theme that explicitly demands it gets VELLUM_FONT_EMBED_UNSUPPORTED instead, because an explicit demand is a statement about a licence and must not be silently downgraded.",
+	},
+	{
+		Feature: FeatureFontEmbedWhole, Format: artifact.FormatDOCX, Outcome: Degrades,
+		Degrade: "the family referenced by name", Code: verr.VELLUM_CAPABILITY_DEGRADED,
+		Note: "As above.",
+	},
 
 	{
 		Feature: FeatureOverflowContinue, Format: artifact.FormatDOCX, Outcome: Degrades,
@@ -92,8 +98,16 @@ var matrix = Matrix{
 	{Feature: FeatureAssetJPEG, Format: artifact.FormatXLSX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED},
 	{Feature: FeatureAssetSVG, Format: artifact.FormatXLSX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED},
 
-	{Feature: FeatureFontEmbedSubset, Format: artifact.FormatXLSX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED},
-	{Feature: FeatureFontEmbedWhole, Format: artifact.FormatXLSX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED},
+	{
+		Feature: FeatureFontEmbedSubset, Format: artifact.FormatXLSX, Outcome: Degrades,
+		Degrade: "the family referenced by name", Code: verr.VELLUM_CAPABILITY_DEGRADED,
+		Note: "As DOCX: xlsx references a family by name and never carries the program.",
+	},
+	{
+		Feature: FeatureFontEmbedWhole, Format: artifact.FormatXLSX, Outcome: Degrades,
+		Degrade: "the family referenced by name", Code: verr.VELLUM_CAPABILITY_DEGRADED,
+		Note: "As above.",
+	},
 
 	{
 		Feature: FeatureOverflowContinue, Format: artifact.FormatXLSX, Outcome: Degrades,
@@ -125,8 +139,16 @@ var matrix = Matrix{
 		Degrade: "raster fallback with the vector embedded alongside", Code: verr.VELLUM_CAPABILITY_DEGRADED,
 	},
 
-	{Feature: FeatureFontEmbedSubset, Format: artifact.FormatPPTX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED},
-	{Feature: FeatureFontEmbedWhole, Format: artifact.FormatPPTX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED},
+	{
+		Feature: FeatureFontEmbedSubset, Format: artifact.FormatPPTX, Outcome: Degrades,
+		Degrade: "the family referenced by name", Code: verr.VELLUM_CAPABILITY_DEGRADED,
+		Note: "As DOCX. A deck is the case where a missing face is most visible, because a slide's type is large and its layout is fixed — which is why the substitution is warned rather than assumed harmless.",
+	},
+	{
+		Feature: FeatureFontEmbedWhole, Format: artifact.FormatPPTX, Outcome: Degrades,
+		Degrade: "the family referenced by name", Code: verr.VELLUM_CAPABILITY_DEGRADED,
+		Note: "As above.",
+	},
 
 	{Feature: FeatureOverflowContinue, Format: artifact.FormatPPTX, Outcome: Renders,
 		Note: "A table longer than a slide continues onto the next with its headers repeated. Capacity is theme-derived rather than measured, so the split is reproducible."},

@@ -174,3 +174,48 @@ func CodeOf(err error) (Code, bool) {
 	}
 	return "", false
 }
+
+// WithDetails returns a copy of the error carrying additional details.
+//
+// It exists for the layer that knows *where* a failure happened but not *what*
+// it was. A section resolver knows the section index; the length parser that
+// actually failed knows only that a length was bad. Re-wrapping would restate
+// the message and nest the cause one deeper for no gain, so the position is
+// merged into the original instead.
+//
+// Existing keys are not overwritten. The inner layer was closer to the fault
+// and its account of a shared key is the better one.
+//
+// The receiver is not modified: an error value may be held by a caller, and a
+// second annotation of the same error must not change what the first one said.
+func (e *CodedError) WithDetails(details map[string]any) *CodedError {
+	if e == nil {
+		return nil
+	}
+	merged := make(map[string]any, len(e.Details)+len(details))
+	for k, v := range details {
+		merged[k] = v
+	}
+	for k, v := range e.Details {
+		merged[k] = v
+	}
+	return &CodedError{Code: e.Code, Message: e.Message, Details: merged, Cause: e.Cause}
+}
+
+// Annotate adds details to err when it is a coded error, and returns it
+// unchanged when it is not.
+//
+// The plain-error case is deliberately a passthrough rather than a wrap. An
+// error that is not coded came from outside this library or from a layer that
+// has not adopted the vocabulary, and attaching a code to it here would invent
+// a classification nobody made.
+func Annotate(err error, details map[string]any) error {
+	if err == nil {
+		return nil
+	}
+	var coded *CodedError
+	if stderrors.As(err, &coded) {
+		return coded.WithDetails(details)
+	}
+	return err
+}

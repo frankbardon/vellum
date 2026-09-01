@@ -1,0 +1,165 @@
+package resolve
+
+import (
+	"github.com/frankbardon/vellum/artifact"
+	"github.com/frankbardon/vellum/asset"
+	"github.com/frankbardon/vellum/capability"
+	verr "github.com/frankbardon/vellum/errors"
+	"github.com/frankbardon/vellum/fragment"
+	"github.com/frankbardon/vellum/theme"
+	"maps"
+)
+
+// resolveFonts turns the theme's declared faces into the font manifest.
+//
+// The policy, in one place because it is the kind of rule that rots when it is
+// spread across four writers:
+//
+//   - Embeddable, and the format can embed: embed. How much is the theme's
+//     Embed mode, and the format decides what it can actually deliver.
+//   - Embeddable, and the format cannot embed: reference the family by name and
+//     warn. Every OOXML target is this case in v1.
+//   - Non-embeddable with a declared substitute: use the substitute and warn.
+//   - Non-embeddable with no substitute: a validate-time error, raised by the
+//     theme's own validation long before here.
+//
+// What never happens is a fallback to whatever the machine has installed. That
+// is precisely how one specification comes to render differently on two
+// machines, which defeats byte-identical output and the consumer dedupe resting
+// on it. It is also why nothing in this library reaches
+// go-text/typesetting/fontscan, and why a CI gate enforces that rather than a
+// convention.
+func (r *resolver) resolveFonts() error {
+	canEmbed := formatCanEmbedFonts(r.opts.Format)
+
+	for i := range r.theme.Fonts {
+		f := &r.theme.Fonts[i]
+		face := fragment.Face{
+			Role:       f.Role,
+			Family:     f.Family,
+			Requested:  f.Family,
+			Embed:      fragment.EmbedNone,
+			AssetIndex: -1,
+		}
+		where := map[string]any{
+			"theme_id":  r.theme.ID,
+			"font_role": string(f.Role),
+			"family":    f.Family,
+			"format":    string(r.opts.Format),
+		}
+
+		switch {
+		case !f.Embeddable:
+			// The theme said the licence forbids embedding and named what to
+			// use instead. Its own validation has already refused the case
+			// where it named nothing, so a substitute is present here.
+			face.Family = f.Substitute
+			face.Substituted = true
+			r.warn(verr.NewCodedErrorWithDetails(verr.VELLUM_FONT_SUBSTITUTED,
+				"a theme font declared non-embeddable was replaced by its declared substitute",
+				withValue(where, "substitute", f.Substitute)))
+
+		case !canEmbed:
+			// An explicit demand is a statement about a licence and must not be
+			// silently downgraded, even to a warning. A theme that merely
+			// permits embedding renders, with the degradation reported.
+			if f.Embed != theme.EmbedAuto {
+				return verr.NewCodedErrorWithDetails(verr.VELLUM_FONT_EMBED_UNSUPPORTED,
+					"the theme demands font embedding in a format that cannot carry a font program",
+					withValue(where, "embed", string(f.Embed)))
+			}
+			r.warn(verr.NewCodedErrorWithDetails(verr.VELLUM_CAPABILITY_DEGRADED,
+				"the format carries no font programs, so the family is referenced by name",
+				withValue(where, "feature", string(capability.FeatureFontEmbedSubset))))
+
+		default:
+			// Embeddable, and the format can carry a program. The theme's
+			// handle is required and its presence has already been validated.
+			idx, err := r.ingestAsset(f.Handle, verr.VELLUM_FONT_UNAVAILABLE)
+			if err != nil {
+				return err
+			}
+			face.AssetIndex = idx
+			face.Embed = embedPlanFor(f.Embed)
+		}
+
+		r.faces = append(r.faces, face)
+	}
+	return nil
+}
+
+// formatCanEmbedFonts asks the matrix rather than deciding.
+//
+// The matrix is the single declaration of what each format does, so a change
+// there changes behaviour here without a second edit — which is the property
+// that keeps the declaration from becoming a description written afterwards.
+func formatCanEmbedFonts(format artifact.Format) bool {
+	for _, f := range []capability.Feature{
+		capability.FeatureFontEmbedSubset,
+		capability.FeatureFontEmbedWhole,
+	} {
+		if e, ok := capability.Lookup(f, format); ok && e.Outcome == capability.Renders {
+			return true
+		}
+	}
+	return false
+}
+
+// embedPlanFor maps the theme's mode to the plan.
+//
+// EmbedAuto becomes a subset, because a subset is smaller and is what a format
+// that can embed at all prefers. A face whose outlines cannot in fact be
+// subsetted is caught by the writer that tries, which is the only layer that
+// knows what a given font program contains.
+func embedPlanFor(m theme.EmbedMode) fragment.EmbedPlan {
+	switch m {
+	case theme.EmbedWhole:
+		return fragment.EmbedWhole
+	default:
+		return fragment.EmbedSubset
+	}
+}
+
+// ingestAsset resolves a handle and returns its index in the manifest,
+// deduplicating by content hash.
+//
+// notFound names the code to use when the handle cannot be produced, because
+// a missing font and a missing picture are the same failure with different
+// consequences and a consumer routing on the code needs them apart.
+func (r *resolver) ingestAsset(handle string, notFound verr.Code) (int, error) {
+	a, err := asset.Ingest(r.ctx, r.opts.Assets, asset.Request{
+		Handle: handle,
+		Format: r.opts.Format,
+		Accept: capability.AcceptedMedia(r.opts.Format),
+	}, r.opts.AssetOptions)
+	if err != nil {
+		if notFound != verr.VELLUM_ASSET_NOT_FOUND && verr.HasCode(err, verr.VELLUM_ASSET_NOT_FOUND) {
+			return -1, verr.WrapCodedErrorWithDetails(err, notFound,
+				"the asset resolver could not produce the font program the theme names",
+				map[string]any{"handle": handle, "format": string(r.opts.Format)})
+		}
+		return -1, err
+	}
+
+	if idx, ok := r.byHash[a.Hash]; ok {
+		return idx, nil
+	}
+	r.assets = append(r.assets, fragment.Asset{
+		Handle:    a.Handle,
+		MediaType: a.MediaType,
+		Hash:      a.Hash,
+		Bytes:     a.Bytes,
+		WidthPx:   a.WidthPx,
+		HeightPx:  a.HeightPx,
+	})
+	idx := len(r.assets) - 1
+	r.byHash[a.Hash] = idx
+	return idx, nil
+}
+
+func withValue(where map[string]any, key string, value any) map[string]any {
+	out := make(map[string]any, len(where)+1)
+	maps.Copy(out, where)
+	out[key] = value
+	return out
+}

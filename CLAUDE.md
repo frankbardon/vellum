@@ -278,6 +278,7 @@ Determinism:
 - `TestNoTimeNow` — no `time.Now(` in non-test source outside the `provenance` opt-in.
 - `TestNoUnsortedMapIteration` — AST gate over the output-path packages.
 - `TestNoFontscanImport` — `go list -deps` firewall against system font scanning.
+- `TestNoCollateImport` — `go list -deps` firewall against `x/text/collate`; ordering is bytewise, always.
 - `TestNoEncodingXMLInFill` — `encoding/xml` is not imported from `template/`, `defrag/` or `splice/`.
 - `TestNoCgoImports` — nothing imports `"C"`; paired with the `CGO_ENABLED=0` build step.
 
