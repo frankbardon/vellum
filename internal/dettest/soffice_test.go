@@ -87,6 +87,24 @@ var officeExpectations = map[string]officeExpectation{
 			"Say why the fragment earns its place.",
 		},
 	},
+	"pptx-table": {
+		TextFilter: "fodp:OpenDocument Presentation Flat XML",
+		TextExt:    "fodp",
+		WantText: []string{
+			"Awareness by band",
+			// The first and last body rows, which is the claim the split
+			// makes: every row landed somewhere, on one slide or the next.
+			"Band 1",
+			"Band 26",
+			// The banner, which repeats on every part.
+			"North",
+			// The row-header stub, merged down the left edge.
+			"Age",
+			// The caption, which follows the table's last part rather than
+			// occupying a slide of its own.
+			"Percentages. Base: all adults.",
+		},
+	},
 	"docx-profile": {
 		TextFilter: "txt:Text",
 		TextExt:    "txt",

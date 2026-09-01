@@ -146,10 +146,7 @@ func (l *lowering) block(b *fragment.Block, sectionIndex int, sectionID string, 
 		return l.assetSlide(b.Asset, sectionIndex, sectionID, blockIndex)
 
 	case spec.BlockTable:
-		return verr.NewCodedErrorWithDetails(verr.VELLUM_DECK_BLOCK_UNSUPPORTED,
-			"the PPTX writer does not render tables yet",
-			map[string]any{"kind": string(b.Kind), "section_index": sectionIndex,
-				"section_id": sectionID, "block_index": blockIndex})
+		return l.table(b.Table, sectionIndex, sectionID, blockIndex)
 
 	default:
 		return verr.NewCodedErrorWithDetails(verr.VELLUM_DECK_BLOCK_UNSUPPORTED,
@@ -568,6 +565,14 @@ func designFrom(d *fragment.Doc) (Design, error) {
 		LineHeight:     scale.LineHeight,
 		ParagraphSpace: scale.ParagraphAfter,
 		TitleGap:       scale.HeadingAfter,
+		TableBodySize:  scale.TableBody,
+
+		// Scheme references rather than the values behind them, so a table
+		// follows the theme like everything else on a slide.
+		TableHeaderFill: SchemeColor(SchemeAccent2),
+		TableHeaderText: SchemeColor(SchemeAccent6),
+		TableStripeFill: SchemeColor(SchemeBackground2),
+		TableRuleColor:  SchemeColor(SchemeAccent4),
 	}, nil
 }
 

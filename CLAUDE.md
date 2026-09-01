@@ -238,6 +238,32 @@ The compressed statement; the full table is `.claude/reference/determinism.md`.
   because nothing reports it. Pinned by
   `TestWrite_ColoursOnSlidesAreSchemeReferences`, which also asserts the master
   states a scheme colour so the check cannot pass by there being none.
+- **A pptx table's row height is stated, never left to the reader.** Every cell
+  writes its own insets (`marL/marR/marT/marB`) and every cell paragraph writes
+  an exact line box (`a:lnSpc` as `a:spcPts`, not `a:spcPct`). Both are the
+  numbers `overflow.PlanTable` computed the split from, and a capacity computed
+  from values the file does not state is a capacity for a document the reader
+  will not produce. Proportional line spacing is a proportion of the *font's*
+  own line height, so a reader substituting a face would change the row height
+  and a table measured to fit a slide would overflow it.
+- **An empty pptx table cell's paragraph mark carries the table's type size.**
+  An empty paragraph takes its height from its mark, and a mark stating nothing
+  is sized at DrawingML's default of eighteen points. A crosstab is mostly
+  merged corners and continued stub cells, so one unstated empty paragraph per
+  row doubles every row's height and the table silently overflows the slide the
+  split measured it to fit.
+- **A DrawingML spanning cell does not replace the cells it covers.** It
+  declares `gridSpan` or `rowSpan` and every covered cell stays present carrying
+  `hMerge="1"` or `vMerge="1"`, so a row always holds exactly one `a:tc` per
+  grid column. This is the opposite of WordprocessingML, where a `gridSpan` cell
+  stands in for the cells it covers. A row that is short by the covered cells is
+  one some readers draw with a hole and others draw shifted left.
+- **A merge clipped by an overflow split restarts with its label.** A stub merge
+  computed over the whole table names a span reaching past the container it
+  lands in — twenty-six rows inside a table carrying eighteen — and a reader
+  handed that grows every row trying to honour it. `fragment.ClipStub` restarts
+  the merge at the window's first row, which is the same rule the column banner
+  follows.
 - **pptx masters, layouts and the theme part are authored from the theme, not
   shipped.** A .pptx carries no loose formatting: a slide inherits from a
   layout, a layout from a master, and the master from a theme part naming its

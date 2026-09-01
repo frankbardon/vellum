@@ -129,6 +129,47 @@ var sequences = map[string][]string{
 	// CT_Blip
 	"a:blip": {"a:alphaBiLevel", "a:alphaCeiling", "a:alphaFloor", "a:extLst"},
 
+	// CT_GraphicalObjectFrame. p:xfrm, not a:xfrm — a graphic frame carries its
+	// transform in the presentation namespace.
+	"p:graphicFrame":     {"p:nvGraphicFramePr", "p:xfrm", "a:graphic", "p:extLst"},
+	"p:nvGraphicFramePr": {"p:cNvPr", "p:cNvGraphicFramePr", "p:nvPr"},
+	"p:xfrm":             {"a:off", "a:ext"},
+
+	// CT_Table
+	"a:tbl": {"a:tblPr", "a:tblGrid"},
+
+	// CT_TableProperties. The style reference comes last.
+	"a:tblPr": {"a:noFill", "a:solidFill", "a:gradFill", "a:blipFill",
+		"a:pattFill", "a:grpFill", "a:effectLst", "a:effectDag",
+		"a:tableStyle", "a:tableStyleId"},
+
+	// CT_TableCell. The properties follow the text body, which is the reverse
+	// of every other shape in this format.
+	"a:tc": {"a:txBody", "a:tcPr", "a:extLst"},
+
+	// CT_TableCellProperties
+	"a:tcPr": {"a:lnL", "a:lnR", "a:lnT", "a:lnB", "a:lnTlToBr", "a:lnBlToTr",
+		"a:cell3D", "a:noFill", "a:solidFill", "a:gradFill", "a:blipFill",
+		"a:pattFill", "a:grpFill", "a:headers", "a:extLst"},
+
+	// CT_TableStyle. firstRow comes after lastRow, near the end: that is the
+	// schema's order and not the one it reads in.
+	"a:tblStyle": {"a:tblBg", "a:wholeTbl", "a:band1H", "a:band2H",
+		"a:band1V", "a:band2V", "a:lastCol", "a:firstCol", "a:lastRow",
+		"a:seCell", "a:swCell", "a:firstRow", "a:neCell", "a:nwCell", "a:extLst"},
+
+	// CT_TablePartStyle
+	"a:wholeTbl": {"a:tcTxStyle", "a:tcStyle"},
+	"a:band1H":   {"a:tcTxStyle", "a:tcStyle"},
+	"a:firstRow": {"a:tcTxStyle", "a:tcStyle"},
+
+	// CT_TableStyleTextStyle and CT_TableStyleCellStyle.
+	"a:tcTxStyle": {"a:font", "a:fontRef", "a:scrgbClr", "a:srgbClr",
+		"a:hslClr", "a:sysClr", "a:schemeClr", "a:prstClr"},
+	"a:tcStyle": {"a:tcBdr", "a:fill", "a:fillRef", "a:cell3D"},
+	"a:tcBdr": {"a:left", "a:right", "a:top", "a:bottom",
+		"a:insideH", "a:insideV", "a:tl2br", "a:tr2bl", "a:extLst"},
+
 	// CT_BackgroundProperties
 	"p:bgPr": {"a:noFill", "a:solidFill", "a:gradFill", "a:blipFill",
 		"a:pattFill", "a:grpFill", "a:effectLst", "a:effectDag"},
@@ -199,6 +240,31 @@ func TestWrite_ElementOrderMatchesTheSchema(t *testing.T) {
 						Bullet: deck.Bullet{Kind: deck.BulletNumber, Format: "arabicPeriod"},
 						Runs:   []deck.Run{{Text: "numbered"}},
 					},
+				},
+			},
+		}},
+	})
+
+	// A table too, so the graphic frame and the style part are walked. The
+	// schema does not care which API produced an element.
+	d.Slides = append(d.Slides, deck.Slide{
+		LayoutID: deck.LayoutIDTitleOnly,
+		Shapes: []deck.Shape{{
+			Name:  "Table",
+			Frame: deck.Frame{X: 100, Y: 200, Width: 4000000, Height: 1000000},
+			Table: &deck.Table{
+				Columns:    []int64{2000000, 2000000},
+				FirstRow:   true,
+				BandedRows: true,
+				Rows: []deck.Row{
+					{Height: 300000, Cells: []deck.Cell{
+						{GridSpan: 2, Text: body("Banner")},
+						{HorizontalMerge: true, Text: body("")},
+					}},
+					{Height: 300000, Cells: []deck.Cell{
+						{RowSpan: 1, Text: body("1"), Fill: deck.SchemeColor(deck.SchemeBackground2)},
+						{Text: body("2"), Anchor: deck.AnchorCenter},
+					}},
 				},
 			},
 		}},

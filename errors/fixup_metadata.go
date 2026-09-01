@@ -509,6 +509,24 @@ var codeMetadata = map[Code]Metadata{
 		}},
 	},
 
+	VELLUM_OVERFLOW_NO_CAPACITY: {
+		Message: "the container cannot hold even one row beneath its repeated headers",
+		Fixups: []Fixup{
+			{
+				Action:   FixupSetField,
+				Path:     []string{"Sections", "*", "Blocks", "*", "Table", "ColumnHeaders"},
+				Hint:     "The repeated header banner is taller than the container. Flatten the header hierarchy — each level of nesting is another row repeated on every slide — or shorten it to fewer levels.",
+				Examples: []any{"one banner level instead of three"},
+			},
+			{
+				Action: FixupSetField,
+				Path:   []string{"Format"},
+				Hint:   "A flowing format has no fixed container height, so a table that cannot fit a slide fits a document page.",
+				Examples: []any{"docx", "pdf"},
+			},
+		},
+	},
+
 	VELLUM_DECK_INVALID: {
 		Message: "the deck cannot be serialised as PresentationML",
 		// No fixup on the specification, and deliberately so. Nothing a

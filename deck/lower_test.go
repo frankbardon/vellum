@@ -371,24 +371,6 @@ func TestLower_ASpacerBecomesAnEmptyParagraphOfThatHeight(t *testing.T) {
 	}
 }
 
-// TestLower_ATableIsRefusedRatherThanDropped.
-//
-// The matrix declares that a table renders in a deck, and the writer does not
-// do it yet. A loud failure naming the block is the honest state; a silently
-// missing table is the failure mode this library exists to prevent.
-func TestLower_ATableIsRefusedRatherThanDropped(t *testing.T) {
-	_, err := deck.Lower(resolved(t, heading(1, "Findings"), spec.Block{
-		Kind: spec.BlockTable,
-		Table: &spec.Table{
-			ColumnHeaders: spec.HeaderTree{{Label: "h"}},
-			Body:          [][]spec.Cell{{{Text: "1"}}},
-		},
-	}))
-	if !verr.HasCode(err, verr.VELLUM_DECK_BLOCK_UNSUPPORTED) {
-		t.Fatalf("want VELLUM_DECK_BLOCK_UNSUPPORTED, got %v", err)
-	}
-}
-
 // TestLower_TheSchemeIsBuiltFromTheThemesRoles checks the mapping table.
 func TestLower_TheSchemeIsBuiltFromTheThemesRoles(t *testing.T) {
 	d := resolved(t, heading(1, "Findings"), text("Body."))
@@ -514,4 +496,245 @@ func titleStyleSize(d *deck.Deck) int64 {
 		return 0
 	}
 	return levels[0].SizeEMU
+}
+
+// grid builds a table of n body rows with one banner level.
+func gridTable(rows int) spec.Block {
+	body := make([][]spec.Cell, rows)
+	for i := range body {
+		body[i] = []spec.Cell{{Text: "r" + itoa(i) + "c0"}, {Text: "r" + itoa(i) + "c1"}}
+	}
+	return spec.Block{Kind: spec.BlockTable, Table: &spec.Table{
+		ColumnHeaders: spec.HeaderTree{{Label: "North"}, {Label: "South"}},
+		Body:          body,
+	}}
+}
+
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	var buf [8]byte
+	i := len(buf)
+	for n > 0 {
+		i--
+		buf[i] = byte('0' + n%10)
+		n /= 10
+	}
+	return string(buf[i:])
+}
+
+// TestLower_ATableThatFitsIsOneSlideAndStillReported.
+//
+// The report appears whether or not anything overflowed. A report that shows up
+// only when something went wrong is one nobody can tell apart from a missing
+// report.
+func TestLower_ATableThatFitsIsOneSlideAndStillReported(t *testing.T) {
+	d := lower(t, heading(1, "Findings"), gridTable(3))
+
+	if got := len(d.Slides); got != 1 {
+		t.Fatalf("want one slide, got %d", got)
+	}
+	if got := len(d.Overflow); got != 1 {
+		t.Fatalf("want one split record, got %d", got)
+	}
+	split := d.Overflow[0]
+	if split.Parts != 1 || split.Part != 0 || split.FromRow != 0 || split.Rows != 3 {
+		t.Errorf("the record reads %+v; want one part carrying all three rows", split)
+	}
+	if split.TotalRows != 3 || split.HeaderRows != 1 {
+		t.Errorf("the record reads %+v; want three rows under one banner", split)
+	}
+	if split.SectionID != "s1" || split.BlockIndex != 1 {
+		t.Errorf("the record locates the table at %q block %d", split.SectionID, split.BlockIndex)
+	}
+}
+
+// TestLower_ALongTableContinuesWithItsHeadersRepeated is the story's own claim.
+func TestLower_ALongTableContinuesWithItsHeadersRepeated(t *testing.T) {
+	const rows = 40
+	d := lower(t, heading(1, "Findings"), gridTable(rows))
+
+	if len(d.Slides) < 2 {
+		t.Fatalf("forty rows fitted on %d slide(s); the split did not happen", len(d.Slides))
+	}
+	if got := len(d.Overflow); got != len(d.Slides) {
+		t.Fatalf("%d slides but %d split records", len(d.Slides), got)
+	}
+
+	placed := 0
+	for i, split := range d.Overflow {
+		if split.FromRow != placed {
+			t.Errorf("part %d starts at row %d, want %d; the parts do not tile the table",
+				i, split.FromRow, placed)
+		}
+		placed += split.Rows
+
+		table := tableOf(t, d.Slides[split.Slide])
+		if got := len(table.Rows); got != split.HeaderRows+split.Rows {
+			t.Errorf("part %d carries %d rows, want %d banner plus %d body",
+				i, got, split.HeaderRows, split.Rows)
+		}
+		// The banner, on every part. That is what the policy is named for.
+		if first := table.Rows[0].Cells[0]; textOf(first.Text) != "North" {
+			t.Errorf("part %d does not repeat the banner; its first cell is %q",
+				i, textOf(first.Text))
+		}
+		if !table.FirstRow {
+			t.Errorf("part %d does not switch on the style's header band", i)
+		}
+		// Every part is titled, so a slide of continued rows can be placed.
+		if got := titleOf(t, d.Slides[split.Slide]); got != "Findings" {
+			t.Errorf("part %d is titled %q", i, got)
+		}
+	}
+	if placed != rows {
+		t.Errorf("the parts carry %d rows between them, want %d", placed, rows)
+	}
+}
+
+// TestLower_TheSplitIsGreedy pins the rule, because the alternative looks
+// better and is worse.
+//
+// Balancing the parts would make every part's contents a function of the total,
+// so appending one row to a table reflows every slide before it. Greedy keeps
+// the first slide's rows the same whatever comes after them.
+func TestLower_TheSplitIsGreedy(t *testing.T) {
+	short := lower(t, heading(1, "Findings"), gridTable(40))
+	long := lower(t, heading(1, "Findings"), gridTable(41))
+
+	if len(short.Overflow) == 0 || len(long.Overflow) == 0 {
+		t.Fatal("no splits to compare")
+	}
+	if a, b := short.Overflow[0].Rows, long.Overflow[0].Rows; a != b {
+		t.Errorf("adding a row changed the first slide from %d rows to %d; the split is not greedy", a, b)
+	}
+}
+
+// TestLower_ARowHeaderStubBecomesAMergedColumn.
+func TestLower_ARowHeaderStubBecomesAMergedColumn(t *testing.T) {
+	d := lower(t, heading(1, "Crosstab"), spec.Block{
+		Kind: spec.BlockTable,
+		Table: &spec.Table{
+			ColumnHeaders: spec.HeaderTree{{Label: "N"}, {Label: "S"}},
+			RowHeaders: spec.HeaderTree{{Label: "Age", Children: []spec.HeaderNode{
+				{Label: "18-34"}, {Label: "35+"},
+			}}},
+			Body: [][]spec.Cell{
+				{{Text: "1"}, {Text: "2"}},
+				{{Text: "3"}, {Text: "4"}},
+			},
+		},
+	})
+
+	table := tableOf(t, d.Slides[0])
+	if got := len(table.Columns); got != 4 {
+		t.Fatalf("want four columns — two stub, two body — got %d", got)
+	}
+
+	// The first body row carries the merged group label; the second continues
+	// it and carries no label of its own.
+	first := table.Rows[1].Cells[0]
+	if textOf(first.Text) != "Age" || first.RowSpan != 2 {
+		t.Errorf("the stub's group cell is %q spanning %d rows, want \"Age\" spanning 2",
+			textOf(first.Text), first.RowSpan)
+	}
+	second := table.Rows[2].Cells[0]
+	if !second.VerticalMerge || textOf(second.Text) != "" {
+		t.Errorf("the continued stub cell carries %q and merge=%v", textOf(second.Text), second.VerticalMerge)
+	}
+}
+
+// TestLower_EveryRowTilesTheGrid is the invariant a reader punishes silently.
+//
+// A row with fewer cells than the grid has columns is one some readers draw
+// with a hole and others draw with the remaining cells shifted left. Both look
+// deliberate.
+func TestLower_EveryRowTilesTheGrid(t *testing.T) {
+	d := lower(t, heading(1, "Crosstab"), spec.Block{
+		Kind: spec.BlockTable,
+		Table: &spec.Table{
+			ColumnHeaders: spec.HeaderTree{
+				{Label: "Region", Span: 2, Children: []spec.HeaderNode{{Label: "N"}, {Label: "S"}}},
+			},
+			RowHeaders: spec.HeaderTree{{Label: "Age", Children: []spec.HeaderNode{
+				{Label: "18-34"}, {Label: "35+"},
+			}}},
+			Body: [][]spec.Cell{
+				{{Text: "1", Annotations: []spec.Annotation{{Text: "a"}}}, {Text: "2"}},
+				{{Text: "3", Class: spec.CellMargin}, {Text: "4"}},
+			},
+		},
+	})
+
+	// One cell per grid column. DrawingML differs from WordprocessingML here: a
+	// spanning cell does not replace the cells it covers, it declares gridSpan
+	// and the covered cells stay present carrying hMerge.
+	table := tableOf(t, d.Slides[0])
+	for i, row := range table.Rows {
+		if got := len(row.Cells); got != len(table.Columns) {
+			t.Errorf("row %d holds %d cells, the grid has %d columns", i, got, len(table.Columns))
+		}
+	}
+	if err := d.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+}
+
+// TestLower_ATableTallerThanItsBannerAllowsIsRefused.
+//
+// Clipping would drop rows, and a table missing its last rows looks exactly
+// like a table that never had them.
+func TestLower_ATableTallerThanItsBannerAllowsIsRefused(t *testing.T) {
+	// A banner deep enough that its repeated rows fill the slide on their own.
+	deep := spec.HeaderTree{{Label: "L1"}}
+	node := &deep[0]
+	for i := 0; i < 40; i++ {
+		node.Children = spec.HeaderTree{{Label: "L"}}
+		node = &node.Children[0]
+	}
+
+	_, err := deck.Lower(resolved(t, heading(1, "Findings"), spec.Block{
+		Kind: spec.BlockTable,
+		Table: &spec.Table{
+			ColumnHeaders: deep,
+			Body:          [][]spec.Cell{{{Text: "1"}}},
+		},
+	}))
+	if !verr.HasCode(err, verr.VELLUM_OVERFLOW_NO_CAPACITY) {
+		t.Fatalf("want VELLUM_OVERFLOW_NO_CAPACITY, got %v", err)
+	}
+}
+
+// TestLower_ACellCarriesNoLiteralColour keeps the restylability invariant over
+// the one path that reaches for a fill directly.
+func TestLower_ACellCarriesNoLiteralColour(t *testing.T) {
+	d := lower(t, heading(1, "Findings"), spec.Block{
+		Kind: spec.BlockTable,
+		Table: &spec.Table{
+			ColumnHeaders: spec.HeaderTree{{Label: "N"}},
+			Body:          [][]spec.Cell{{{Text: "1", Class: spec.CellTotal}}},
+		},
+	})
+
+	table := tableOf(t, d.Slides[0])
+	fill := table.Rows[1].Cells[0].Fill
+	if fill == "" {
+		t.Fatal("a total row takes no fill, so this test is asserting nothing")
+	}
+	if !strings.HasPrefix(fill, "+") {
+		t.Errorf("a total row's fill is the literal %q rather than a scheme reference", fill)
+	}
+}
+
+func tableOf(t *testing.T, s deck.Slide) *deck.Table {
+	t.Helper()
+
+	for _, sh := range s.Shapes {
+		if sh.Table != nil {
+			return sh.Table
+		}
+	}
+	t.Fatal("the slide carries no table")
+	return nil
 }

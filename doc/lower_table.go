@@ -20,10 +20,10 @@ func (l *lowering) table(t *fragment.Table, sectionIndex int, sectionID string, 
 		"section_index": sectionIndex, "section_id": sectionID, "block_index": blockIndex,
 	}
 
-	stubWidth := depthOf(t.RowHeaders)
+	stubWidth := t.RowHeaders.Depth()
 	bodyWidth := t.Width
 	if bodyWidth <= 0 {
-		bodyWidth = widestRow(t.Body)
+		bodyWidth = fragment.WidestRow(t.Body)
 	}
 	total := stubWidth + bodyWidth
 	if total == 0 {
@@ -33,19 +33,19 @@ func (l *lowering) table(t *fragment.Table, sectionIndex int, sectionID string, 
 
 	out := &Table{
 		StyleID:    StyleTableGrid,
-		Grid:       evenGrid(l.contentWidth(), total),
-		HeaderRows: depthOf(t.ColumnHeaders),
+		Grid:       fragment.EvenGrid(l.contentWidth(), total),
+		HeaderRows: t.ColumnHeaders.Depth(),
 	}
 
 	// Column banners: one row per level of the header forest, each node
 	// spanning the leaves beneath it. The stub corner above the row headers is
 	// one merged cell, which is what an authored analytical table looks like.
-	for _, level := range levelsOf(t.ColumnHeaders) {
+	for _, level := range t.ColumnHeaders.Levels() {
 		row := TableRow{Header: true, CantSplit: true}
 		if stubWidth > 0 {
 			row.Cells = append(row.Cells, TableCell{
 				GridSpan:      stubWidth,
-				WidthEMU:      spanWidth(out.Grid, 0, stubWidth),
+				WidthEMU:      fragment.SpanWidth(out.Grid, 0, stubWidth),
 				Fill:          l.scale.TableHeaderFill,
 				VerticalAlign: VAlignBottom,
 				Content:       []Content{para(Paragraph{StyleID: StyleNormal})},
@@ -59,7 +59,7 @@ func (l *lowering) table(t *fragment.Table, sectionIndex int, sectionID string, 
 			}
 			row.Cells = append(row.Cells, TableCell{
 				GridSpan:      span,
-				WidthEMU:      spanWidth(out.Grid, col, span),
+				WidthEMU:      fragment.SpanWidth(out.Grid, col, span),
 				Fill:          l.scale.TableHeaderFill,
 				VerticalAlign: VAlignBottom,
 				Content: []Content{para(Paragraph{
@@ -78,7 +78,7 @@ func (l *lowering) table(t *fragment.Table, sectionIndex int, sectionID string, 
 	}
 
 	// Body rows, each prefixed by its slice of the row-header stub.
-	stub := stubRows(t.RowHeaders, stubWidth)
+	stub := t.RowHeaders.StubRows(stubWidth)
 	for i := range t.Body {
 		row := TableRow{}
 		if stubWidth > 0 {
@@ -90,7 +90,7 @@ func (l *lowering) table(t *fragment.Table, sectionIndex int, sectionID string, 
 				// Word repairs.
 				row.Cells = append(row.Cells, TableCell{
 					GridSpan: stubWidth,
-					WidthEMU: spanWidth(out.Grid, 0, stubWidth),
+					WidthEMU: fragment.SpanWidth(out.Grid, 0, stubWidth),
 					Content:  []Content{para(Paragraph{StyleID: StyleNormal})},
 				})
 			}
@@ -105,7 +105,7 @@ func (l *lowering) table(t *fragment.Table, sectionIndex int, sectionID string, 
 			}
 			row.Cells = append(row.Cells, TableCell{
 				GridSpan:      span,
-				WidthEMU:      spanWidth(out.Grid, col, span),
+				WidthEMU:      fragment.SpanWidth(out.Grid, col, span),
 				Fill:          l.cellFill(cell, i),
 				VerticalAlign: VAlignTop,
 				Content:       []Content{para(l.cellParagraph(cell))},
@@ -210,79 +210,31 @@ func (l *lowering) cellFill(c *fragment.Cell, row int) string {
 // merged cell spanning its descendants. The result is the stub an analytical
 // table has: a grouping variable on the left whose label appears once against
 // the block of rows it covers.
-func stubRows(tree fragment.HeaderTree, depth int) [][]stubCell {
-	if depth == 0 {
-		return nil
-	}
-	var out [][]stubCell
-	var walk func(nodes fragment.HeaderTree, level int, prefix []stubCell)
-
-	walk = func(nodes fragment.HeaderTree, level int, prefix []stubCell) {
-		for i := range nodes {
-			n := &nodes[i]
-			cell := stubCell{label: n.Label, style: n.Style, column: level,
-				rows: leafCount(n), first: true}
-			row := append(append([]stubCell(nil), prefix...), cell)
-
-			if len(n.Children) == 0 {
-				// Pad a shallow branch out to the full stub depth, so every
-				// body row's stub covers the same number of columns.
-				for c := level + 1; c < depth; c++ {
-					row = append(row, stubCell{column: c, rows: 1, first: true})
-				}
-				out = append(out, row)
-				continue
-			}
-			walk(n.Children, level+1, row)
-		}
-	}
-	walk(tree, 0, nil)
-
-	// After the walk, only the first row of a merged span carries the label;
-	// the rest continue it.
-	seen := make(map[int]int)
-	for i := range out {
-		for j := range out[i] {
-			if remaining, ok := seen[j]; ok && remaining > 0 {
-				out[i][j] = stubCell{column: j, rows: 1, first: false}
-				seen[j] = remaining - 1
-				continue
-			}
-			seen[j] = out[i][j].rows - 1
-		}
-	}
-	return out
-}
-
-// stubCell is one cell of a flattened row-header stub.
-type stubCell struct {
-	label  string
-	style  fragment.TextStyle
-	column int
-	rows   int
-	first  bool
-}
-
-func (l *lowering) stubCells(cells []stubCell, grid []int64) []TableCell {
+func (l *lowering) stubCells(cells []fragment.StubCell, grid []int64) []TableCell {
 	out := make([]TableCell, 0, len(cells))
 	for _, c := range cells {
 		cell := TableCell{
 			GridSpan:      1,
-			WidthEMU:      spanWidth(grid, c.column, 1),
+			WidthEMU:      fragment.SpanWidth(grid, c.Column, 1),
 			VerticalAlign: VAlignTop,
 			Content:       []Content{para(Paragraph{StyleID: StyleNormal})},
 		}
 		switch {
-		case !c.first:
+		case !c.First:
 			cell.VerticalMerge = MergeContinue
-		case c.rows > 1:
+		case c.Rows > 1:
 			cell.VerticalMerge = MergeRestart
 		}
-		if c.first && c.label != "" {
-			props := subtract(runProperties(l.doc, c.style), l.styleRun(StyleNormal))
+		// The stub carries the header band's fill. Resolution gave these cells
+		// the header text colour, which is chosen to sit on that fill — drop
+		// the fill and the label is the header's colour on the body's
+		// background, which for a light theme is white on white.
+		cell.Fill = c.Style.Background
+		if c.First && c.Label != "" {
+			props := subtract(runProperties(l.doc, c.Style), l.styleRun(StyleNormal))
 			props.Bold = true
 			cell.Content = []Content{para(Paragraph{StyleID: StyleNormal,
-				Runs: []Run{{Text: c.label, Properties: props}}})}
+				Runs: []Run{{Text: c.Label, Properties: props}}})}
 		}
 		out = append(out, cell)
 	}
@@ -300,114 +252,10 @@ func headerRun(s fragment.TextStyle, d *fragment.Doc) RunProperties {
 	return props
 }
 
-// depthOf returns how many levels a header forest has.
-func depthOf(tree fragment.HeaderTree) int {
-	best := 0
-	for i := range tree {
-		d := 1
-		if sub := depthOf(tree[i].Children); sub > 0 {
-			d += sub
-		}
-		if d > best {
-			best = d
-		}
-	}
-	return best
-}
-
-// levelsOf flattens a header forest into one slice of nodes per depth.
-func levelsOf(tree fragment.HeaderTree) []fragment.HeaderTree {
-	depth := depthOf(tree)
-	if depth == 0 {
-		return nil
-	}
-	out := make([]fragment.HeaderTree, depth)
-
-	var walk func(nodes fragment.HeaderTree, level int)
-	walk = func(nodes fragment.HeaderTree, level int) {
-		for i := range nodes {
-			n := &nodes[i]
-			out[level] = append(out[level], *n)
-			if len(n.Children) > 0 {
-				walk(n.Children, level+1)
-			} else {
-				// A leaf shallower than the forest is deep must still tile the
-				// rows beneath it, or the banner leaves a hole.
-				for deeper := level + 1; deeper < depth; deeper++ {
-					out[deeper] = append(out[deeper], fragment.HeaderNode{Span: n.Span, Style: n.Style})
-				}
-			}
-		}
-	}
-	walk(tree, 0)
-	return out
-}
-
-// leafCount returns how many leaves a node covers, which is how many body rows
-// a row-header node spans.
-func leafCount(n *fragment.HeaderNode) int {
-	if len(n.Children) == 0 {
-		return 1
-	}
-	total := 0
-	for i := range n.Children {
-		total += leafCount(&n.Children[i])
-	}
-	return total
-}
-
-func widestRow(body [][]fragment.Cell) int {
-	best := 0
-	for _, row := range body {
-		width := 0
-		for i := range row {
-			span := row[i].ColSpan
-			if span < 1 {
-				span = 1
-			}
-			width += span
-		}
-		if width > best {
-			best = width
-		}
-	}
-	return best
-}
-
 func spanOf(cells []TableCell) int {
 	total := 0
 	for _, c := range cells {
 		total += c.span()
-	}
-	return total
-}
-
-// evenGrid divides a width into equal columns, distributing the remainder so
-// the columns sum exactly to the width.
-//
-// Exactly, not approximately: a grid whose columns do not sum to the declared
-// table width makes Word silently re-measure, and a table that re-measures on
-// open is a table whose appearance depends on the reader.
-func evenGrid(width int64, columns int) []int64 {
-	if columns <= 0 {
-		return nil
-	}
-	out := make([]int64, columns)
-	base := width / int64(columns)
-	rem := width - base*int64(columns)
-	for i := range out {
-		out[i] = base
-		if int64(i) < rem {
-			out[i]++
-		}
-	}
-	return out
-}
-
-func spanWidth(grid []int64, start, span int) int64 {
-	total := int64(0)
-	for i := start; i < start+span && i < len(grid); i++ {
-		total += grid[i]
 	}
 	return total
 }

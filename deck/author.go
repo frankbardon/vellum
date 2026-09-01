@@ -62,7 +62,23 @@ type Design struct {
 
 	// TitleGap is the space between the title band and the body, in EMU.
 	TitleGap int64
+
+	// TableBodySize is the type size inside a table, in EMU. Zero takes the
+	// outermost body size.
+	TableBodySize int64
+
+	// TableHeaderFill, TableHeaderText, TableStripeFill and TableRuleColor are
+	// the table style's colours, as scheme references or literals.
+	TableHeaderFill, TableHeaderText string
+	TableStripeFill, TableRuleColor  string
 }
+
+// tableRuleWidth is the hairline a table's borders are drawn at: half a point.
+//
+// A constant rather than a design field, because the theme declares a rule
+// colour and no rule width, and inventing a field the theme cannot fill would
+// be an option nobody can exercise.
+const tableRuleWidth = emuPerPoint / 2
 
 // Layout identifiers [Author] produces. A slide names one of these.
 const (
@@ -119,6 +135,15 @@ func Author(d Design) (*Deck, error) {
 			Colors: d.Colors,
 			Major:  Typeface{Latin: d.HeadingFamily},
 			Minor:  Typeface{Latin: d.BodyFamily},
+		},
+		TableStyle: TableStyle{
+			Name:       "Vellum Table",
+			HeaderFill: d.TableHeaderFill,
+			HeaderText: d.TableHeaderText,
+			BandFill:   d.TableStripeFill,
+			RuleColor:  d.TableRuleColor,
+			RuleWidth:  tableRuleWidth,
+			BodyText:   SchemeColor(SchemeText1),
 		},
 		Masters: []Master{{
 			ID: MasterID,

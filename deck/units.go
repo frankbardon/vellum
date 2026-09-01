@@ -41,3 +41,15 @@ func roundDiv(n, d int64) int64 {
 	}
 	return (n + d/2) / d
 }
+
+// Cell insets, in EMU. DrawingML's own defaults, and written explicitly on
+// every table cell rather than left to the reader.
+//
+// The distinction matters because the overflow split is computed from them. A
+// writer that computes a row height from an assumed inset and then lets the
+// reader apply its own has computed a capacity for a table it did not write —
+// which is how a split that fits on paper overflows on screen.
+const (
+	cellMarginV = 45720 // 0.05 inch, top and bottom
+	cellMarginH = 91440 // 0.10 inch, left and right
+)

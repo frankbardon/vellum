@@ -41,7 +41,7 @@ type HeaderNode struct {
 	Span int
 
 	// Children are the nodes beneath it.
-	Children []HeaderNode
+	Children HeaderTree
 
 	// Style is the resolved appearance.
 	Style TextStyle

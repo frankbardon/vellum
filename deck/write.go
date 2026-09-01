@@ -15,6 +15,7 @@ import (
 const (
 	PartPresentation = "/ppt/presentation.xml"
 	PartPresProps    = "/ppt/presProps.xml"
+	PartTableStyles  = "/ppt/tableStyles.xml"
 	PartTheme        = "/ppt/theme/theme1.xml"
 	PartNotesTheme   = "/ppt/theme/theme2.xml"
 	PartNotesMaster  = "/ppt/notesMasters/notesMaster1.xml"
@@ -75,6 +76,24 @@ type writer struct {
 	// than over all slides, which is what an authored deck looks like.
 	notesSlides []int
 	notesCount  int
+
+	// hasTable records whether any slide carries a table, because the table
+	// style part exists only when something references it. An unreferenced
+	// style part is furniture nobody asked for, and it is the kind of thing
+	// that gets written once and carried forever.
+	hasTable bool
+}
+
+// planTables records whether the deck needs a table style part.
+func (w *writer) planTables() {
+	for i := range w.deck.Slides {
+		for j := range w.deck.Slides[i].Shapes {
+			if w.deck.Slides[i].Shapes[j].Table != nil {
+				w.hasTable = true
+				return
+			}
+		}
+	}
 }
 
 // Package assembles the OPC package for this deck.
@@ -94,6 +113,7 @@ func (d *Deck) Package(opts WriteOptions) (*opc.Package, error) {
 
 	w := &writer{deck: d, epoch: epoch, producer: producer}
 	w.planNotes()
+	w.planTables()
 
 	p := opc.New()
 	ct := p.ContentTypes()
@@ -118,6 +138,12 @@ func (d *Deck) Package(opts WriteOptions) (*opc.Package, error) {
 	if err := p.Put(&opc.Part{Name: PartTheme, ContentType: ctTheme,
 		Data: w.themeXML(d.Theme)}); err != nil {
 		return nil, err
+	}
+	if w.hasTable {
+		if err := p.Put(&opc.Part{Name: PartTableStyles, ContentType: ctTableStyles,
+			Data: w.tableStylesXML()}); err != nil {
+			return nil, err
+		}
 	}
 
 	for i := range d.Masters {
@@ -246,6 +272,11 @@ func (w *writer) buildRelationships(p *opc.Package) error {
 	}
 	if _, err := pres.Add(relTheme, relative(PartPresentation, PartTheme), opc.TargetInternal); err != nil {
 		return err
+	}
+	if w.hasTable {
+		if _, err := pres.Add(relTableStyles, relative(PartPresentation, PartTableStyles), opc.TargetInternal); err != nil {
+			return err
+		}
 	}
 	pres.Freeze()
 
@@ -527,21 +558,36 @@ func (d *Deck) Validate() error {
 
 func (d *Deck) validateShape(slide, index int, s *Shape) error {
 	arms := 0
-	if s.Text != nil {
-		arms++
-	}
-	if s.Picture != nil {
-		arms++
+	for _, set := range []bool{s.Text != nil, s.Picture != nil, s.Table != nil} {
+		if set {
+			arms++
+		}
 	}
 	if arms != 1 {
 		return verr.NewCodedErrorWithDetails(verr.VELLUM_DECK_INVALID,
-			"a shape must carry exactly one of text or a picture",
+			"a shape must carry exactly one of text, a picture or a table",
 			map[string]any{"slide_index": slide, "shape_index": index, "arms": arms})
 	}
 	if s.Placeholder == nil && s.Frame.IsZero() {
 		return verr.NewCodedErrorWithDetails(verr.VELLUM_DECK_INVALID,
 			"a shape that fills no placeholder must carry its own frame, or it is drawn at the origin with no size",
 			map[string]any{"slide_index": slide, "shape_index": index})
+	}
+	if t := s.Table; t != nil {
+		for r := range t.Rows {
+			// One cell per grid column, always. DrawingML differs from
+			// WordprocessingML here: a spanning cell does not replace the
+			// cells it covers, it declares gridSpan and the covered cells stay
+			// present carrying hMerge. A row with a spanning cell and no
+			// covered cells is short, and a reader shifts everything after it
+			// left.
+			if got := len(t.Rows[r].Cells); got != len(t.Columns) {
+				return verr.NewCodedErrorWithDetails(verr.VELLUM_DECK_INVALID,
+					"a table row does not tile the grid; a reader draws a hole or shifts the remaining cells left",
+					map[string]any{"slide_index": slide, "shape_index": index,
+						"row": r, "row_span": got, "grid_width": len(t.Columns)})
+			}
+		}
 	}
 	if p := s.Picture; p != nil {
 		if p.MediaIndex < 0 || p.MediaIndex >= len(d.Media) {

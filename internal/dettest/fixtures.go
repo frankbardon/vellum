@@ -41,6 +41,7 @@ func Cases() []Case {
 		docxProfileCase(),
 		pptxMasterCase(),
 		pptxComposeCase(),
+		pptxTableCase(),
 		pdfSpikeCase(),
 		pdfPagesCase(),
 		pdfProseCase(),
@@ -745,6 +746,83 @@ func writePPTXCompose(w io.Writer, epoch time.Time) error {
 				},
 			},
 		},
+	}
+
+	res, err := resolve.Resolve(context.Background(), s, resolve.Options{Format: artifact.FormatPPTX})
+	if err != nil {
+		return err
+	}
+
+	d, err := deck.Lower(res.Doc)
+	if err != nil {
+		return err
+	}
+	return d.WriteTo(w, deck.WriteOptions{SourceDateEpoch: epoch})
+}
+
+// pptxTableCase is a table longer than a slide, split by the declared policy.
+//
+// The case exists because a table is where "the file opens" and "the file is
+// correct" come apart most quietly in this format. A row that does not tile the
+// grid, a merged cell whose covered cells are absent, a style identifier
+// nothing defines — every one of those produces a deck that opens, with a table
+// in it that is wrong in a way no reader reports.
+//
+// It carries a two-level banner, a merged row-header stub, a margin row and an
+// annotated cell, and it is long enough to continue onto a second slide.
+func pptxTableCase() Case {
+	return Case{
+		Name:  "pptx-table",
+		Ext:   "pptx",
+		Write: writePPTXTable,
+	}
+}
+
+const pptxTableRows = 26
+
+// writePPTXTable composes the overflowing crosstab.
+func writePPTXTable(w io.Writer, epoch time.Time) error {
+	ages := make(spec.HeaderTree, 0, pptxTableRows)
+	body := make([][]spec.Cell, 0, pptxTableRows)
+	for i := 0; i < pptxTableRows; i++ {
+		ages = append(ages, spec.HeaderNode{Label: "Band " + strconv.Itoa(i+1)})
+
+		row := []spec.Cell{
+			{Text: strconv.Itoa(40 + i)},
+			{Text: strconv.Itoa(60 - i)},
+			{Text: strconv.Itoa(100)},
+		}
+		if i == pptxTableRows-1 {
+			for j := range row {
+				row[j].Class = spec.CellTotal
+			}
+		}
+		if i == 0 {
+			row[0].Annotations = []spec.Annotation{{Text: "a"}}
+		}
+		body = append(body, row)
+	}
+
+	s := &spec.Spec{
+		FormatVersion: spec.FormatVersion,
+		Title:         "A Table Longer Than A Slide",
+		Sections: []spec.Section{{
+			ID: "crosstab",
+			Blocks: []spec.Block{
+				{Kind: spec.BlockHeading, Heading: &spec.Heading{Level: 1, Content: "Awareness by band"}},
+				{Kind: spec.BlockTable, Table: &spec.Table{
+					ColumnHeaders: spec.HeaderTree{
+						{Label: "Region", Span: 2, Children: spec.HeaderTree{
+							{Label: "North"}, {Label: "South"},
+						}},
+						{Label: "Total"},
+					},
+					RowHeaders: spec.HeaderTree{{Label: "Age", Children: ages}},
+					Body:       body,
+					Caption:    "Percentages. Base: all adults.",
+				}},
+			},
+		}},
 	}
 
 	res, err := resolve.Resolve(context.Background(), s, resolve.Options{Format: artifact.FormatPPTX})

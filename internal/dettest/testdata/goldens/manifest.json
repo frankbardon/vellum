@@ -2,8 +2,8 @@
   "entries": {
     "docx-profile": {
       "file": "docx-profile/expected.docx",
-      "sha256": "3f857632b2dbb2ecd74a5b3c24895bf6b2e61d7eacc524472a0da48612ead725",
-      "bytes": 5727
+      "sha256": "dd735538f75406855d008be041afb98d4ded8907fb23cae313ebfaeba6702b2e",
+      "bytes": 5735
     },
     "docx-skeleton": {
       "file": "docx-skeleton/expected.docx",
@@ -45,6 +45,11 @@
       "sha256": "51963e1b0eb39fa7961fc25c07fc713697306c440bfc96dc566a9c4003afc63e",
       "bytes": 14166
     },
+    "pptx-table": {
+      "file": "pptx-table/expected.pptx",
+      "sha256": "76c924b0ab3fe4089a3b0fdceac3bd03affc163859697e4504f104c28a0fa6b6",
+      "bytes": 12363
+    },
     "substrate-package": {
       "file": "substrate-package/expected.zip",
       "sha256": "a76180b3bf30f2f81e28a85d733527b11e0534c84e8111fe871f87d3b36f1946",
@@ -52,4 +57,4 @@
     }
   }
 }
-// golden-hash: 44ef5b53c2b3d28329353c3a034dd5d2332caa94a4e206d92851c6d6d1308fea
+// golden-hash: 837664f6e24ca96b924c75644c5b4e747fda5234738662bfbc6110c8a7081fc8

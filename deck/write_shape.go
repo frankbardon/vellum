@@ -50,11 +50,14 @@ func (w *writer) writeSlideShapeTree(b *strings.Builder, slide int) {
 // writeShape emits one shape. slide is the slide index for a picture's
 // relationship lookup, or negative when the shape is on a master or layout.
 func (w *writer) writeShape(b *strings.Builder, s *Shape, id, slide int) {
-	if s.Picture != nil {
+	switch {
+	case s.Picture != nil:
 		w.writePicture(b, s, id, slide)
-		return
+	case s.Table != nil:
+		w.writeTableFrame(b, s, id)
+	default:
+		w.writeTextShape(b, s, id)
 	}
-	w.writeTextShape(b, s, id)
 }
 
 // writeTextShape emits a p:sp.
@@ -180,8 +183,11 @@ func shapeName(s *Shape, id int) string {
 		return s.Name
 	}
 	kind := "TextBox"
-	if s.Picture != nil {
+	switch {
+	case s.Picture != nil:
 		kind = "Picture"
+	case s.Table != nil:
+		kind = "Table"
 	}
 	return kind + " " + strconv.Itoa(id)
 }
@@ -248,7 +254,7 @@ func writeParagraph(b *strings.Builder, p *Paragraph) {
 // reader reports as unreadable — the same failure this project has already met
 // in WordprocessingML, in a format that gives no better diagnostic.
 func writeParagraphProperties(b *strings.Builder, p *Paragraph) {
-	needs := p.Level > 0 || p.Align != AlignInherit ||
+	needs := p.Level > 0 || p.Align != AlignInherit || p.LineHeightEMU != 0 ||
 		p.SpaceBefore != 0 || p.Bullet.Kind != BulletInherit
 	if !needs {
 		return
@@ -262,12 +268,16 @@ func writeParagraphProperties(b *strings.Builder, p *Paragraph) {
 		b.WriteString(` algn="` + escapeAttr(string(p.Align)) + `"`)
 	}
 
-	if p.SpaceBefore == 0 && p.Bullet.Kind == BulletInherit {
+	if p.SpaceBefore == 0 && p.LineHeightEMU == 0 && p.Bullet.Kind == BulletInherit {
 		b.WriteString(`/>`)
 		return
 	}
 	b.WriteString(`>`)
 
+	if p.LineHeightEMU != 0 {
+		b.WriteString(`<a:lnSpc><a:spcPts val="` +
+			strconv.FormatInt(hundredthPoints(p.LineHeightEMU), 10) + `"/></a:lnSpc>`)
+	}
 	if p.SpaceBefore != 0 {
 		b.WriteString(`<a:spcBef><a:spcPts val="` +
 			strconv.FormatInt(hundredthPoints(p.SpaceBefore), 10) + `"/></a:spcBef>`)

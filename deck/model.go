@@ -19,6 +19,10 @@ type Deck struct {
 	// resolves its scheme references against. See [Author].
 	Theme Theme
 
+	// TableStyle is the appearance the deck's tables take. Written as a part
+	// of its own, which is where PresentationML keeps it.
+	TableStyle TableStyle
+
 	// Masters are the slide masters, in order. A deck needs at least one:
 	// PresentationML has no notion of an unmastered slide, so a deck without
 	// one is a file PowerPoint refuses rather than a deck with default
@@ -36,6 +40,17 @@ type Deck struct {
 	// Media are the images the deck embeds, in the order their parts are
 	// named. See [Media].
 	Media []Media
+
+	// Overflow records every table split, in slide order.
+	//
+	// It is data rather than a warning, because a split is not a problem: it is
+	// what the declared policy does, and a consumer needs to be able to see
+	// where the rows went. It is on the model rather than returned beside it so
+	// that a consumer driving this model directly reads the same record the
+	// envelope does. A table that fits still appears here — a report that shows
+	// up only when something went wrong is one nobody can tell apart from a
+	// missing report.
+	Overflow []TableSplit
 
 	// Provenance, when set, is embedded in the package's custom document
 	// properties. It is part of the bytes and therefore part of the
@@ -221,6 +236,11 @@ type Shape struct {
 
 	// Picture is an embedded image.
 	Picture *Picture
+
+	// Table is a table. PresentationML has no table shape: a table is a
+	// graphic frame holding a DrawingML table, which is why it carries a frame
+	// like any other shape and then a grid of its own.
+	Table *Table
 }
 
 // Frame is a shape's position and extent, in EMU.
@@ -318,6 +338,17 @@ type Paragraph struct {
 
 	// SpaceBefore is a spacing override in EMU. Zero inherits.
 	SpaceBefore int64
+
+	// LineHeightEMU fixes the line box at an exact height rather than at a
+	// multiple of the type size. Zero inherits.
+	//
+	// Exact rather than proportional, because a proportional line box is a
+	// proportion of the font's own line height and every face has a different
+	// one. A row whose height has to be predicted before the file is written —
+	// which is every row of a table that might be split — has to state the
+	// height it was predicted at, or the prediction is about a document
+	// somebody else's fonts will produce.
+	LineHeightEMU int64
 
 	// Runs are the paragraph's runs, in order. An empty paragraph is a blank
 	// line, which is legal and occasionally meant.
@@ -583,6 +614,139 @@ type Picture struct {
 	// as the preferred rendition, in the extension PowerPoint 2016 reads. The
 	// raster remains the fallback for every other reader.
 	SVGMediaIndex int
+}
+
+// Table is a DrawingML table.
+//
+// Its appearance comes from a table style rather than from formatting on the
+// cells, because that is what lets a table restyle: the header band, the row
+// banding and the borders are all named on the style and switched on here by
+// flag. A cell states a fill only where the style has no way to express it —
+// a margin or total row, which is a property of the row's meaning rather than
+// of its position.
+type Table struct {
+	// Columns are the column widths, in EMU. Their sum should be the frame's
+	// width; a disagreement is resolved by the reader in a way no two readers
+	// agree on.
+	Columns []int64
+
+	// Rows are the table's rows, in order.
+	Rows []Row
+
+	// FirstRow and BandedRows switch on the style's header band and row
+	// banding.
+	FirstRow, BandedRows bool
+
+	// StyleID names the table style, as the brace-wrapped identifier
+	// PresentationML uses. Empty selects the deck's own. See [TableStyleID].
+	StyleID string
+}
+
+// Row is one table row.
+type Row struct {
+	// Height is the row's height, in EMU. It is a minimum: a reader grows a
+	// row whose content does not fit, which is the one place a deck's geometry
+	// is not fixed and the reason the overflow split is computed from the
+	// theme rather than trusted to come out even.
+	Height int64
+
+	// Cells are the row's cells, in grid order. A merged cell still occupies
+	// its grid position — see [Cell.HorizontalMerge].
+	Cells []Cell
+}
+
+// Cell is one table cell.
+type Cell struct {
+	// Text is the cell's content. Nil is an empty cell, which still needs its
+	// grid position occupied.
+	Text *TextBody
+
+	// GridSpan and RowSpan are the extents of a merge, counted from this cell.
+	// One or zero means no merge.
+	GridSpan, RowSpan int
+
+	// HorizontalMerge and VerticalMerge mark a cell covered by a merge that
+	// began to its left or above it.
+	//
+	// Both the spanning cell and every cell it covers must be present. The grid
+	// is rectangular, and a row with fewer cells than the grid has columns is a
+	// table readers disagree about — some draw a hole, some shift the
+	// remaining cells left.
+	HorizontalMerge, VerticalMerge bool
+
+	// Fill is a literal hex triplet or a scheme reference. Empty takes the
+	// table style's fill, which is what a restylable table wants.
+	Fill string
+
+	// Anchor is the vertical alignment within the cell.
+	Anchor Anchor
+}
+
+// span returns a cell's effective grid span, treating zero as one.
+func (c Cell) span() int {
+	if c.GridSpan < 1 {
+		return 1
+	}
+	return c.GridSpan
+}
+
+// TableStyle is the appearance a deck's tables take.
+//
+// Authored from the design alongside the master, for the same reason: a table
+// referencing a style the package does not carry draws with no fills and no
+// borders at all, which looks like a table nobody styled rather than like an
+// error.
+type TableStyle struct {
+	// Name is the label PowerPoint shows in its table-style gallery.
+	Name string
+
+	// HeaderFill and HeaderText are the first row's band.
+	HeaderFill, HeaderText string
+
+	// BandFill is the alternating body-row fill.
+	BandFill string
+
+	// RuleColor is the border colour.
+	RuleColor string
+
+	// RuleWidth is the border width, in EMU.
+	RuleWidth int64
+
+	// BodyText is the body cells' colour.
+	BodyText string
+}
+
+// TableStyleID is the identifier a deck's own table style is filed under.
+//
+// A fixed value rather than a generated one. PresentationML addresses a table
+// style by identifier and the identifier is written into every table that uses
+// it, so generating one would put a value that differs between runs into the
+// slide bytes — the same reason the PDF file identifier is derived rather than
+// generated.
+const TableStyleID = "{5940675A-B579-460E-94D1-54222C63F5DA}"
+
+// TableSplit records where one table's rows landed.
+type TableSplit struct {
+	// SectionID, SectionIndex and BlockIndex locate the table in the
+	// specification, so a consumer reading the report can point at the block
+	// rather than at a slide number.
+	SectionID    string
+	SectionIndex int
+	BlockIndex   int
+
+	// Slide is the index into [Deck.Slides] this part landed on.
+	Slide int
+
+	// Part is this share's ordinal, from zero, and Parts is how many the table
+	// was split into. Parts is one for a table that fitted.
+	Part, Parts int
+
+	// FromRow is the first body row on this slide and Rows is how many it
+	// carries. TotalRows is the table's own row count.
+	FromRow, Rows, TotalRows int
+
+	// HeaderRows is how many banner rows repeat at the top of every part.
+	HeaderRows int
 }
 
 // Media is one embedded image.

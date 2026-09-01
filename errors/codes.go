@@ -195,6 +195,18 @@ const (
 	VELLUM_DOC_BLOCK_UNSUPPORTED Code = "VELLUM_DOC_BLOCK_UNSUPPORTED"
 )
 
+// OVERFLOW domain — content that does not fit the container it was given.
+const (
+	// VELLUM_OVERFLOW_NO_CAPACITY indicates a container that cannot hold even
+	// the minimum the policy requires: a slide whose repeated headers leave no
+	// room for a single body row.
+	//
+	// A hard error rather than a clipped table. Clipping drops rows, and a
+	// table missing its last rows looks exactly like a table that had none —
+	// the failure mode this library exists to prevent.
+	VELLUM_OVERFLOW_NO_CAPACITY Code = "VELLUM_OVERFLOW_NO_CAPACITY"
+)
+
 // DECK domain — PresentationML.
 const (
 	// VELLUM_DECK_INVALID indicates a deck the PresentationML writer cannot
@@ -423,6 +435,9 @@ var allCodes = []Code{
 
 	// DOC
 	VELLUM_DOC_BLOCK_UNSUPPORTED,
+
+	// OVERFLOW
+	VELLUM_OVERFLOW_NO_CAPACITY,
 
 	// DECK
 	VELLUM_DECK_INVALID,

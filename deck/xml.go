@@ -12,6 +12,7 @@ const (
 	nsPresentation  = "http://schemas.openxmlformats.org/presentationml/2006/main"
 	nsDrawingMain   = "http://schemas.openxmlformats.org/drawingml/2006/main"
 	nsRelationships = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+	nsDrawingTable  = "http://schemas.openxmlformats.org/drawingml/2006/table"
 	nsSVG           = "http://schemas.microsoft.com/office/drawing/2016/SVG/main"
 	nsMarkupCompat  = "http://schemas.openxmlformats.org/markup-compatibility/2006"
 
