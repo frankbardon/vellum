@@ -113,6 +113,32 @@ const (
 	// format and its accepted media types travel with the request, and an
 	// unsupported one is a loud error naming what is accepted.
 	VELLUM_ASSET_MEDIA_UNSUPPORTED Code = "VELLUM_ASSET_MEDIA_UNSUPPORTED"
+
+	// VELLUM_ASSET_NOT_FOUND indicates the resolver has no asset under the
+	// handle a block names. Vellum owns no storage and fetches nothing, so it
+	// cannot distinguish "never existed" from "no longer exists" — and does not
+	// try. Both are the same coded failure with the handle in its details.
+	VELLUM_ASSET_NOT_FOUND Code = "VELLUM_ASSET_NOT_FOUND"
+
+	// VELLUM_ASSET_RESOLVE_FAILED indicates the host's resolver returned an
+	// error of its own. The cause is wrapped so a host can unwrap to its own
+	// error type; it is never serialised into the envelope, because a host's
+	// error prose can carry paths and credentials Vellum has no business
+	// publishing.
+	VELLUM_ASSET_RESOLVE_FAILED Code = "VELLUM_ASSET_RESOLVE_FAILED"
+
+	// VELLUM_ASSET_MEDIA_UNKNOWN indicates an asset whose media type the
+	// resolver did not declare and whose bytes match no known signature.
+	//
+	// Guessing from a file extension is what this refuses to do: the handle is
+	// the host's opaque identifier and may not be a filename at all, so a guess
+	// drawn from it would be a guess about the host's naming convention rather
+	// than about the content.
+	VELLUM_ASSET_MEDIA_UNKNOWN Code = "VELLUM_ASSET_MEDIA_UNKNOWN"
+
+	// VELLUM_ASSET_TOO_LARGE indicates a resolved asset exceeding the
+	// configured per-asset bound. See VELLUM_MAX_ASSET_BYTES.
+	VELLUM_ASSET_TOO_LARGE Code = "VELLUM_ASSET_TOO_LARGE"
 )
 
 // TABLE domain — the analytical table model.
@@ -135,6 +161,15 @@ const (
 	// VELLUM_TABLE_ROW_ARITY indicates a row whose cells do not cover exactly
 	// the width the column headers declare.
 	VELLUM_TABLE_ROW_ARITY Code = "VELLUM_TABLE_ROW_ARITY"
+
+	// VELLUM_TABLE_FORMAT_INVALID indicates a cell number-format code that does
+	// not parse.
+	//
+	// It sits in the TABLE domain rather than a domain of its own because a
+	// format code is only ever reached through a cell, and a consumer routing
+	// this failure is looking at a table. The code vocabulary is xlsx's, used
+	// for all four targets so there is no second dialect to learn.
+	VELLUM_TABLE_FORMAT_INVALID Code = "VELLUM_TABLE_FORMAT_INVALID"
 )
 
 // DOC domain — WordprocessingML.
@@ -154,6 +189,74 @@ const (
 	// substitute. Every substitution is surfaced because a silent one is
 	// precisely how the same spec comes to render differently on two machines.
 	VELLUM_FONT_SUBSTITUTED Code = "VELLUM_FONT_SUBSTITUTED"
+
+	// VELLUM_FONT_NOT_EMBEDDABLE indicates a theme font declared
+	// embeddable:false that carries no substitute.
+	//
+	// This is the case the font policy exists for, and it is a validate-time
+	// error rather than a fallback to whatever the machine has installed. A
+	// silent system fallback is precisely how one specification comes to render
+	// differently on two machines, which defeats byte-identical output and the
+	// consumer dedupe resting on it. Whoever authors the theme knows the
+	// licence; Vellum cannot, so it declines to guess.
+	VELLUM_FONT_NOT_EMBEDDABLE Code = "VELLUM_FONT_NOT_EMBEDDABLE"
+
+	// VELLUM_FONT_EMBED_UNSUPPORTED indicates a theme demanding an embedding
+	// mode Vellum cannot deliver for that face — a subset of a CFF-outlined
+	// font in v1, where only TrueType outlines are subsetted.
+	//
+	// A hard error rather than the whole-font degradation, because subset-only
+	// may be a licence condition. Silently embedding the whole program would
+	// substitute Vellum's judgement for the font vendor's.
+	VELLUM_FONT_EMBED_UNSUPPORTED Code = "VELLUM_FONT_EMBED_UNSUPPORTED"
+
+	// VELLUM_FONT_UNAVAILABLE indicates a theme font declared embeddable that
+	// names no handle, or whose handle the asset resolver cannot produce. The
+	// theme promised a face Vellum was then unable to obtain.
+	VELLUM_FONT_UNAVAILABLE Code = "VELLUM_FONT_UNAVAILABLE"
+)
+
+// THEME domain — the theme document and what a specification asks of it.
+const (
+	// VELLUM_THEME_NOT_FOUND indicates the provider has no theme under the id
+	// the specification names. It is an error rather than a fallback to the
+	// built-in theme, because a document rendered against a different theme
+	// than the one it asked for is wrong in a way that looks right.
+	VELLUM_THEME_NOT_FOUND Code = "VELLUM_THEME_NOT_FOUND"
+
+	// VELLUM_THEME_INVALID indicates a structurally invalid theme document: a
+	// missing required role, a layout declaring no page size, a box with a
+	// zero width, a duplicate id.
+	VELLUM_THEME_INVALID Code = "VELLUM_THEME_INVALID"
+
+	// VELLUM_THEME_LAYOUT_NOT_FOUND indicates a section naming a master layout
+	// the theme does not declare for the target format. A theme may legitimately
+	// carry a layout for one format and not another, so the format is part of
+	// the lookup and part of the error's details.
+	VELLUM_THEME_LAYOUT_NOT_FOUND Code = "VELLUM_THEME_LAYOUT_NOT_FOUND"
+
+	// VELLUM_THEME_BOX_NOT_FOUND indicates an asset block naming a box role the
+	// resolved layout does not declare.
+	//
+	// The whole point of the layout query is that the set of boxes is small,
+	// enumerable and knowable before a specification exists. A role outside it
+	// means the host rendered its asset against a box that is not there, so the
+	// size it chose is arbitrary — which is the exact failure Boxes exists to
+	// prevent.
+	VELLUM_THEME_BOX_NOT_FOUND Code = "VELLUM_THEME_BOX_NOT_FOUND"
+)
+
+// MARK domain — consumer-defined style hooks.
+const (
+	// VELLUM_MARK_UNKNOWN is a WARNING. It reports a mark the theme declares no
+	// style for, so the marked content rendered unstyled.
+	//
+	// A warning rather than an error because marks are the consumer's
+	// vocabulary and a theme is not required to style every one of them. A
+	// warning rather than silence because the motivating case is a document
+	// flagged as stale: rendering that flag invisibly is indistinguishable from
+	// rendering a document that was never flagged.
+	VELLUM_MARK_UNKNOWN Code = "VELLUM_MARK_UNKNOWN"
 )
 
 // INTERNAL domain — invariants that no author input can violate.
@@ -189,12 +292,26 @@ var allCodes = []Code{
 
 	// ASSET
 	VELLUM_ASSET_MEDIA_UNSUPPORTED,
+	VELLUM_ASSET_NOT_FOUND,
+	VELLUM_ASSET_RESOLVE_FAILED,
+	VELLUM_ASSET_MEDIA_UNKNOWN,
+	VELLUM_ASSET_TOO_LARGE,
+
+	// THEME
+	VELLUM_THEME_NOT_FOUND,
+	VELLUM_THEME_INVALID,
+	VELLUM_THEME_LAYOUT_NOT_FOUND,
+	VELLUM_THEME_BOX_NOT_FOUND,
+
+	// MARK
+	VELLUM_MARK_UNKNOWN,
 
 	// TABLE
 	VELLUM_TABLE_INVALID,
 	VELLUM_TABLE_HEADER_SPAN_MISMATCH,
 	VELLUM_TABLE_SPAN_OVERLAP,
 	VELLUM_TABLE_ROW_ARITY,
+	VELLUM_TABLE_FORMAT_INVALID,
 
 	// DOC
 	VELLUM_DOC_BLOCK_UNSUPPORTED,
@@ -207,6 +324,9 @@ var allCodes = []Code{
 
 	// FONT
 	VELLUM_FONT_SUBSTITUTED,
+	VELLUM_FONT_NOT_EMBEDDABLE,
+	VELLUM_FONT_EMBED_UNSUPPORTED,
+	VELLUM_FONT_UNAVAILABLE,
 
 	// INTERNAL
 	VELLUM_INTERNAL_INVARIANT,

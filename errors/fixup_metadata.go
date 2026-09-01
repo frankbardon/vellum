@@ -147,6 +147,179 @@ var codeMetadata = map[Code]Metadata{
 		FixupNotApplicable: true,
 	},
 
+	VELLUM_ASSET_NOT_FOUND: {
+		Message: "the resolver has no asset under this handle",
+		Fixups: []Fixup{
+			{
+				Action: FixupSupplyAsset,
+				Hint:   "Store the asset under the handle the block names, or correct the handle. Vellum owns no storage and fetches nothing, so it cannot tell a handle that never existed from one that has since been removed.",
+			},
+			{
+				Action: FixupSetField,
+				Path:   []string{"Sections", "*", "Blocks", "*", "Asset", "Handle"},
+				Hint:   "If the handle is stale, point the block at one the resolver can produce.",
+			},
+		},
+	},
+
+	VELLUM_ASSET_RESOLVE_FAILED: {
+		Message: "the host's asset resolver returned an error",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "The failure is inside the resolver this host wired, not inside Vellum. Unwrap the error to the resolver's own type for the cause; it is deliberately not serialised into the envelope, because a host's error prose can carry paths and credentials.",
+		}},
+	},
+
+	VELLUM_ASSET_MEDIA_UNKNOWN: {
+		Message: "the asset's media type was not declared and its bytes match no known signature",
+		Fixups: []Fixup{{
+			Action:   FixupSetField,
+			Path:     []string{"Asset", "MediaType"},
+			Hint:     "Return an explicit media type from the resolver. Vellum will not guess from the handle: the handle is the host's opaque identifier and may not be a filename, so a guess drawn from it would be a guess about the host's naming convention rather than about the content.",
+			Examples: []any{"image/png", "image/jpeg", "image/svg+xml"},
+		}},
+	},
+
+	VELLUM_ASSET_TOO_LARGE: {
+		Message: "the resolved asset exceeds the configured per-asset size bound",
+		Fixups: []Fixup{
+			{
+				Action: FixupSupplyAsset,
+				Hint:   "Supply a smaller asset. Boxes reports the size the theme will render it at, so an asset far above that resolution is paying for detail the document cannot show.",
+			},
+			{
+				Action: FixupRaiseLimit,
+				Hint:   "Raise the bound with VELLUM_MAX_ASSET_BYTES, or with Options.MaxAssetBytes, if the asset is legitimately this large.",
+			},
+		},
+	},
+
+	VELLUM_THEME_NOT_FOUND: {
+		Message: "the provider has no theme under this id",
+		Fixups: []Fixup{
+			{
+				Action: FixupSupplyTheme,
+				Hint:   "Register the theme with the provider, or leave the specification's theme empty to select the built-in one. Vellum will not silently fall back to the built-in theme: a document rendered against a theme it did not ask for is wrong in a way that looks right.",
+			},
+			{
+				Action: FixupSetField,
+				Path:   []string{"Theme"},
+				Hint:   "Correct the theme id if it is a typo.",
+			},
+		},
+	},
+
+	VELLUM_THEME_INVALID: {
+		Message: "the theme document is structurally invalid",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "The error's details name the offending field. Validate the theme against the published theme schema before storing it, so a broken theme fails where it is authored rather than on every render that uses it.",
+		}},
+	},
+
+	VELLUM_THEME_LAYOUT_NOT_FOUND: {
+		Message: "the theme declares no layout under this id for the target format",
+		Fixups: []Fixup{
+			{
+				Action: FixupSetField,
+				Path:   []string{"Sections", "*", "Layout"},
+				Hint:   "Name a layout the theme declares for this format, or leave it empty to select the format's default layout. A theme may legitimately carry a layout for one format and not another, so the target format is part of the lookup.",
+			},
+			{
+				Action: FixupSupplyTheme,
+				Hint:   "Add the layout to the theme for this format.",
+			},
+		},
+	},
+
+	VELLUM_THEME_BOX_NOT_FOUND: {
+		Message: "the resolved layout declares no box under this role",
+		Fixups: []Fixup{
+			{
+				Action: FixupSetField,
+				Path:   []string{"Sections", "*", "Blocks", "*", "Asset", "Role"},
+				Hint:   "Name a role the layout declares, or leave it empty to select the default asset box. Call Boxes to enumerate the set; it answers before a specification exists, so the roles can be read once and cached against the theme.",
+			},
+			{
+				Action: FixupSupplyTheme,
+				Hint:   "Add the box to the layout if the role is one the theme should offer.",
+			},
+		},
+	},
+
+	VELLUM_MARK_UNKNOWN: {
+		Message: "the theme declares no style for this mark, so the marked content rendered unstyled",
+		Fixups: []Fixup{
+			{
+				Action: FixupSupplyTheme,
+				Hint:   "Add a mark style to the theme if the mark is meant to be visible. This is a warning rather than an error because marks are the consumer's vocabulary and a theme need not style every one — but an invisible flag is indistinguishable from no flag, which is why it is never silent.",
+			},
+			{
+				Action: FixupRemoveField,
+				Path:   []string{"Sections", "*", "Blocks", "*", "Marks"},
+				Hint:   "Remove the mark if it was not meant to reach the document.",
+			},
+		},
+	},
+
+	VELLUM_FONT_NOT_EMBEDDABLE: {
+		Message: "the theme declares this font non-embeddable and names no substitute",
+		Fixups: []Fixup{
+			{
+				Action:   FixupSetField,
+				Path:     []string{"Fonts", "*", "Substitute"},
+				Hint:     "Name the family to use in its place. Vellum will not fall back to whatever the machine has installed: a silent system fallback is exactly how one specification comes to render differently on two machines, which defeats byte-identical output and the consumer dedupe resting on it.",
+				Examples: []any{"Arial", "Helvetica", "Georgia"},
+			},
+			{
+				Action: FixupSetField,
+				Path:   []string{"Fonts", "*", "Embeddable"},
+				Hint:   "Set embeddable:true if the licence in fact permits embedding. Whoever authors the theme knows the licence; Vellum cannot, so it declines to guess.",
+			},
+		},
+	},
+
+	VELLUM_FONT_EMBED_UNSUPPORTED: {
+		Message: "the theme demands an embedding mode Vellum cannot deliver for this face",
+		Fixups: []Fixup{
+			{
+				Action: FixupSupplyAsset,
+				Hint:   "Supply a TrueType-outlined build of the face. v1 subsets glyf outlines; CFF outlines embed whole.",
+			},
+			{
+				Action:   FixupSetField,
+				Path:     []string{"Fonts", "*", "Embed"},
+				Hint:     "Relax the mode to \"auto\" if embedding the whole program is acceptable for this licence. Vellum will not relax it itself, because subset-only may be a licence condition and silently embedding the whole program would substitute its judgement for the vendor's.",
+				Examples: []any{"auto", "whole"},
+			},
+		},
+	},
+
+	VELLUM_FONT_UNAVAILABLE: {
+		Message: "the theme declares this font embeddable but its face could not be obtained",
+		Fixups: []Fixup{
+			{
+				Action: FixupSetField,
+				Path:   []string{"Fonts", "*", "Handle"},
+				Hint:   "Give the font a handle the asset resolver can produce. A face declared embeddable with no handle is a promise the theme cannot keep.",
+			},
+			{
+				Action: FixupSupplyAsset,
+				Hint:   "Store the font file under that handle.",
+			},
+		},
+	},
+
+	VELLUM_TABLE_FORMAT_INVALID: {
+		Message: "the cell's number-format code does not parse",
+		Fixups: []Fixup{{
+			Action:   FixupChangeFormat,
+			Path:     []string{"Sections", "*", "Blocks", "*", "Table", "Body", "*", "*", "Format"},
+			Hint:     "Use an xlsx number-format code. That vocabulary is used for all four targets, so there is no second dialect to learn and no per-format drift.",
+			Examples: []any{"0.0%", "#,##0", "yyyy-mm-dd", `_("$"* #,##0.00_)`},
+		}},
+	},
+
 	VELLUM_ASSET_MEDIA_UNSUPPORTED: {
 		Message: "the target format cannot embed an asset of this media type",
 		Fixups: []Fixup{

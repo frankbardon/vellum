@@ -1,0 +1,87 @@
+[
+  {
+    "format": "docx",
+    "role": "asset.full",
+    "width_emu": 5731200,
+    "height_emu": 0,
+    "intrinsic_height": true
+  },
+  {
+    "format": "docx",
+    "role": "asset.half",
+    "width_emu": 2793600,
+    "height_emu": 0,
+    "intrinsic_height": true
+  },
+  {
+    "format": "docx",
+    "role": "asset.quarter",
+    "width_emu": 1324800,
+    "height_emu": 0,
+    "intrinsic_height": true
+  },
+  {
+    "format": "docx",
+    "role": "logo",
+    "width_emu": 1080000,
+    "height_emu": 360000,
+    "intrinsic_height": false
+  },
+  {
+    "format": "pptx",
+    "role": "asset.full",
+    "width_emu": 11094415,
+    "height_emu": 5303520,
+    "intrinsic_height": false
+  },
+  {
+    "format": "pptx",
+    "role": "asset.half",
+    "width_emu": 5455310,
+    "height_emu": 5303520,
+    "intrinsic_height": false
+  },
+  {
+    "format": "pptx",
+    "role": "asset.quarter",
+    "width_emu": 2636215,
+    "height_emu": 5303520,
+    "intrinsic_height": false
+  },
+  {
+    "format": "pptx",
+    "role": "logo",
+    "width_emu": 1371600,
+    "height_emu": 457200,
+    "intrinsic_height": false
+  },
+  {
+    "format": "pdf",
+    "role": "asset.full",
+    "width_emu": 5731200,
+    "height_emu": 0,
+    "intrinsic_height": true
+  },
+  {
+    "format": "pdf",
+    "role": "asset.half",
+    "width_emu": 2793600,
+    "height_emu": 0,
+    "intrinsic_height": true
+  },
+  {
+    "format": "pdf",
+    "role": "asset.quarter",
+    "width_emu": 1324800,
+    "height_emu": 0,
+    "intrinsic_height": true
+  },
+  {
+    "format": "pdf",
+    "role": "logo",
+    "width_emu": 1080000,
+    "height_emu": 360000,
+    "intrinsic_height": false
+  }
+]
+// golden-hash: eea69fbe5ff404aabbeedb59efc47d5f22045f44e5c0f7890c70933fe11f8f06

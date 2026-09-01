@@ -1,0 +1,177 @@
+{
+  "format_version": "1.0",
+  "id": "default",
+  "name": "Vellum Default",
+  "fonts": [
+    {
+      "role": "body",
+      "family": "Georgia",
+      "embeddable": false,
+      "substitute": "Times New Roman"
+    },
+    {
+      "role": "heading",
+      "family": "Helvetica Neue",
+      "embeddable": false,
+      "substitute": "Arial"
+    },
+    {
+      "role": "mono",
+      "family": "Menlo",
+      "embeddable": false,
+      "substitute": "Courier New"
+    }
+  ],
+  "colors": [
+    { "role": "background", "value": "FFFFFF" },
+    { "role": "text", "value": "1A1A1A" },
+    { "role": "text_muted", "value": "6B6B6B" },
+    { "role": "heading", "value": "111111" },
+    { "role": "accent", "value": "1F4E79" },
+    { "role": "accent_text", "value": "FFFFFF" },
+    { "role": "rule", "value": "D0D0D0" },
+    { "role": "table_header_background", "value": "1F4E79" },
+    { "role": "table_header_text", "value": "FFFFFF" },
+    { "role": "table_stripe", "value": "F4F6F8" }
+  ],
+  "type": {
+    "body": { "value": 11, "unit": "pt" },
+    "headings": [
+      { "value": 20, "unit": "pt" },
+      { "value": 16, "unit": "pt" },
+      { "value": 13, "unit": "pt" },
+      { "value": 11, "unit": "pt" }
+    ],
+    "caption": { "value": 9, "unit": "pt" },
+    "notes": { "value": 10, "unit": "pt" },
+    "table_body": { "value": 9, "unit": "pt" }
+  },
+  "spacing": {
+    "paragraph_before": { "value": 0, "unit": "pt" },
+    "paragraph_after": { "value": 6, "unit": "pt" },
+    "heading_before": { "value": 12, "unit": "pt" },
+    "heading_after": { "value": 4, "unit": "pt" },
+    "line_height": 1.2
+  },
+  "marks": [
+    { "name": "emphasis", "bold": true },
+    { "name": "muted", "color": "text_muted" },
+    { "name": "flagged", "italic": true, "color": "accent" }
+  ],
+  "layouts": [
+    {
+      "id": "body",
+      "format": "docx",
+      "default": true,
+      "page": {
+        "width": { "value": 210, "unit": "mm" },
+        "height": { "value": 297, "unit": "mm" },
+        "margin_top": { "value": 25.4, "unit": "mm" },
+        "margin_right": { "value": 25.4, "unit": "mm" },
+        "margin_bottom": { "value": 25.4, "unit": "mm" },
+        "margin_left": { "value": 25.4, "unit": "mm" }
+      },
+      "boxes": [
+        { "role": "asset.full", "width": { "value": 159.2, "unit": "mm" } },
+        { "role": "asset.half", "width": { "value": 77.6, "unit": "mm" } },
+        { "role": "asset.quarter", "width": { "value": 36.8, "unit": "mm" } },
+        {
+          "role": "logo",
+          "width": { "value": 30, "unit": "mm" },
+          "height": { "value": 10, "unit": "mm" }
+        }
+      ]
+    },
+    {
+      "id": "body",
+      "format": "pdf",
+      "default": true,
+      "page": {
+        "width": { "value": 210, "unit": "mm" },
+        "height": { "value": 297, "unit": "mm" },
+        "margin_top": { "value": 25.4, "unit": "mm" },
+        "margin_right": { "value": 25.4, "unit": "mm" },
+        "margin_bottom": { "value": 25.4, "unit": "mm" },
+        "margin_left": { "value": 25.4, "unit": "mm" }
+      },
+      "boxes": [
+        { "role": "asset.full", "width": { "value": 159.2, "unit": "mm" } },
+        { "role": "asset.half", "width": { "value": 77.6, "unit": "mm" } },
+        { "role": "asset.quarter", "width": { "value": 36.8, "unit": "mm" } },
+        {
+          "role": "logo",
+          "width": { "value": 30, "unit": "mm" },
+          "height": { "value": 10, "unit": "mm" }
+        }
+      ]
+    },
+    {
+      "id": "content",
+      "format": "pptx",
+      "default": true,
+      "page": {
+        "width": { "value": 13.333, "unit": "in" },
+        "height": { "value": 7.5, "unit": "in" },
+        "margin_top": { "value": 1.2, "unit": "in" },
+        "margin_right": { "value": 0.6, "unit": "in" },
+        "margin_bottom": { "value": 0.5, "unit": "in" },
+        "margin_left": { "value": 0.6, "unit": "in" }
+      },
+      "boxes": [
+        {
+          "role": "asset.full",
+          "width": { "value": 12.133, "unit": "in" },
+          "height": { "value": 5.8, "unit": "in" }
+        },
+        {
+          "role": "asset.half",
+          "width": { "value": 5.966, "unit": "in" },
+          "height": { "value": 5.8, "unit": "in" }
+        },
+        {
+          "role": "asset.quarter",
+          "width": { "value": 2.883, "unit": "in" },
+          "height": { "value": 5.8, "unit": "in" }
+        },
+        {
+          "role": "logo",
+          "width": { "value": 1.5, "unit": "in" },
+          "height": { "value": 0.5, "unit": "in" }
+        }
+      ]
+    },
+    {
+      "id": "title",
+      "format": "pptx",
+      "page": {
+        "width": { "value": 13.333, "unit": "in" },
+        "height": { "value": 7.5, "unit": "in" },
+        "margin_top": { "value": 2.5, "unit": "in" },
+        "margin_right": { "value": 1.2, "unit": "in" },
+        "margin_bottom": { "value": 1.2, "unit": "in" },
+        "margin_left": { "value": 1.2, "unit": "in" }
+      },
+      "boxes": [
+        {
+          "role": "logo",
+          "width": { "value": 2, "unit": "in" },
+          "height": { "value": 0.67, "unit": "in" }
+        }
+      ]
+    },
+    {
+      "id": "sheet",
+      "format": "xlsx",
+      "default": true,
+      "page": {
+        "width": { "value": 210, "unit": "mm" },
+        "height": { "value": 297, "unit": "mm" },
+        "margin_top": { "value": 19, "unit": "mm" },
+        "margin_right": { "value": 18, "unit": "mm" },
+        "margin_bottom": { "value": 19, "unit": "mm" },
+        "margin_left": { "value": 18, "unit": "mm" }
+      },
+      "boxes": []
+    }
+  ]
+}
