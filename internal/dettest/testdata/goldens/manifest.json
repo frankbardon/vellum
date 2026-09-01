@@ -1,9 +1,14 @@
 {
   "entries": {
+    "docx-profile": {
+      "file": "docx-profile/expected.docx",
+      "sha256": "32cea33fad872337b106b9c62fe9f9c75bb00b3ed81a6d5987acdc3fe646e529",
+      "bytes": 5670
+    },
     "docx-skeleton": {
       "file": "docx-skeleton/expected.docx",
-      "sha256": "95faf4b726075e94e09a8d904ace2e6d86cd56f858db273d4483ddd8ac07a492",
-      "bytes": 2222
+      "sha256": "1e839b3d41e7a37b44acb299cd49bbd6c55f596d94642ae1bb8d82eec8bce29c",
+      "bytes": 3550
     },
     "substrate-package": {
       "file": "substrate-package/expected.zip",
@@ -12,4 +17,4 @@
     }
   }
 }
-// golden-hash: f828aa8f775ab55f510e60bfd5b99023cc045fe362aa45c319d06de33578ea86
+// golden-hash: 86402d6ab45ec29f937c14f882c3020522df10274697c0f614dd91b9df72ea38

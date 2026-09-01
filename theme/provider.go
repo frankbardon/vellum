@@ -58,9 +58,9 @@ type StaticProvider struct {
 // Validating at registration rather than at first use is deliberate: a broken
 // theme should fail where it is wired, not on whichever render first reaches
 // for it.
-func NewStaticProvider(docs ...*Theme) (*StaticProvider, error) {
-	p := &StaticProvider{themes: make(map[string]*Theme, len(docs))}
-	for _, t := range docs {
+func NewStaticProvider(themes ...*Theme) (*StaticProvider, error) {
+	p := &StaticProvider{themes: make(map[string]*Theme, len(themes))}
+	for _, t := range themes {
 		if err := t.Validate(); err != nil {
 			return nil, err
 		}

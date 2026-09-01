@@ -111,6 +111,41 @@ func (r *Relationships) Add(relType, target string, mode TargetMode) (string, er
 	return id, nil
 }
 
+// Freeze assigns final identifiers now, rather than at serialisation.
+//
+// It exists because a document part references a relationship by identifier
+// while the relationship part is written afterwards — so document.xml must know
+// an identifier before the set is marshalled. A writer that assigned its own
+// would be a second authority on a value this package derives from a sorted
+// walk, and the two would eventually disagree, leaving markup pointing at the
+// wrong part.
+//
+// Idempotent: the sort is stable and the renumbering is a function of the
+// sorted order, so freezing twice is freezing once. A parsed set is untouched,
+// because renumbering someone else's package would rewrite identifiers their
+// markup already references.
+func (r *Relationships) Freeze() {
+	r.canonicalise()
+}
+
+// IDFor returns the identifier of the relationship with the given type and
+// target, and whether one exists.
+//
+// Call [Relationships.Freeze] first when the answer is to be embedded in
+// another part: before freezing the identifiers are insertion-ordered and will
+// change.
+func (r *Relationships) IDFor(relType, target string) (string, bool) {
+	if r == nil {
+		return "", false
+	}
+	for _, rel := range r.rels {
+		if rel.Type == relType && rel.Target == target {
+			return rel.ID, true
+		}
+	}
+	return "", false
+}
+
 // ByType returns every relationship of the given type, in serialised order.
 func (r *Relationships) ByType(relType string) []Relationship {
 	if r == nil {
