@@ -64,11 +64,21 @@ type WriteOptions struct {
 	// information dictionary's, the XMP packet's, and any the metadata did not
 	// set for itself. The zero value selects the pinned epoch.
 	//
-	// PDF/A requires those dates to agree with each other, so they are all
+	// ISO 19005 requires those dates to agree with each other, so they are all
 	// derived from this one value rather than gathered separately and
-	// reconciled. Divergence between them is the most common way a nearly
-	// correct PDF/A file fails validation.
+	// reconciled. veraPDF's 2b profile was observed not to check the agreement,
+	// which is a reason to keep the invariant structural rather than to lean on
+	// the validator for it.
 	SourceDateEpoch time.Time
+
+	// Uncompressed stores every stream verbatim. See
+	// [object.Document.Uncompressed].
+	Uncompressed bool
+
+	// PageTree configures the page tree's shape. The zero value balances at
+	// [object.DefaultBranching] and lifts the attributes every page shares onto
+	// the root.
+	PageTree object.PageTreeOptions
 }
 
 // WriteTo emits the document.
@@ -87,30 +97,26 @@ func (d *Document) WriteTo(w io.Writer, opts WriteOptions) error {
 	}
 
 	var doc object.Document
-	pagesRef := doc.Reserve()
+	doc.Uncompressed = opts.Uncompressed
 
-	// Fonts before pages, so a face shared by several pages is embedded once
-	// and so the font objects carry lower numbers than the pages referring to
-	// them. Neither is required; both make the file readable in a hex dump.
+	// Fonts first, so a face shared by several pages is embedded once and
+	// carries a lower object number than the pages referring to it. Neither is
+	// required; both make the file readable in a hex dump.
 	fontRefs, err := d.writeFonts(&doc)
 	if err != nil {
 		return err
 	}
 
-	kids := make(object.Array, 0, len(d.Pages))
+	dicts := make([]object.Dict, len(d.Pages))
 	for i := range d.Pages {
-		ref, err := d.writePage(&doc, &d.Pages[i], pagesRef, fontRefs)
+		dicts[i], err = d.pageDict(&doc, &d.Pages[i], fontRefs)
 		if err != nil {
 			return err
 		}
-		kids = append(kids, ref)
 	}
 
-	if err := doc.Fill(pagesRef, object.NewDict(
-		"Type", object.Name("Pages"),
-		"Kids", kids,
-		"Count", object.Int(len(d.Pages)),
-	)); err != nil {
+	pagesRef, err := object.BuildPageTree(&doc, dicts, opts.PageTree)
+	if err != nil {
 		return err
 	}
 
@@ -156,11 +162,16 @@ func (d *Document) writeFonts(doc *object.Document) (map[*Font]object.Ref, error
 	return refs, nil
 }
 
-// writePage emits one page and its content stream.
-func (d *Document) writePage(doc *object.Document, p *Page, parent object.Ref, fontRefs map[*Font]object.Ref) (object.Ref, error) {
+// pageDict builds one page's dictionary and its content stream.
+//
+// It sets neither /Type nor /Parent: both belong to the page tree, which knows
+// the parent and would otherwise be trusting this function to have agreed with
+// it. The media box is set here and may be lifted onto the tree's root if every
+// page shares it.
+func (d *Document) pageDict(doc *object.Document, p *Page, fontRefs map[*Font]object.Ref) (object.Dict, error) {
 	contents, err := doc.AddStream(object.Dict{}, p.Content)
 	if err != nil {
-		return object.Ref{}, err
+		return object.Dict{}, err
 	}
 
 	// Built by walking the page's own font slice rather than by ranging the
@@ -170,7 +181,7 @@ func (d *Document) writePage(doc *object.Document, p *Page, parent object.Ref, f
 	for _, f := range p.Fonts {
 		ref, ok := fontRefs[f]
 		if !ok {
-			return object.Ref{}, verr.NewCodedErrorWithDetails(verr.VELLUM_PDF_OBJECT_UNRESOLVED,
+			return object.Dict{}, verr.NewCodedErrorWithDetails(verr.VELLUM_PDF_OBJECT_UNRESOLVED,
 				"a page names a font that was not embedded",
 				map[string]any{"resource": string(f.Resource)})
 		}
@@ -180,13 +191,11 @@ func (d *Document) writePage(doc *object.Document, p *Page, parent object.Ref, f
 	resources := object.NewDict("ProcSet", object.Array{object.Name("PDF"), object.Name("Text")})
 	resources.SetIf(fonts.Len() > 0, "Font", fonts)
 
-	return doc.Add(object.NewDict(
-		"Type", object.Name("Page"),
-		"Parent", parent,
+	return object.NewDict(
 		"MediaBox", object.Array{object.Int(0), object.Int(0), p.Width, p.Height},
 		"Resources", resources,
 		"Contents", contents,
-	)), nil
+	), nil
 }
 
 // fileID derives the trailer's file identifier from the document's content.

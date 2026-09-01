@@ -15,8 +15,33 @@ package object
 // them, and where the specification's own examples put them.
 //
 // The zero value is an empty dictionary ready for use.
+//
+// # Aliasing
+//
+// A Dict is a value holding a slice, so assigning one shares its entries with
+// the original: a later Set on either may be visible through both. That is the
+// same rule any struct wrapping a slice follows, and it is called out because a
+// dictionary reads like a value and the sharing is invisible at the call site.
+// Use [Dict.Clone] when a copy must be independent — as [BuildPageTree] does,
+// because it moves attributes off the pages it was handed and must not alter
+// the caller's.
 type Dict struct {
 	entries []entry
+}
+
+// Clone returns a dictionary that shares nothing with the receiver.
+//
+// The entry values are not themselves copied. An Array or a nested Dict reached
+// through one is still shared, which is correct for this package's use: those
+// are written and not modified, and deep-copying an object graph to change one
+// key would be a great deal of work to avoid stating where the boundary is.
+func (d Dict) Clone() Dict {
+	if d.entries == nil {
+		return Dict{}
+	}
+	out := Dict{entries: make([]entry, len(d.entries))}
+	copy(out.entries, d.entries)
+	return out
 }
 
 type entry struct {
@@ -75,6 +100,19 @@ func (d *Dict) Set(key Name, value Object) {
 func (d *Dict) SetIf(cond bool, key Name, value Object) {
 	if cond {
 		d.Set(key, value)
+	}
+}
+
+// Delete removes an entry, keeping the order of the rest.
+//
+// Used where an attribute moves from a page to the node it will be inherited
+// from, so the fact is stated once rather than twice.
+func (d *Dict) Delete(key Name) {
+	for i := range d.entries {
+		if d.entries[i].key == key {
+			d.entries = append(d.entries[:i], d.entries[i+1:]...)
+			return
+		}
 	}
 }
 

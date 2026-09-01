@@ -50,6 +50,22 @@ var pdfExpectations = map[string]pdfExpectation{
 			{"Metadata Stream", "yes"},
 		},
 	},
+	"pdf-pages": {
+		WantText: []string{
+			"Page 1 of 20",
+			"Page 8 of 20",
+			// The first page of the last, partly filled group at the deepest
+			// level: the one the fold is most likely to get wrong.
+			"Page 17 of 20",
+			"Page 20 of 20",
+		},
+		WantInfo: [][2]string{
+			{"Title", "Twenty Pages"},
+			{"Pages", "20"},
+			{"Encrypted", "no"},
+			{"Metadata Stream", "yes"},
+		},
+	},
 }
 
 // TestPDFReaderSeesTheContent checks every PDF golden with poppler.

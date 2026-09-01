@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"io"
+	"strconv"
 	"time"
 
 	"github.com/frankbardon/vellum/artifact"
@@ -33,7 +34,77 @@ func Cases() []Case {
 		docxSkeletonCase(),
 		docxProfileCase(),
 		pdfSpikeCase(),
+		pdfPagesCase(),
 	}
+}
+
+// pdfPagesCase exercises the page tree at a size where its shape matters.
+//
+// Twenty pages against a branching factor of eight, so the tree is three levels
+// deep and neither level is full — which is the arrangement that catches an
+// off-by-one in the fold, where a full tree would not. Every page shares its
+// media box and resources, so the case also proves the inheritable attributes
+// are lifted onto the root rather than repeated twenty times.
+func pdfPagesCase() Case {
+	return Case{
+		Name:  "pdf-pages",
+		Ext:   "pdf",
+		Write: writePDFPages,
+	}
+}
+
+// pageCount is the length of the multi-page fixture.
+//
+// Twenty rather than a round power of the branching factor, deliberately: a
+// count that divides evenly hides a remainder bug in the last group of every
+// level, and the last group is the one the fold gets wrong.
+const pageCount = 20
+
+func writePDFPages(w io.Writer, epoch time.Time) error {
+	face, err := sfnt.Parse(goregular.TTF)
+	if err != nil {
+		return err
+	}
+
+	labels := make([]string, pageCount)
+	for i := range labels {
+		labels[i] = "Page " + strconv.Itoa(i+1) + " of " + strconv.Itoa(pageCount)
+	}
+
+	font := &pdf.Font{Resource: "F1", BaseName: "GoRegular", Program: face}
+	gids, err := glyphRuns(face, labels...)
+	if err != nil {
+		return err
+	}
+	font.Glyphs = gids.all
+
+	pages := make([]pdf.Page, pageCount)
+	for i := range pages {
+		var c content.Builder
+		c.BeginText().
+			SetFont("F1", object.Points(18)).
+			MoveText(object.Points(72), object.Points(700)).
+			ShowGlyphs(gids.runs[i]).
+			EndText()
+
+		pages[i] = pdf.Page{
+			Width:   object.Points(612),
+			Height:  object.Points(792),
+			Content: c.Bytes(),
+			Fonts:   []*pdf.Font{font},
+		}
+	}
+
+	d := pdf.Document{
+		Metadata: xmp.Metadata{
+			Title:    "Twenty Pages",
+			Creator:  "Vellum determinism fixture",
+			Producer: "Vellum 0.0.0-golden",
+			Date:     epoch,
+		},
+		Pages: pages,
+	}
+	return d.WriteTo(w, pdf.WriteOptions{SourceDateEpoch: epoch})
 }
 
 // pdfSpikeCase is the PDF substrate proved end to end on one page.

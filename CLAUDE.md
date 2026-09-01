@@ -197,6 +197,17 @@ The compressed statement; the full table is `.claude/reference/determinism.md`.
   index 0 and 1 are reserved by the spec; getting it wrong makes Excel refuse to
   open the file.
 - PDF uses a classic xref table and trailer, never object streams.
+- The PDF page tree is balanced at a fixed branching factor, folded from the
+  leaves up. Its shape is a function of the page count alone. Pages are
+  numbered before interior nodes, in order, so page one is the lowest-numbered
+  page object.
+- **`Resources` is never inherited.** It is inheritable under ISO 32000-1 and
+  lifting it onto the page tree root is an obvious saving. ISO 19005-2 clause
+  6.2.2 requires a content stream referencing a font or an image to have an
+  *explicitly associated* resource dictionary, and veraPDF rejects the
+  inherited form. `MediaBox`, `CropBox` and `Rotate` are hoisted; `Resources`
+  is not. Pinned by `TestBuildPageTree_DoesNotHoistResources` so re-adding it
+  fails in a second rather than in the conformance gate.
 - PDF `/CreationDate`, `/ModDate` and the XMP dates are generated from one
   struct so they cannot disagree. ISO 19005 requires them to match; veraPDF's
   2b profile was observed *not* to check it, which is a reason to keep the

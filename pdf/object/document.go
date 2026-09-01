@@ -51,6 +51,15 @@ type Document struct {
 	// matches.
 	ID [2][]byte
 
+	// Uncompressed stores every stream verbatim rather than deflating it.
+	//
+	// The output is larger, and byte-identical across Go toolchain versions
+	// rather than only within one, because nothing passes through flate. The
+	// same escape hatch the OPC writer offers, for the same reason: a caller
+	// whose attestation spans toolchain upgrades needs it, and everybody else
+	// wants the smaller file.
+	Uncompressed bool
+
 	objects []Object
 }
 
@@ -86,8 +95,12 @@ func (d *Document) Fill(ref Ref, o Object) error {
 	return nil
 }
 
-// AddStream compresses raw and adds it as an indirect stream object.
+// AddStream adds raw as an indirect stream object, compressed unless
+// [Document.Uncompressed] is set.
 func (d *Document) AddStream(dict Dict, raw []byte) (Ref, error) {
+	if d.Uncompressed {
+		return d.AddRawStream(dict, raw), nil
+	}
 	s, err := Deflate(dict, raw)
 	if err != nil {
 		return Ref{}, err
