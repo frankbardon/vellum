@@ -403,6 +403,21 @@ outcomes per (feature, format): `renders`, `degrades` to a stated alternative, o
 to learn the answer before the job runs; if they learn it from a support ticket,
 the matrix has failed.
 
+The row is half the promise. The other half is that a `degrades` row produces a
+warning the consumer can actually read, and that is machine-checked:
+`TestCapabilityDegradationsAreReported` requires every degrading row to be
+exercised by a specification that provokes a warning naming the feature, or to
+carry a stated reason no specification can. Three rows carry that reason today —
+`font.outlines.cff` in the three OOXML formats, where no font program is ever
+loaded so the outline format is never seen, and where the degradation the row
+names is the one `font.embed.*` already reports.
+
+An embed mode is a licence condition on **how** a program may be embedded, so a
+format that embeds none of them cannot violate it: `font.embed.subset` and
+`font.embed.whole` degrade there rather than being refused. The refusal belongs
+where the format does embed and Vellum cannot honour the mode, which is CFF in
+PDF.
+
 ## Output Format Contract
 
 ### `--json` envelope
@@ -455,6 +470,7 @@ Contract and registry completeness:
 - `TestCapabilityEveryBlockKindHasAFeature` — no block kind is absent from the matrix.
 - `TestCapabilityOutcomesAreWellFormed` — a `degrades` row names its alternative and a `rejects` row names its code; the three outcomes stay distinguishable.
 - `TestCapabilityKnownDecisions` — the decisions that were argued, pinned as cases, so a matrix edit that reverses one is deliberate.
+- `TestCapabilityDegradationsAreReported` — every `degrades` row is either exercised by a specification that provokes a warning naming the feature, or carries a stated reason no specification can. A row promising a degradation is a promise the consumer will be told; a row with neither fails the build. The exercise table is also checked for orphans, so a row that stops degrading cannot leave a passing test behind that checks nothing.
 - `TestManifestCapabilitiesComplete` — the manifest enumerates the live matrix.
 - `TestPayloadSchemaEmbedsSpecDefinitions` — the schema carries the `spec` definitions rather than referencing them out of band.
 - `TestNoPulseCodes` — no `PULSE_*` error code leaks in through `ingest`. Vellum reads a Pulse envelope; it does not import Pulse and does not re-emit its vocabulary.

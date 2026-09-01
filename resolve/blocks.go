@@ -51,6 +51,11 @@ func (r *resolver) resolveBlock(
 		size := r.theme.Type.HeadingSize(b.Heading.Level)
 		style := r.baseStyle(theme.FontHeading, size)
 		style.Bold = true
+		// Every heading is bold, so every heading is a place a format without
+		// a bold cut degrades. Reported here as well as from a mark, because a
+		// document of nothing but plain headings would otherwise carry the
+		// degradation and no warning about it.
+		r.degrade(capability.FeatureTextBold, nil)
 		style.Color = r.color(theme.ColorHeading, style.Color)
 		style = r.applyMarks(style, b.Marks, sectionIndex, blockIndex)
 
@@ -148,6 +153,15 @@ func (r *resolver) resolveAsset(a *spec.Asset, layout *theme.Layout) (*fragment.
 		return nil, err
 	}
 
+	// A vector accepted by a format that cannot draw one on its own is
+	// accepted as a pair: the raster is what most readers show and the vector
+	// rides alongside it. The consumer supplied a vector and will mostly see a
+	// raster, which is a difference they have to be told about — the media
+	// check above only decides whether it is carried at all.
+	if res.MediaType == asset.MediaSVG {
+		r.degrade(capability.FeatureAssetSVG, map[string]any{"handle": a.Handle})
+	}
+
 	width, err := box.Width.EMU()
 	if err != nil {
 		return nil, err
@@ -213,8 +227,15 @@ func (r *resolver) resolveTable(t *spec.Table, base fragment.TextStyle, sectionI
 		return nil, err
 	}
 
+	// Whether a long table is split by Vellum or left to the reader is the
+	// format's answer, and it is one a consumer planning a document needs
+	// before the render rather than after it: a deck's table is cut where the
+	// theme says and a document's is cut where Word says.
+	r.degrade(capability.FeatureOverflowContinue, nil)
+
 	headerStyle := base
 	headerStyle.Bold = true
+	r.degrade(capability.FeatureTextBold, nil)
 	headerStyle.Color = r.color(theme.ColorTableHeaderText, headerStyle.Color)
 	headerStyle.Background = r.color(theme.ColorTableHeaderBackground, "")
 

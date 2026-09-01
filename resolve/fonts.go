@@ -71,17 +71,22 @@ func (r *resolver) resolveFonts() error {
 				withValue(where, "substitute", f.Substitute)))
 
 		case !canEmbed:
-			// An explicit demand is a statement about a licence and must not be
-			// silently downgraded, even to a warning. A theme that merely
-			// permits embedding renders, with the degradation reported.
-			if f.Embed != theme.EmbedAuto {
-				return verr.NewCodedErrorWithDetails(verr.VELLUM_FONT_EMBED_UNSUPPORTED,
-					"the theme demands font embedding in a format that cannot carry a font program",
-					withValue(where, "embed", string(f.Embed)))
-			}
+			// The format carries no font programs at all, so nothing is
+			// embedded and the family is referenced by name.
+			//
+			// This is a degradation and not a refusal even when the theme
+			// demanded a particular embed mode. An embed mode is a licence
+			// condition on *how* a program may be embedded — subset only, or
+			// unmodified — and not embedding it cannot violate a condition
+			// about embedding it. The refusal belongs where the format does
+			// embed and Vellum cannot honour the mode; that is the CFF case in
+			// PDF, and it is raised there.
+			//
+			// The feature named is the one the theme's mode corresponds to, so
+			// a consumer reading the warning sees the row they can look up.
 			r.warn(verr.NewCodedErrorWithDetails(verr.VELLUM_CAPABILITY_DEGRADED,
 				"the format carries no font programs, so the family is referenced by name",
-				withValue(where, "feature", string(capability.FeatureFontEmbedSubset))))
+				withValue(where, "feature", string(embedFeature(f.Embed)))))
 
 		default:
 			// Embeddable, and the format can carry a program. The theme's
@@ -92,6 +97,11 @@ func (r *resolver) resolveFonts() error {
 			}
 			face.AssetIndex = idx
 			face.Embed = embedPlanFor(f.Embed)
+
+			if hasCFFOutlines(r.assets[idx].Bytes) {
+				r.degrade(capability.FeatureFontOutlinesCFF,
+					withValue(where, "handle", f.Handle))
+			}
 		}
 
 		r.faces = append(r.faces, face)
@@ -184,4 +194,33 @@ func withValue(where map[string]any, key string, value any) map[string]any {
 	maps.Copy(out, where)
 	out[key] = value
 	return out
+}
+
+// embedFeature is the matrix row an embed mode corresponds to.
+//
+// EmbedAuto maps to subset, because subsetting is what auto would have done in
+// a format that could. A consumer reading the warning can then look up the row
+// that produced it.
+func embedFeature(m theme.EmbedMode) capability.Feature {
+	if m == theme.EmbedWhole {
+		return capability.FeatureFontEmbedWhole
+	}
+	return capability.FeatureFontEmbedSubset
+}
+
+// hasCFFOutlines reports whether a font program carries CFF outlines.
+//
+// Read from the four-byte SFNT version tag rather than by parsing the file: a
+// program whose outlines are CFF declares itself as "OTTO", and everything else
+// this library accepts is TrueType. That is the whole question here, and
+// answering it with a parser would put a font parser in the resolve pass to
+// learn one bit.
+//
+// The bit is worth learning because it is a declared degradation with nothing
+// else to report it. Vellum subsets glyf and not CFF, so a CFF face is embedded
+// whole — a larger file carrying glyphs the document never draws, which is a
+// difference a consumer can act on by supplying a TrueType cut of the same
+// family.
+func hasCFFOutlines(program []byte) bool {
+	return len(program) >= 4 && string(program[:4]) == "OTTO"
 }

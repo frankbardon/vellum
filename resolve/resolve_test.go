@@ -164,22 +164,37 @@ func TestResolve_FontPolicy(t *testing.T) {
 		}
 	})
 
-	t.Run("an explicit demand in a format that cannot embed is a hard error", func(t *testing.T) {
-		th := embeddableTheme(t, theme.EmbedSubset)
-		p, err := theme.NewStaticProvider(th)
-		if err != nil {
-			t.Fatalf("NewStaticProvider: %v", err)
-		}
-		s := doc(text("x"))
-		s.Theme = th.ID
+	t.Run("an explicit embed mode in a format that carries no programs still degrades", func(t *testing.T) {
+		// An embed mode is a licence condition on how a program may be
+		// embedded — subset only, or unmodified. Not embedding it cannot
+		// violate a condition about embedding it, so the demand is reported as
+		// the degradation it is rather than refused. The refusal belongs where
+		// the format does embed and Vellum cannot honour the mode.
+		for _, mode := range []theme.EmbedMode{theme.EmbedSubset, theme.EmbedWhole} {
+			th := embeddableTheme(t, mode)
+			p, err := theme.NewStaticProvider(th)
+			if err != nil {
+				t.Fatalf("NewStaticProvider: %v", err)
+			}
+			s := doc(text("x"))
+			s.Theme = th.ID
 
-		// An explicit mode is a statement about a licence. Degrading it to a
-		// warning would substitute Vellum's judgement for the font vendor's.
-		_, err = resolve.Resolve(context.Background(), s, resolve.Options{
-			Format: artifact.FormatDOCX, Themes: p, Assets: fontStore(),
-		})
-		if !verr.HasCode(err, verr.VELLUM_FONT_EMBED_UNSUPPORTED) {
-			t.Fatalf("error = %v, want VELLUM_FONT_EMBED_UNSUPPORTED", err)
+			res, err := resolve.Resolve(context.Background(), s, resolve.Options{
+				Format: artifact.FormatDOCX,
+				Themes: p,
+				Assets: fontStore(),
+			})
+			if err != nil {
+				t.Fatalf("embed %q: %v", mode, err)
+			}
+			if !hasWarning(res, verr.VELLUM_CAPABILITY_DEGRADED) {
+				t.Errorf("embed %q: the degradation was not reported", mode)
+			}
+			for _, f := range res.Doc.Fonts {
+				if f.Embed != fragment.EmbedNone {
+					t.Errorf("embed %q: face %q has plan %q, want none", mode, f.Role, f.Embed)
+				}
+			}
 		}
 	})
 
