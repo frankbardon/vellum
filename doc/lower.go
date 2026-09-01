@@ -8,6 +8,7 @@ import (
 	verr "github.com/frankbardon/vellum/errors"
 	"github.com/frankbardon/vellum/fragment"
 	"github.com/frankbardon/vellum/spec"
+	"github.com/frankbardon/vellum/theme"
 )
 
 // Lower converts a resolved document into the WordprocessingML model.
@@ -378,87 +379,62 @@ func pageFrom(p fragment.Page) PageSetup {
 	}
 }
 
-// scaleFrom extracts the theme measurements the styles need.
+// scaleFrom reads the theme measurements the styles need off the fragment.
 //
-// Read off the first paragraph-bearing block rather than from the theme
-// directly, because the fragment is what a writer has: the theme is already
-// gone by this point, which is the property that keeps every writer from
-// growing its own opinion about what a heading looks like.
+// Read from the resolved palette and scale rather than inferred from the runs
+// the document happens to carry. The inference was here first and was wrong in
+// a way that only showed on a sparse document: a file of nothing but headings
+// has no body paragraph to read a body size from, so the styles part declared a
+// zero-sized Normal style and Word rendered every later paragraph invisible.
+//
+// The one thing still read from the content is how many heading levels to
+// declare. That is a property of the document rather than of the theme — a
+// styles part carrying levels nothing uses is noise a designer has to read
+// past — and the sizes for those levels come from the theme all the same.
 func scaleFrom(d *fragment.Doc) typeScale {
 	s := typeScale{
-		LineHeight: 1.2,
-		TextColor:  "000000",
+		BodySize:        d.Scale.Body,
+		CaptionSize:     d.Scale.Caption,
+		NotesSize:       d.Scale.Notes,
+		TableBodySize:   d.Scale.TableBody,
+		ParagraphBefore: d.Scale.ParagraphBefore,
+		ParagraphAfter:  d.Scale.ParagraphAfter,
+		HeadingBefore:   d.Scale.HeadingBefore,
+		HeadingAfter:    d.Scale.HeadingAfter,
+		LineHeight:      d.Scale.LineHeight,
+
+		TextColor:       d.Palette.Color(theme.ColorText, "000000"),
+		MutedColor:      d.Palette.Color(theme.ColorTextMuted, ""),
+		HeadingColor:    d.Palette.Color(theme.ColorHeading, ""),
+		RuleColor:       d.Palette.Color(theme.ColorRule, ""),
+		TableHeaderFill: d.Palette.Color(theme.ColorTableHeaderBackground, ""),
+		TableHeaderText: d.Palette.Color(theme.ColorTableHeaderText, ""),
+		TableStripeFill: d.Palette.Color(theme.ColorTableStripe, ""),
 	}
 
-	// Collect the distinct heading sizes actually used, largest first, so the
-	// styles part declares a level for every level the document contains.
-	heading := map[int]int64{}
-	maxLevel := 0
-
-	for si := range d.Sections {
-		for bi := range d.Sections[si].Blocks {
-			b := &d.Sections[si].Blocks[bi]
-			switch {
-			case b.Paragraph != nil && b.Kind == spec.BlockHeading:
-				lvl := b.Paragraph.OutlineLevel
-				if lvl > maxLevel {
-					maxLevel = lvl
-				}
-				if len(b.Paragraph.Runs) > 0 {
-					heading[lvl] = b.Paragraph.Runs[0].Style.SizeEMU
-					s.HeadingColor = b.Paragraph.Runs[0].Style.Color
-				}
-				s.HeadingBefore, s.HeadingAfter = b.Paragraph.SpaceBefore, b.Paragraph.SpaceAfter
-
-			case b.Paragraph != nil && b.Kind == spec.BlockText:
-				if len(b.Paragraph.Runs) > 0 && s.BodySize == 0 {
-					s.BodySize = b.Paragraph.Runs[0].Style.SizeEMU
-					s.TextColor = b.Paragraph.Runs[0].Style.Color
-				}
-				if b.Paragraph.LineHeight > 0 {
-					s.LineHeight = b.Paragraph.LineHeight
-				}
-				s.ParagraphBefore, s.ParagraphAfter = b.Paragraph.SpaceBefore, b.Paragraph.SpaceAfter
-
-			case b.Note != nil:
-				if len(b.Note.Body.Runs) > 0 {
-					s.NotesSize = b.Note.Body.Runs[0].Style.SizeEMU
-					s.MutedColor = b.Note.Body.Runs[0].Style.Color
-				}
-
-			case b.Table != nil:
-				collectTableScale(&s, b.Table)
-			}
-		}
+	for level := 1; level <= deepestHeading(d); level++ {
+		s.HeadingSizes = append(s.HeadingSizes, d.Scale.HeadingSize(level))
 	}
 
-	for level := 1; level <= maxLevel; level++ {
-		size, ok := heading[level]
-		if !ok && len(s.HeadingSizes) > 0 {
-			size = s.HeadingSizes[len(s.HeadingSizes)-1]
-		}
-		s.HeadingSizes = append(s.HeadingSizes, size)
-	}
 	applyScaleDefaults(&s)
 	return s
 }
 
-func collectTableScale(s *typeScale, t *fragment.Table) {
-	for _, node := range t.ColumnHeaders {
-		s.TableHeaderFill = node.Style.Background
-		s.TableHeaderText = node.Style.Color
-		break
-	}
-	for _, row := range t.Body {
-		if len(row) > 0 {
-			s.TableBodySize = row[0].Style.SizeEMU
-			break
+// deepestHeading returns the deepest outline level the document uses.
+func deepestHeading(d *fragment.Doc) int {
+	deepest := 0
+	for si := range d.Sections {
+		for bi := range d.Sections[si].Blocks {
+			b := &d.Sections[si].Blocks[bi]
+			if b.Kind != spec.BlockHeading || b.Paragraph == nil {
+				continue
+			}
+			if b.Paragraph.OutlineLevel > deepest {
+				deepest = b.Paragraph.OutlineLevel
+			}
 		}
 	}
-	if t.Caption != nil && len(t.Caption.Runs) > 0 {
-		s.CaptionSize = t.Caption.Runs[0].Style.SizeEMU
-		s.MutedColor = t.Caption.Runs[0].Style.Color
-	}
+	return deepest
 }
 
 // applyScaleDefaults fills in what a sparse document did not exercise.

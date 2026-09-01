@@ -41,6 +41,14 @@ type Design struct {
 	// from the outermost body size.
 	SubtitleSize int64
 
+	// TitleBold is whether slide titles are bold.
+	//
+	// A field rather than a constant, because it is the base a title run
+	// inherits from and the lowering compares against it. Getting it wrong
+	// makes every title carry an explicit weight, which is exactly the
+	// override that stops a deck following its master.
+	TitleBold bool
+
 	// BodySizes are the outline level sizes, outermost first. At least one is
 	// required: a body placeholder with no size renders invisible.
 	BodySizes []int64
@@ -49,8 +57,11 @@ type Design struct {
 	// takes the reader's own single spacing.
 	LineHeight float64
 
-	// SpaceBefore is the space above a body paragraph, in EMU.
-	SpaceBefore int64
+	// ParagraphSpace is the space above a body paragraph, in EMU.
+	ParagraphSpace int64
+
+	// TitleGap is the space between the title band and the body, in EMU.
+	TitleGap int64
 }
 
 // Layout identifiers [Author] produces. A slide names one of these.
@@ -177,7 +188,7 @@ func geometryOf(d Design, size Size) geometry {
 	height := size.Height - d.MarginTop - d.MarginBottom
 
 	titleHeight := roundDiv(int64(line*2*100000)*d.TitleSize, 100000)
-	gap := d.SpaceBefore
+	gap := d.TitleGap
 
 	bodyTop := top + titleHeight + gap
 	bodyHeight := height - titleHeight - gap
@@ -258,11 +269,22 @@ func textStyles(d Design) TextStyles {
 		LineHeight: d.LineHeight,
 		Font:       FontMajor,
 		Color:      SchemeColor(SchemeText2),
+		Bold:       d.TitleBold,
 		Bullet:     Bullet{Kind: BulletNone},
 	}}}
 
+	// All nine levels, not only the ones the design sized. A level past the end
+	// takes the last declared size, which is the rule the theme's own heading
+	// scale follows for the same reason: an outline deeper than the theme
+	// anticipated is a document that should still render, and a level the
+	// master does not declare falls to the reader's defaults rather than to
+	// anything the theme said.
 	var body ListStyle
-	for i, size := range d.BodySizes {
+	for i := 0; i < listStyleLevels; i++ {
+		size := d.BodySizes[len(d.BodySizes)-1]
+		if i < len(d.BodySizes) {
+			size = d.BodySizes[i]
+		}
 		body.Levels = append(body.Levels, LevelStyle{
 			// Each level steps in by its own type size, so the indent scales
 			// with the type rather than with a constant that is right at one
@@ -271,7 +293,7 @@ func textStyles(d Design) TextStyles {
 			Align:       AlignLeft,
 			SizeEMU:     size,
 			LineHeight:  d.LineHeight,
-			SpaceBefore: d.SpaceBefore,
+			SpaceBefore: d.ParagraphSpace,
 			Font:        FontMinor,
 			Color:       SchemeColor(SchemeText1),
 			Bullet:      Bullet{Kind: BulletNone},

@@ -40,6 +40,7 @@ func Cases() []Case {
 		docxSkeletonCase(),
 		docxProfileCase(),
 		pptxMasterCase(),
+		pptxComposeCase(),
 		pdfSpikeCase(),
 		pdfPagesCase(),
 		pdfProseCase(),
@@ -606,17 +607,18 @@ func pptxMasterCase() Case {
 func pptxDesign() deck.Design {
 	const pt = 12700
 	return deck.Design{
-		Name:          "Vellum",
-		MarginTop:     457200,
-		MarginRight:   457200,
-		MarginBottom:  457200,
-		MarginLeft:    457200,
-		HeadingFamily: "Helvetica Neue",
-		BodyFamily:    "Helvetica",
-		TitleSize:     40 * pt,
-		BodySizes:     []int64{20 * pt, 18 * pt, 16 * pt},
-		LineHeight:    1.2,
-		SpaceBefore:   6 * pt,
+		Name:           "Vellum",
+		MarginTop:      457200,
+		MarginRight:    457200,
+		MarginBottom:   457200,
+		MarginLeft:     457200,
+		HeadingFamily:  "Helvetica Neue",
+		BodyFamily:     "Helvetica",
+		TitleSize:      40 * pt,
+		BodySizes:      []int64{20 * pt, 18 * pt, 16 * pt},
+		LineHeight:     1.2,
+		ParagraphSpace: 6 * pt,
+		TitleGap:       6 * pt,
 		Colors: deck.ColorScheme{
 			Dark1: "1A1A1A", Light1: "FFFFFF",
 			Dark2: "0B3D91", Light2: "F2F2F2",
@@ -686,6 +688,75 @@ func writePPTXMaster(w io.Writer, epoch time.Time) error {
 // deckBody builds a single-paragraph text body.
 func deckBody(text string) *deck.TextBody {
 	return &deck.TextBody{Paragraphs: []deck.Paragraph{{Runs: []deck.Run{{Text: text}}}}}
+}
+
+// pptxComposeCase is the block model reaching a deck: spec in, slides out.
+//
+// The other PPTX case builds its slides by hand, which proves the writer and
+// proves nothing about the mapping above it. This one goes through the door a
+// consumer uses — decode, resolve, lower, write — and it is the only case where
+// which slide a paragraph lands on is Vellum's decision rather than the
+// fixture's.
+//
+// It carries a heading with nothing under it, a picture, a page break and a
+// note, because those are the four places the mapping decides something.
+func pptxComposeCase() Case {
+	return Case{
+		Name:  "pptx-compose",
+		Ext:   "pptx",
+		Write: writePPTXCompose,
+	}
+}
+
+// writePPTXCompose composes the block-model deck.
+func writePPTXCompose(w io.Writer, epoch time.Time) error {
+	png := "data:image/png;base64," + base64.StdEncoding.EncodeToString(fixturePNG())
+
+	s := &spec.Spec{
+		FormatVersion: spec.FormatVersion,
+		Title:         "Composed to a Deck",
+		Sections: []spec.Section{
+			{
+				ID: "opening",
+				Blocks: []spec.Block{
+					{Kind: spec.BlockHeading, Heading: &spec.Heading{Level: 1, Content: "Composed to a Deck"}},
+				},
+			},
+			{
+				ID: "models",
+				Blocks: []spec.Block{
+					{Kind: spec.BlockHeading, Heading: &spec.Heading{Level: 1, Content: "Three content models"}},
+					{Kind: spec.BlockText, Text: &spec.Text{Content: "spec is unresolved and hashable."}},
+					{Kind: spec.BlockText, Marks: []string{"flagged"},
+						Text: &spec.Text{Content: "fragment is resolved and format neutral."}},
+					{Kind: spec.BlockNotes, Notes: &spec.Notes{
+						Content: "Do not read the slide. Say why the fragment earns its place."}},
+					{Kind: spec.BlockPageBreak, PageBreak: &spec.PageBreak{}},
+					{Kind: spec.BlockText, Text: &spec.Text{Content: "doc, sheet, deck and pdf are laid out."}},
+					{Kind: spec.BlockSpacer, Spacer: &spec.Spacer{Height: spec.Points(18)}},
+					{Kind: spec.BlockText, Text: &spec.Text{Content: "Each is public, so format-specific reach exists."}},
+				},
+			},
+			{
+				ID: "evidence",
+				Blocks: []spec.Block{
+					{Kind: spec.BlockHeading, Heading: &spec.Heading{Level: 2, Content: "Evidence"}},
+					{Kind: spec.BlockAsset, Asset: &spec.Asset{Handle: png, AltText: "a placeholder raster"}},
+				},
+			},
+		},
+	}
+
+	res, err := resolve.Resolve(context.Background(), s, resolve.Options{Format: artifact.FormatPPTX})
+	if err != nil {
+		return err
+	}
+
+	d, err := deck.Lower(res.Doc)
+	if err != nil {
+		return err
+	}
+	return d.WriteTo(w, deck.WriteOptions{SourceDateEpoch: epoch})
 }
 
 func docxSkeletonCase() Case {

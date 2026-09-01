@@ -188,7 +188,7 @@ func TestWrite_ElementOrderMatchesTheSchema(t *testing.T) {
 						SpaceBefore: 6 * pt,
 						Bullet:      deck.Bullet{Kind: deck.BulletChar, Char: "•", Font: "Arial"},
 						Runs: []deck.Run{
-							{Text: "bold ", Style: deck.RunStyle{Bold: true}},
+							{Text: "bold ", Style: deck.RunStyle{Bold: deck.ToggleOn}},
 							{Text: "and coloured", Style: deck.RunStyle{
 								Color: deck.SchemeColor(deck.SchemeAccent1), Font: deck.FontMinor}},
 						},

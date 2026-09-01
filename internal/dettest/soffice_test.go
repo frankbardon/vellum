@@ -71,6 +71,22 @@ var officeExpectations = map[string]officeExpectation{
 			"Helvetica Neue",
 		},
 	},
+	"pptx-compose": {
+		TextFilter: "fodp:OpenDocument Presentation Flat XML",
+		TextExt:    "fodp",
+		WantText: []string{
+			"Composed to a Deck",
+			"Three content models",
+			"spec is unresolved and hashable.",
+			// After a page break, under the title carried over.
+			"doc, sheet, deck and pdf are laid out.",
+			// A level-two heading, which stays a title at its own smaller size
+			// rather than being promoted.
+			"Evidence",
+			// The note, out of its own part.
+			"Say why the fragment earns its place.",
+		},
+	},
 	"docx-profile": {
 		TextFilter: "txt:Text",
 		TextExt:    "txt",

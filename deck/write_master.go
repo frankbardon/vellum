@@ -155,6 +155,8 @@ func writeLevelStyle(b *strings.Builder, element string, l LevelStyle) {
 		Font:    l.Font,
 		SizeEMU: l.SizeEMU,
 		Color:   l.Color,
+		Bold:    Set(l.Bold, false),
+		Italic:  Set(l.Italic, false),
 	})
 
 	b.WriteString(`</` + element + `>`)

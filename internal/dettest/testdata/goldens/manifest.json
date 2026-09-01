@@ -2,13 +2,13 @@
   "entries": {
     "docx-profile": {
       "file": "docx-profile/expected.docx",
-      "sha256": "578dc38982f08b2865e1358bfc28a305e1bfd2d6f0d2188d8727c3eb7715c83e",
-      "bytes": 5714
+      "sha256": "3f857632b2dbb2ecd74a5b3c24895bf6b2e61d7eacc524472a0da48612ead725",
+      "bytes": 5727
     },
     "docx-skeleton": {
       "file": "docx-skeleton/expected.docx",
-      "sha256": "1e839b3d41e7a37b44acb299cd49bbd6c55f596d94642ae1bb8d82eec8bce29c",
-      "bytes": 3550
+      "sha256": "6374da16519c3e0bce1f3b1a1c07220ab737d23a47c2f7f889da2b0ddec9e01f",
+      "bytes": 3573
     },
     "pdf-compose": {
       "file": "pdf-compose/expected.pdf",
@@ -35,10 +35,15 @@
       "sha256": "c05aac31c00870f2fce7fa251eb80748a4ade8fa065fcfd57feb32945d956e08",
       "bytes": 15021
     },
+    "pptx-compose": {
+      "file": "pptx-compose/expected.pptx",
+      "sha256": "a4fd182a306ec938163196f27950becf93962e4e919ea0d5a667344a2ef1e0fb",
+      "bytes": 15423
+    },
     "pptx-master": {
       "file": "pptx-master/expected.pptx",
-      "sha256": "f264bcf53ed297a1be9875fa8d65cb3a084d4974212cabaf185232641b34ad39",
-      "bytes": 14093
+      "sha256": "51963e1b0eb39fa7961fc25c07fc713697306c440bfc96dc566a9c4003afc63e",
+      "bytes": 14166
     },
     "substrate-package": {
       "file": "substrate-package/expected.zip",
@@ -47,4 +52,4 @@
     }
   }
 }
-// golden-hash: 338a9f6f6fa0264954f1719934d756debec452d73516087b5c5eb12ba71e4586
+// golden-hash: 44ef5b53c2b3d28329353c3a034dd5d2332caa94a4e206d92851c6d6d1308fea

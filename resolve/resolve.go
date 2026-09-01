@@ -122,7 +122,18 @@ func Resolve(ctx context.Context, s *spec.Spec, opts Options) (*Result, error) {
 		return nil, err
 	}
 
-	doc := &fragment.Doc{Title: s.Title, ThemeID: th.ID, Fonts: r.faces}
+	palette, scale, err := r.resolveTheme()
+	if err != nil {
+		return nil, err
+	}
+
+	doc := &fragment.Doc{
+		Title:   s.Title,
+		ThemeID: th.ID,
+		Fonts:   r.faces,
+		Palette: palette,
+		Scale:   scale,
+	}
 	for i := range s.Sections {
 		sec, err := r.resolveSection(i, &s.Sections[i])
 		if err != nil {
@@ -162,6 +173,57 @@ type resolver struct {
 	// for this format, so a document with four hundred emphasised runs produces
 	// one warning rather than four hundred. The same reason marks are deduped.
 	degraded map[capability.Feature]bool
+}
+
+// resolveTheme flattens the theme's palette and type scale into the fragment.
+//
+// Every measurement becomes EMU here, once, so no writer parses a length and
+// two writers cannot disagree about what "12pt" is. The palette is walked in
+// the registry's order rather than the theme document's, so two themes
+// declaring the same roles in a different order produce the same fragment —
+// which is what keeps the ordering out of the output bytes.
+func (r *resolver) resolveTheme() (fragment.Palette, fragment.Scale, error) {
+	var palette fragment.Palette
+	for _, role := range theme.AllColorRoles() {
+		value, ok := r.theme.LookupColor(role)
+		if !ok {
+			continue
+		}
+		palette = append(palette, fragment.PaletteEntry{Role: role, Value: value})
+	}
+
+	t := r.theme.Type
+	scale := fragment.Scale{LineHeight: r.theme.Spacing.LineHeight}
+
+	for _, f := range []struct {
+		length spec.Length
+		into   *int64
+	}{
+		{t.Body, &scale.Body},
+		{t.Caption, &scale.Caption},
+		{t.Notes, &scale.Notes},
+		{t.TableBody, &scale.TableBody},
+		{r.theme.Spacing.ParagraphBefore, &scale.ParagraphBefore},
+		{r.theme.Spacing.ParagraphAfter, &scale.ParagraphAfter},
+		{r.theme.Spacing.HeadingBefore, &scale.HeadingBefore},
+		{r.theme.Spacing.HeadingAfter, &scale.HeadingAfter},
+	} {
+		emu, err := f.length.EMU()
+		if err != nil {
+			return nil, fragment.Scale{}, err
+		}
+		*f.into = emu
+	}
+
+	for _, h := range t.Headings {
+		emu, err := h.EMU()
+		if err != nil {
+			return nil, fragment.Scale{}, err
+		}
+		scale.Headings = append(scale.Headings, emu)
+	}
+
+	return palette, scale, nil
 }
 
 func (r *resolver) warn(w *verr.CodedError) { r.warnings = append(r.warnings, w) }

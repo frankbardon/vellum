@@ -365,8 +365,14 @@ type RunStyle struct {
 	// SizeEMU is the type size. Zero inherits.
 	SizeEMU int64
 
-	// Bold and Italic are set only when they differ from the inherited style.
-	Bold, Italic bool
+	// Bold and Italic are three-valued: inherit, on, or off.
+	//
+	// A plain bool cannot express the case that matters. A title style that is
+	// bold and a run inside it that is not needs the run to say so — b="0" —
+	// and a two-valued field can only say "bold" or "say nothing", which for
+	// that run means staying bold. The zero value is inherit, so the honest
+	// answer is also the default one.
+	Bold, Italic Toggle
 
 	// Color is a literal sRGB hex triplet, or one of the scheme references
 	// below. Empty inherits.
@@ -376,7 +382,50 @@ type RunStyle struct {
 // IsZero reports whether the style states nothing, and therefore whether the
 // writer emits any run properties at all.
 func (s RunStyle) IsZero() bool {
-	return s.Font == "" && s.SizeEMU == 0 && !s.Bold && !s.Italic && s.Color == ""
+	return s.Font == "" && s.SizeEMU == 0 && s.Color == "" &&
+		s.Bold == ToggleInherit && s.Italic == ToggleInherit
+}
+
+// Toggle is a three-valued character switch.
+type Toggle uint8
+
+const (
+	// ToggleInherit takes the value from the style above. The zero value.
+	ToggleInherit Toggle = iota
+
+	// ToggleOn turns the switch on.
+	ToggleOn
+
+	// ToggleOff turns it off, against a style above that has it on.
+	ToggleOff
+)
+
+// Set returns the toggle stating b, or inherit when b already matches what is
+// inherited.
+//
+// The one place the overrides-only rule is arithmetic rather than judgement, so
+// it lives here rather than being written out at each call site.
+func Set(want, inherited bool) Toggle {
+	switch {
+	case want == inherited:
+		return ToggleInherit
+	case want:
+		return ToggleOn
+	default:
+		return ToggleOff
+	}
+}
+
+// attr renders the toggle as an OOXML boolean attribute value, and reports
+// whether it should be written at all.
+func (t Toggle) attr() (string, bool) {
+	switch t {
+	case ToggleOn:
+		return "1", true
+	case ToggleOff:
+		return "0", true
+	}
+	return "", false
 }
 
 // Scheme font references. A run naming one of these follows the theme.
@@ -470,15 +519,19 @@ type TextStyles struct {
 	Other ListStyle
 }
 
-// ListStyle is nine levels of paragraph formatting.
+// ListStyle is up to nine levels of paragraph formatting.
 //
 // Nine because DrawingML declares exactly nine and PowerPoint's outline
-// demoting stops there. A style with fewer levels is legal and means the
-// deeper ones inherit from the defaults, which is why [Author] writes only the
-// levels a theme has sizes for.
+// demoting stops there. A style with fewer levels is legal and means the deeper
+// ones fall to the reader's defaults rather than to anything the theme said,
+// which is why [Author] fills all nine by clamping to the last size the design
+// declared.
 type ListStyle struct {
 	Levels []LevelStyle
 }
+
+// listStyleLevels is the number of outline levels DrawingML declares.
+const listStyleLevels = 9
 
 // LevelStyle is one outline level's formatting.
 type LevelStyle struct {
@@ -507,6 +560,11 @@ type LevelStyle struct {
 
 	// Color is a literal hex triplet or a scheme reference.
 	Color string
+
+	// Bold and Italic are the level's weight and slope. A level style states
+	// them absolutely rather than as a difference: it is the base a run
+	// inherits from, so there is nothing above it to differ from.
+	Bold, Italic bool
 
 	// Bullet is the level's bullet.
 	Bullet Bullet

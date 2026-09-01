@@ -63,6 +63,12 @@ expensive mistake available in this codebase, so it is stated plainly:
   selection, number formatting, asset resolution and mark resolution happen
   *once* here and are shared by all four writers and by fill's splicer. It knows
   nothing about pages, sheets, slides or XML.
+  It carries the theme's **whole** palette and type scale, not only the values
+  the content happened to use. A writer that reads them off the runs gets no
+  answer at all from a sparse document — a file of nothing but headings has no
+  body paragraph to read a body size from — and a format that declares a
+  palette up front cannot reconstruct one from the text at all: a deck's colour
+  scheme is twelve named slots and every one must be filled.
 - **`doc` / `sheet` / `deck` / `pdf` are resolved and laid out.** A flow
   document, a workbook, a slide deck and a paginated page tree are genuinely
   different things; forcing them into one IR produces a model that serves none

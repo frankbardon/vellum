@@ -326,11 +326,11 @@ func writeRunProperties(b *strings.Builder, element string, s RunStyle) {
 	if s.SizeEMU != 0 {
 		b.WriteString(` sz="` + strconv.FormatInt(hundredthPoints(s.SizeEMU), 10) + `"`)
 	}
-	if s.Bold {
-		b.WriteString(` b="1"`)
+	if v, ok := s.Bold.attr(); ok {
+		b.WriteString(` b="` + v + `"`)
 	}
-	if s.Italic {
-		b.WriteString(` i="1"`)
+	if v, ok := s.Italic.attr(); ok {
+		b.WriteString(` i="` + v + `"`)
 	}
 
 	if s.Color == "" && s.Font == "" {

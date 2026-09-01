@@ -53,8 +53,110 @@ type Doc struct {
 	// the same pictures in a different order produce the same media parts.
 	Assets []Asset
 
+	// Palette is the theme's colour roles, resolved.
+	//
+	// Carried on the document rather than left for a writer to read off the
+	// runs, because a run only ever carries the colours the content happened to
+	// use. A format that declares a palette up front — a deck's colour scheme
+	// is twelve named slots, all of which must be filled — cannot reconstruct
+	// one from the text, and a document of nothing but headings has no body
+	// colour to find.
+	Palette Palette
+
+	// Scale is the theme's type sizes and vertical rhythm, in EMU.
+	//
+	// Here for the same reason as the palette: a writer that infers the body
+	// size from the first paragraph it meets gets no answer at all from a
+	// document that has none, and two writers inferring it separately are two
+	// chances to disagree about what a heading looks like.
+	Scale Scale
+
 	// Sections are the document's divisions, in order.
 	Sections []Section
+}
+
+// Palette is the theme's colour roles with their values.
+//
+// An ordered slice rather than a map, as everywhere else on this path: it is
+// read while bytes are being written, and a map ranged there is a
+// nondeterminism source sitting directly upstream of the output. Lookup is a
+// linear scan over ten entries.
+type Palette []PaletteEntry
+
+// PaletteEntry is one resolved colour role.
+type PaletteEntry struct {
+	// Role is the theme's semantic slot.
+	Role theme.ColorRole
+
+	// Value is an sRGB hex triplet, uppercase, without a leading hash — the
+	// form OOXML carries natively.
+	Value string
+}
+
+// Lookup returns the value for a role and whether the palette declares it.
+func (p Palette) Lookup(role theme.ColorRole) (string, bool) {
+	for _, e := range p {
+		if e.Role == role {
+			return e.Value, true
+		}
+	}
+	return "", false
+}
+
+// Color returns the value for a role, or the fallback.
+//
+// The fallback exists because a theme is not required to declare every role and
+// a writer must still produce a document. It is the caller's choice rather than
+// a constant here, because what a missing rule colour should fall back to is a
+// different question from what a missing text colour should.
+func (p Palette) Color(role theme.ColorRole, fallback string) string {
+	if v, ok := p.Lookup(role); ok {
+		return v
+	}
+	return fallback
+}
+
+// Scale is the theme's type sizes and vertical rhythm, resolved to EMU.
+type Scale struct {
+	// Body is running prose.
+	Body int64
+
+	// Headings are the heading sizes, index 0 being level 1.
+	Headings []int64
+
+	// Caption, Notes and TableBody are the three smaller sizes the theme
+	// declares separately.
+	Caption   int64
+	Notes     int64
+	TableBody int64
+
+	// ParagraphBefore and ParagraphAfter bracket a paragraph.
+	ParagraphBefore, ParagraphAfter int64
+
+	// HeadingBefore and HeadingAfter bracket a heading.
+	HeadingBefore, HeadingAfter int64
+
+	// LineHeight is the multiple of the type size a line occupies.
+	LineHeight float64
+}
+
+// HeadingSize returns the size for a heading level, 1-based.
+//
+// A level past the end of the scale takes the last declared size rather than
+// failing, which is [theme.TypeScale.HeadingSize]'s rule carried through: an
+// outline deeper than the theme anticipated is a document that should still
+// render.
+func (s Scale) HeadingSize(level int) int64 {
+	if len(s.Headings) == 0 {
+		return s.Body
+	}
+	if level < 1 {
+		level = 1
+	}
+	if level > len(s.Headings) {
+		level = len(s.Headings)
+	}
+	return s.Headings[level-1]
 }
 
 // Face is one resolved font, with its embedding decision.
