@@ -4,8 +4,10 @@ import (
 	"io"
 	"time"
 
+	"github.com/frankbardon/vellum/doc"
 	"github.com/frankbardon/vellum/opc"
 	"github.com/frankbardon/vellum/opc/zipdet"
+	"github.com/frankbardon/vellum/spec"
 )
 
 // Cases returns every registered determinism and golden case.
@@ -16,6 +18,39 @@ import (
 func Cases() []Case {
 	return []Case{
 		substrateCase(),
+		docxSkeletonCase(),
+	}
+}
+
+// docxSkeletonCase is the first real artifact: a heading and a paragraph
+// rendered to a .docx.
+//
+// It is registered rather than tested privately in the doc package, because a
+// format epic should prove its determinism by joining this suite rather than
+// by writing one of its own that may quietly assert something weaker.
+func docxSkeletonCase() Case {
+	return Case{
+		Name: "docx-skeleton",
+		Ext:  "docx",
+		Write: func(w io.Writer, epoch time.Time) error {
+			d, err := doc.Lower(&spec.Spec{
+				FormatVersion: spec.FormatVersion,
+				Title:         "Walking Skeleton",
+				Sections: []spec.Section{{
+					ID: "intro",
+					Blocks: []spec.Block{
+						{Kind: spec.BlockHeading, Heading: &spec.Heading{Level: 1, Content: "Walking Skeleton"}},
+						{Kind: spec.BlockText, Text: &spec.Text{Content: "The substrate carries a real artifact end to end."}},
+						{Kind: spec.BlockHeading, Heading: &spec.Heading{Level: 2, Content: "Why this exists"}},
+						{Kind: spec.BlockText, Text: &spec.Text{Content: "Breadth is not the goal; structural correctness and byte-identical output are."}},
+					},
+				}},
+			})
+			if err != nil {
+				return err
+			}
+			return d.WriteTo(w, doc.WriteOptions{SourceDateEpoch: epoch})
+		},
 	}
 }
 

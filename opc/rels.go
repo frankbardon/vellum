@@ -278,3 +278,16 @@ func escapeAttr(s string) string {
 	}
 	return b.String()
 }
+
+// AlwaysEmit forces this relationship set to be written even when it holds no
+// relationships.
+//
+// An empty relationships part is unusual but not wrong, and Word emits one for
+// the main document part of a document that references nothing. Matching that
+// shape keeps a Vellum-produced package structurally indistinguishable from an
+// authored one, which matters when a consumer diffs the two.
+func (r *Relationships) AlwaysEmit() {
+	if r != nil {
+		r.dirty = true
+	}
+}

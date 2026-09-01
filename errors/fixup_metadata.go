@@ -98,6 +98,34 @@ var codeMetadata = map[Code]Metadata{
 		}},
 	},
 
+	VELLUM_SPEC_INVALID: {
+		Message: "the specification is structurally invalid",
+		Fixups: []Fixup{{
+			Action: FixupSetField,
+			Path:   []string{"Sections"},
+			Hint:   "A specification needs at least one section, and every section needs at least one block. An empty document is almost always a construction bug rather than an intent.",
+		}},
+	},
+
+	VELLUM_SPEC_BLOCK_KIND_UNKNOWN: {
+		Message: "a block declares a kind that is not in the vocabulary",
+		Fixups: []Fixup{{
+			Action:   FixupReplaceValue,
+			Path:     []string{"Sections", "*", "Blocks", "*", "Kind"},
+			Hint:     "Use one of the declared block kinds. Semantic structure is the consumer's vocabulary and is expressed by composing these, not by inventing a kind.",
+			Examples: []any{"heading", "text", "asset", "table", "page_break", "notes", "spacer"},
+		}},
+	},
+
+	VELLUM_DOC_BLOCK_UNSUPPORTED: {
+		Message: "the DOCX writer does not render this block kind yet",
+		Fixups: []Fixup{{
+			Action: FixupRemoveField,
+			Path:   []string{"Sections", "*", "Blocks", "*"},
+			Hint:   "Remove the block, or target a format that supports it. The capability matrix reports which blocks render in which formats before a render is attempted, so this can be checked rather than discovered.",
+		}},
+	},
+
 	VELLUM_FONT_SUBSTITUTED: {
 		Message: "a font was replaced by its declared substitute because the theme marks it as not embeddable",
 		Fixups: []Fixup{

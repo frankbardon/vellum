@@ -69,6 +69,28 @@ const (
 	VELLUM_ZIP_ENTRY_DUPLICATE Code = "VELLUM_ZIP_ENTRY_DUPLICATE"
 )
 
+// SPEC domain — the declarative document specification.
+const (
+	// VELLUM_SPEC_INVALID indicates the specification is structurally invalid:
+	// no sections, a section with no blocks, or a block whose kind does not
+	// match the arm it carries.
+	VELLUM_SPEC_INVALID Code = "VELLUM_SPEC_INVALID"
+
+	// VELLUM_SPEC_BLOCK_KIND_UNKNOWN indicates a block declares a kind that is
+	// not in the vocabulary.
+	VELLUM_SPEC_BLOCK_KIND_UNKNOWN Code = "VELLUM_SPEC_BLOCK_KIND_UNKNOWN"
+)
+
+// DOC domain — WordprocessingML.
+const (
+	// VELLUM_DOC_BLOCK_UNSUPPORTED indicates a block kind the DOCX writer does
+	// not yet render. It is a deliberate hard failure rather than a silent
+	// omission: dropping content quietly is the failure mode this library
+	// exists to prevent, and a consumer must learn about a gap from an error
+	// rather than from a reader noticing a missing section.
+	VELLUM_DOC_BLOCK_UNSUPPORTED Code = "VELLUM_DOC_BLOCK_UNSUPPORTED"
+)
+
 // FONT domain — font resolution and embedding.
 const (
 	// VELLUM_FONT_SUBSTITUTED is a WARNING, not an error. It reports that a
@@ -99,6 +121,13 @@ var allCodes = []Code{
 	VELLUM_OPC_PART_NAME_INVALID,
 	VELLUM_OPC_CONTENT_TYPE_MISSING,
 	VELLUM_OPC_RELATIONSHIP_INVALID,
+
+	// SPEC
+	VELLUM_SPEC_INVALID,
+	VELLUM_SPEC_BLOCK_KIND_UNKNOWN,
+
+	// DOC
+	VELLUM_DOC_BLOCK_UNSUPPORTED,
 
 	// ZIP
 	VELLUM_ZIP_MALFORMED,
