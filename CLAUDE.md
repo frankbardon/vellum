@@ -328,6 +328,7 @@ determinism hazard named.
 | `github.com/santhosh-tekuri/jsonschema/v6` | Spec validation | Apache-2.0 | none |
 | `github.com/google/jsonschema-go` | MCP schema reflection | BSD-3 | confined to `mcp/` |
 | `sigs.k8s.io/yaml` | YAML to JSON at the boundary | Apache-2.0 + MIT | chosen *because* it routes through JSON — the round-trip is the requirement |
+| `golang.org/x/text` | `message`/`language`, to render JSON Schema validator faults | BSD-3 | `jsonschema`'s `LocalizedString` dereferences its printer without a nil check, so a printer is required rather than optional. Confined to error prose; **never** use `x/text/collate` — locale-aware ordering is nondeterminism with extra steps |
 | `github.com/modelcontextprotocol/go-sdk` | MCP transport | MIT | only `mcp/gosdk` imports it |
 | `github.com/urfave/cli/v3` | CLI | MIT | confined to `internal/cli` and `cmd/vellum` |
 | `sRGB2014.icc` (embedded data) | PDF/A output intent | ICC | carry the notice; not code |
