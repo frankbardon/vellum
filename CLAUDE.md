@@ -389,6 +389,8 @@ Non-destructiveness and fill:
 Fuzz (bounded smoke run per PR; the job is to keep the targets compiling and re-exercise the committed corpus, not to run a campaign):
 - `FuzzRead`, `FuzzWriteNames` over the archive reader and entry-name validation.
 - `FuzzOpen`, `FuzzReadWriteRoundTrip` over the package reader. The round-trip target also asserts the writer is idempotent, which is the determinism guarantee restated over arbitrary input rather than over fixtures.
+- `FuzzWriteDocument` over the PDF object writer. The input is a *program* — each byte appends an object — because the writer is not a parser and fuzzing its output would test the test reader instead. It asserts the file parses back, that every cross-reference offset lands on the object it names, and that writing the same document twice is byte-identical.
+- `FuzzImage`, `FuzzImageFingerprint` over the PNG and JPEG readers, which are the only place in the library that parses bytes Vellum did not write. Every rejection must be coded, every acceptance must write, and every accepted stream's `/Length` must match its data.
 - The hostile seed corpus lives at `opc/testdata/seeds/` with a documented expectation per file. A seed with no expectation, or an expectation with no seed, fails the build.
 
 Conformance (externally provisioned; skipped when the tool is absent unless `VELLUM_REQUIRE_OPTIONAL_GATES` is set):

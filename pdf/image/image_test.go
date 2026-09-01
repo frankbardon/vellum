@@ -2,6 +2,7 @@ package image_test
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"strings"
 	"testing"
@@ -279,6 +280,56 @@ func TestMalformedInput(t *testing.T) {
 		wants(t, asset.MediaSVG, []byte(`<svg xmlns="http://www.w3.org/2000/svg"/>`),
 			verr.VELLUM_ASSET_MEDIA_UNSUPPORTED)
 	})
+}
+
+// TestPNG_HugeDimensionsAreRefusedWithoutAllocating pins the bound against the
+// header, and the arithmetic that computes it.
+//
+// A PNG declares its size in eight bytes and nothing obliges those bytes to be
+// true. The image below claims to be about 1.1 billion pixels wide by 800
+// million tall in a hundred-byte file, which is a seventeen-exabyte plane of
+// samples — and the first version of the bound computed that product in int64,
+// overflowed to a negative number, compared it against the limit, passed, and
+// panicked in make with a length out of range. A check that refuses everything
+// except the input it exists to refuse.
+//
+// The fuzzer found it in seven seconds. This is the same input, named, so the
+// next reader learns what it is without decoding a corpus file.
+func TestPNG_HugeDimensionsAreRefusedWithoutAllocating(t *testing.T) {
+	src := append([]byte(nil), imagetest.RGBA()...)
+	// The width and height fields of IHDR, set to values PNG permits and no
+	// file could carry. The CRC is left stale, which nothing here checks: the
+	// rejection happens on the header, several chunks before anything would.
+	binary.BigEndian.PutUint32(src[8+4+4+0:], 1<<30)
+	binary.BigEndian.PutUint32(src[8+4+4+4:], 1<<30)
+
+	_, err := pdfimage.New(pdfimage.Options{
+		Resource: "Im1", Handle: "fixture", MediaType: asset.MediaPNG, Bytes: src,
+	})
+	if err == nil {
+		t.Fatal("a PNG claiming an exabyte of samples was accepted")
+	}
+	// Refused for its size rather than for being malformed: the header is
+	// perfectly well formed, which is the point.
+	if !verr.HasCode(err, verr.VELLUM_ASSET_TOO_LARGE) {
+		t.Fatalf("got %v, want VELLUM_ASSET_TOO_LARGE", err)
+	}
+}
+
+// TestPNG_BitDepthIsCheckedAgainstTheColourType pins the other header field
+// that is arithmetic rather than description.
+//
+// The depth decides how many bytes a scanline is and how a sample is unpacked.
+// A value PNG does not define for a colour type is a number nothing downstream
+// has a correct answer for, so letting it through means each of those places
+// inventing one.
+func TestPNG_BitDepthIsCheckedAgainstTheColourType(t *testing.T) {
+	src := append([]byte(nil), imagetest.RGB()...)
+	// 8 signature + 4 length + 4 type + 8 dimensions = the bit depth byte.
+	// Two bits is legal PNG, and not for truecolour.
+	src[8+4+4+8] = 2
+
+	wants(t, asset.MediaPNG, src, verr.VELLUM_PDF_IMAGE_INVALID)
 }
 
 // TestDimensionsComeFromTheImage checks the intrinsic size is read rather than

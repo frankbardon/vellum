@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"io"
 
+	verr "github.com/frankbardon/vellum/errors"
 	"github.com/frankbardon/vellum/pdf/object"
 )
 
@@ -13,6 +14,13 @@ import (
 const (
 	pngHeaderLen = 8
 	ihdrLen      = 13
+
+	// maxDimension is PNG's own limit: the specification gives width and height
+	// four bytes each and restricts both to 1 through 2^31-1. Checked rather
+	// than tolerated, because these two numbers are multiplied together and
+	// then by a bit depth, and the product of two unchecked 32-bit values does
+	// not fit anywhere.
+	maxDimension = 1<<31 - 1
 
 	colorGray      = 0
 	colorRGB       = 2
@@ -63,7 +71,7 @@ func newPNG(opts Options) (*XObject, error) {
 			// Per-entry palette alpha. The colour data still passes through —
 			// the indices are unchanged — and only the mask is built, by
 			// reading the indices out and looking each one up.
-			alpha, err := c.paletteAlpha(opts.Handle, channels)
+			alpha, err := c.paletteAlpha(opts, channels)
 			if err != nil {
 				return nil, err
 			}
@@ -77,7 +85,7 @@ func newPNG(opts Options) (*XObject, error) {
 		}
 
 	case colorGrayAlpha, colorRGBA:
-		if err := c.split(opts.Handle, channels, x); err != nil {
+		if err := c.split(opts, channels, x); err != nil {
 			return nil, err
 		}
 
@@ -151,14 +159,16 @@ func readPNG(handle string, b []byte) (*pngChunks, error) {
 	switch {
 	case !seenIHDR:
 		return nil, invalid(handle, "the file carries no IHDR chunk")
-	case c.width <= 0 || c.height <= 0:
-		return nil, invalid(handle, "the image has a zero dimension")
+	case c.width <= 0 || c.height <= 0 || c.width > maxDimension || c.height > maxDimension:
+		return nil, invalid(handle, "the image's dimensions are outside the range PNG defines")
 	case len(c.idat) == 0:
 		return nil, invalid(handle, "the file carries no IDAT chunk")
 	case c.compression != 0:
 		return nil, invalid(handle, "the compression method is not the one PNG defines")
 	case c.filterMethod != 0:
 		return nil, invalid(handle, "the filter method is not the one PNG defines")
+	case !validBitDepth(c.colorType, c.bitDepth):
+		return nil, invalid(handle, "the bit depth is not one PNG permits for this colour type")
 	case c.interlace != 0:
 		return nil, unsupported(handle, "interlaced PNG",
 			"Adam7 reorders the pixels into seven passes, which no PDF filter describes. "+
@@ -166,6 +176,24 @@ func readPNG(handle string, b []byte) (*pngChunks, error) {
 				"the bytes you supplied to work around how you saved the file. Save it non-interlaced.")
 	}
 	return c, nil
+}
+
+// validBitDepth reports whether a bit depth is legal for a colour type.
+//
+// Checked rather than tolerated, because the depth is arithmetic: it decides
+// how many bytes a scanline is and how a sample is unpacked. A depth PNG does
+// not define is a number nothing downstream has a correct answer for, and
+// letting it through means each of those places inventing one.
+func validBitDepth(colorType, bits int) bool {
+	switch colorType {
+	case colorGray:
+		return bits == 1 || bits == 2 || bits == 4 || bits == 8 || bits == 16
+	case colorIndexed:
+		return bits == 1 || bits == 2 || bits == 4 || bits == 8
+	case colorRGB, colorGrayAlpha, colorRGBA:
+		return bits == 8 || bits == 16
+	}
+	return false
 }
 
 // channels returns the number of samples per pixel.
@@ -239,8 +267,9 @@ func (c *pngChunks) colorKeyMask(handle string) (object.Array, error) {
 // unfiltering — but only to build the mask. The colour stream is still the
 // original IDAT, so the palette and the indices in the document are the ones on
 // disk.
-func (c *pngChunks) paletteAlpha(handle string, channels int) (*raster, error) {
-	rows, err := c.scanlines(handle, channels)
+func (c *pngChunks) paletteAlpha(opts Options, channels int) (*raster, error) {
+	handle := opts.Handle
+	rows, err := c.scanlines(opts, channels)
 	if err != nil {
 		return nil, err
 	}
@@ -276,8 +305,9 @@ func (c *pngChunks) paletteAlpha(handle string, channels int) (*raster, error) {
 // structural rather than a limitation: PNG stores alpha in the same scanline as
 // the colour it belongs to, and PDF stores it in a separate image. Every sample
 // survives; only the arrangement changes.
-func (c *pngChunks) split(handle string, channels int, x *XObject) error {
-	rows, err := c.scanlines(handle, channels)
+func (c *pngChunks) split(opts Options, channels int, x *XObject) error {
+	handle := opts.Handle
+	rows, err := c.scanlines(opts, channels)
 	if err != nil {
 		return err
 	}
@@ -322,14 +352,46 @@ func (c *pngChunks) split(handle string, channels int, x *XObject) error {
 }
 
 // scanlines inflates the image data and reverses the per-row filters.
-func (c *pngChunks) scanlines(handle string, channels int) ([][]byte, error) {
+//
+// The size is checked against the bound before anything is allocated, and the
+// arithmetic is in int64 throughout. The header declaring it is supplied by
+// whoever supplied the file: a PNG can claim to be 65535 by 65535 in thirteen
+// bytes, and computing a buffer length from that in int is both an overflow and
+// a seventeen-gigabyte allocation, reached before a single byte is inflated.
+func (c *pngChunks) scanlines(opts Options, channels int) ([][]byte, error) {
+	handle := opts.Handle
+
+	maxDecoded := opts.MaxDecodedBytes
+	if maxDecoded <= 0 {
+		maxDecoded = DefaultMaxDecodedBytes
+	}
+	// Divided rather than multiplied. A 2^31-1 square image at sixteen bits
+	// across four channels describes about 2^70 bytes, so computing the product
+	// first and comparing it against the bound overflows int64 to a negative
+	// number, the comparison passes, and make panics with a length out of
+	// range — a check that refuses everything except the inputs it exists to
+	// refuse. The fuzzer found this in seven seconds.
+	rowBytes64 := (int64(c.width)*int64(c.bitDepth)*int64(channels) + 7) / 8
+	if rowBytes64+1 > maxDecoded/int64(c.height) {
+		return nil, verr.NewCodedErrorWithDetails(verr.VELLUM_ASSET_TOO_LARGE,
+			"the image's samples would exceed the decoding bound",
+			map[string]any{
+				"handle":      handle,
+				"width":       c.width,
+				"height":      c.height,
+				"row_bytes":   rowBytes64,
+				"limit_bytes": maxDecoded,
+			})
+	}
+	total := (rowBytes64 + 1) * int64(c.height)
+
 	zr, err := zlib.NewReader(bytes.NewReader(c.idat))
 	if err != nil {
 		return nil, invalid(handle, "the image data is not a zlib stream")
 	}
 	defer zr.Close()
 
-	rowBytes := (c.width*c.bitDepth*channels + 7) / 8
+	rowBytes := int(rowBytes64)
 	// The filter operates on whole bytes, over the pixel one to its left. For
 	// sub-byte depths that neighbour is the byte itself, so the offset floors
 	// to one rather than to zero.
@@ -338,7 +400,7 @@ func (c *pngChunks) scanlines(handle string, channels int) ([][]byte, error) {
 		bpp = 1
 	}
 
-	raw := make([]byte, (rowBytes+1)*c.height)
+	raw := make([]byte, total)
 	if _, err := io.ReadFull(zr, raw); err != nil {
 		return nil, invalid(handle, "the image data is shorter than the header describes")
 	}

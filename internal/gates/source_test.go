@@ -5,6 +5,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -73,6 +74,8 @@ func TestNoTimeNow(t *testing.T) {
 // obey.
 var outputPathPackages = []string{
 	"opc", "opc/zipdet", "doc", "sheet", "deck", "pdf",
+	"pdf/object", "pdf/content", "pdf/font", "pdf/font/sfnt", "pdf/image",
+	"pdf/text", "pdf/shape", "pdf/color", "pdf/xmp", "pdf/pdfa",
 	"fragment", "resolve", "theme", "descriptor", "provenance",
 }
 
@@ -92,11 +95,13 @@ var outputPathPackages = []string{
 // instead, so most of these never arise.
 func TestNoUnsortedMapIteration(t *testing.T) {
 	var offences []string
+	visited := make(map[string]bool)
 
 	walkSource(t, func(path string, file *ast.File, fset *token.FileSet) {
 		if !onOutputPath(path) {
 			return
 		}
+		visited[filepath.ToSlash(filepath.Dir(path))] = true
 		// Names are collected per function rather than per file, plus the
 		// file's package-level declarations. Collecting per file made any local
 		// share a verdict with every same-named local elsewhere in the file —
@@ -156,6 +161,25 @@ func TestNoUnsortedMapIteration(t *testing.T) {
 			"Collect the keys into a slice, sort them bytewise, and range that. "+
 			"A map ranged here puts a different order into the bytes on every run.",
 			strings.Join(offences, "\n  "))
+	}
+
+	// A package that exists and was never reached is a package this gate
+	// silently stopped covering — a renamed directory, or a name that never
+	// matched in the first place. It would keep passing, which is the one way a
+	// gate fails that nothing else reports.
+	//
+	// A name with no directory is not a fault: several of these are packages a
+	// later epic builds, and naming them now is how the rule arrives before the
+	// code rather than after it.
+	for _, p := range outputPathPackages {
+		if visited[p] {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(repoRoot, filepath.FromSlash(p))); err != nil {
+			continue
+		}
+		t.Errorf("outputPathPackages names %q, which exists and which the source walk never reached. "+
+			"The gate is not checking it, and would pass whatever it contained.", p)
 	}
 }
 

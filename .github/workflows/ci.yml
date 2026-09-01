@@ -117,6 +117,12 @@ jobs:
         run: go test ./opc/ -run=NONE -fuzz=FuzzOpen -fuzztime=60s
       - name: Fuzz the read-write round trip
         run: go test ./opc/ -run=NONE -fuzz=FuzzReadWriteRoundTrip -fuzztime=60s
+      - name: Fuzz the PDF object writer
+        run: go test ./pdf/object/ -run=NONE -fuzz='^FuzzWriteDocument$' -fuzztime=60s
+      - name: Fuzz the image readers
+        run: go test ./pdf/image/ -run=NONE -fuzz='^FuzzImage$' -fuzztime=60s
+      - name: Fuzz the image fingerprint
+        run: go test ./pdf/image/ -run=NONE -fuzz='^FuzzImageFingerprint$' -fuzztime=60s
 
   lint:
     runs-on: ubuntu-latest

@@ -45,7 +45,27 @@ type Options struct {
 
 	// Bytes is the encoded image, verbatim.
 	Bytes []byte
+
+	// MaxDecodedBytes bounds the unfiltered sample data for the one form that
+	// has to be decoded — a PNG whose alpha has to be separated from its
+	// colour. Zero selects [DefaultMaxDecodedBytes].
+	//
+	// It is a separate bound from the one on the encoded asset, because the two
+	// numbers are not related by anything a caller can predict: PNG compresses
+	// flat colour extraordinarily well, so a small file can describe an
+	// enormous plane of samples. A bound on the input does not bound the work,
+	// and the header declaring the size is written by whoever supplied the file.
+	MaxDecodedBytes int64
 }
+
+// DefaultMaxDecodedBytes is the bound on unfiltered sample data when none is
+// configured.
+//
+// Generous, because a legitimate full-page image at print resolution is genuinely
+// large and a bound that refuses real input gets raised until it refuses nothing.
+// It exists to stop an allocation nobody asked for, not to express a policy about
+// image sizes — that policy is the asset bound, and it is the host's.
+const DefaultMaxDecodedBytes int64 = 256 << 20 // 256 MiB
 
 // XObject is a raster asset prepared for embedding.
 //
