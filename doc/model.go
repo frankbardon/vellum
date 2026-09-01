@@ -255,6 +255,17 @@ const (
 
 // Drawing is an embedded image.
 type Drawing struct {
+	// ID is the drawing's document-unique identifier.
+	//
+	// Unique per drawing, not per picture: WordprocessingML requires docPr ids
+	// to be distinct within a document, and two blocks showing the same picture
+	// share a media part but are still two drawings. Deriving it from the media
+	// index made those two collide.
+	//
+	// Assigned by the lowering from a counter over its own walk, which is
+	// deterministic because the walk is — sections in order, blocks in order.
+	ID int
+
 	// MediaIndex points into [Document.Media].
 	MediaIndex int
 

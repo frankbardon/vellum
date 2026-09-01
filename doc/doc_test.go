@@ -705,3 +705,46 @@ func provenanceFixture() provenance.Record {
 		},
 	}
 }
+
+// TestLower_DrawingIDsAreDocumentUnique pins a conformance rule that is easy to
+// get wrong and produces no visible symptom in most readers.
+//
+// WordprocessingML requires docPr ids to be distinct within a document. Two
+// blocks showing the same picture share a media part but are still two
+// drawings, so an id derived from the media index makes them collide.
+func TestLower_DrawingIDsAreDocumentUnique(t *testing.T) {
+	same := pngURI()
+	d := lower(t,
+		spec.Block{Kind: spec.BlockAsset, Asset: &spec.Asset{Handle: same}},
+		spec.Block{Kind: spec.BlockAsset, Asset: &spec.Asset{Handle: same}},
+		spec.Block{Kind: spec.BlockAsset, Asset: &spec.Asset{Handle: same}},
+	)
+
+	// One media part, because the assets deduplicate by content.
+	if len(d.Media) != 1 {
+		t.Fatalf("three references to one picture produced %d media parts", len(d.Media))
+	}
+
+	seen := map[int]bool{}
+	count := 0
+	for _, c := range d.Sections[0].Content {
+		dr := c.Paragraph.Runs[0].Drawing
+		if dr == nil {
+			continue
+		}
+		count++
+		if dr.ID == 0 {
+			t.Error("a drawing has no id")
+		}
+		if seen[dr.ID] {
+			t.Errorf("two drawings share the docPr id %d", dr.ID)
+		}
+		seen[dr.ID] = true
+		if dr.MediaIndex != 0 {
+			t.Errorf("drawing %d points at media %d, want the single shared part", dr.ID, dr.MediaIndex)
+		}
+	}
+	if count != 3 {
+		t.Fatalf("got %d drawings, want 3", count)
+	}
+}

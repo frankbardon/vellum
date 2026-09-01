@@ -60,6 +60,12 @@ type lowering struct {
 	// orders assets by first use, and because font programs in the fragment's
 	// asset manifest are not media at all.
 	mediaIndex map[int]int
+
+	// drawings counts the drawings emitted so far, which is where a docPr id
+	// comes from. A counter is acceptable here — and would not be anywhere on
+	// this path that mattered — because the walk it counts is itself
+	// deterministic: sections in order, blocks in order.
+	drawings int
 }
 
 // section lowers one resolved section.
@@ -189,12 +195,14 @@ func (l *lowering) asset(a *fragment.AssetRef, sectionIndex int, sectionID strin
 				"block_index": blockIndex, "asset_index": a.AssetIndex})
 	}
 
+	l.drawings++
 	drawing := &Drawing{
+		ID:            l.drawings,
 		MediaIndex:    idx,
 		FallbackIndex: -1,
 		WidthEMU:      a.WidthEMU,
 		HeightEMU:     a.HeightEMU,
-		Name:          "Picture " + strconv.Itoa(blockIndex+1),
+		Name:          "Picture " + strconv.Itoa(l.drawings),
 		AltText:       a.AltText,
 	}
 

@@ -148,7 +148,7 @@ func (w *writer) writeTableCell(b *strings.Builder, c *TableCell) {
 // two documents with the same pictures produce the same ids however the writer
 // walked them.
 func (w *writer) writeDrawing(b *strings.Builder, d *Drawing) {
-	id := strconv.Itoa(d.MediaIndex + 1)
+	id := strconv.Itoa(d.ID)
 	primaryRel, ok := w.imageRel(d.MediaIndex)
 	if !ok {
 		return
@@ -186,13 +186,15 @@ func (w *writer) writeDrawing(b *strings.Builder, d *Drawing) {
 	}
 	b.WriteString(`/><pic:cNvPicPr/></pic:nvPicPr>`)
 
-	b.WriteString(`<pic:blipFill><a:blip r:embed="` + blipRel + `">`)
-	if svgRel != "" {
-		b.WriteString(`<a:extLst><a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}">`)
+	b.WriteString(`<pic:blipFill><a:blip r:embed="` + blipRel + `"`)
+	if svgRel == "" {
+		b.WriteString(`/>`)
+	} else {
+		b.WriteString(`><a:extLst><a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}">`)
 		b.WriteString(`<asvg:svgBlip xmlns:asvg="` + nsSVG + `" r:embed="` + svgRel + `"/>`)
-		b.WriteString(`</a:ext></a:extLst>`)
+		b.WriteString(`</a:ext></a:extLst></a:blip>`)
 	}
-	b.WriteString(`</a:blip><a:stretch><a:fillRect/></a:stretch></pic:blipFill>`)
+	b.WriteString(`<a:stretch><a:fillRect/></a:stretch></pic:blipFill>`)
 
 	b.WriteString(`<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="` + width + `" cy="` + height + `"/></a:xfrm>`)
 	b.WriteString(`<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>`)

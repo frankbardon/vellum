@@ -63,12 +63,7 @@ func docxSkeletonCase() Case {
 // narrow fixtures proves each in isolation while proving nothing about the
 // document a consumer actually produces.
 func docxProfileCase() Case {
-	png := "data:image/png;base64," + base64.StdEncoding.EncodeToString([]byte{
-		0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n',
-		0, 0, 0, 13, 'I', 'H', 'D', 'R',
-		0, 0, 0, 4, 0, 0, 0, 3, 8, 6, 0, 0, 0,
-		0, 0, 0, 0, 'I', 'E', 'N', 'D',
-	})
+	png := "data:image/png;base64," + base64.StdEncoding.EncodeToString(fixturePNG())
 
 	return Case{
 		Name: "docx-profile",
@@ -221,7 +216,7 @@ func substrateCase() Case {
 			if err := p.Put(&opc.Part{
 				Name:        "/media/image1.png",
 				ContentType: ctPNG,
-				Data:        []byte("\x89PNG\r\n\x1a\nsubstrate fixture, not a real image"),
+				Data:        fixturePNG(),
 			}); err != nil {
 				return err
 			}
@@ -239,4 +234,27 @@ func substrateCase() Case {
 			return p.WriteTo(w, zipdet.WriteOptions{SourceDateEpoch: epoch})
 		},
 	}
+}
+
+// fixturePNG is a real 4x3 PNG: two flat bands, produced by image/png and
+// round-tripped through its decoder before being encoded here.
+//
+// It is real because the first version was not. That one was hand-assembled
+// from a signature, an IHDR and an IEND — no IDAT, no chunk CRCs. Vellum's
+// sniffer recognised the signature, its probe read 4x3 out of the IHDR, the
+// package assembled correctly, and the determinism harness was entirely
+// satisfied, because every stage was comparing our bytes against our bytes.
+// Word drew "the picture can't be displayed".
+//
+// A fixture no reader accepts proves the packaging and proves nothing about the
+// embedding, which is most of what a golden containing an image is for.
+// TestGoldenMediaDecodes now fails the build for it.
+func fixturePNG() []byte {
+	const encoded = "iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAAHElEQVR42mKR96tk" +
+		"gAEmBiTAeOHCBTgHEAAA//88uANeGlr4UwAAAABJRU5ErkJggg=="
+	raw, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		panic("dettest: the fixture PNG does not decode: " + err.Error())
+	}
+	return raw
 }
