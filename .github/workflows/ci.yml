@@ -30,6 +30,25 @@ jobs:
       - name: Assert no cgo
         run: CGO_ENABLED=0 go build ./...
 
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26"
+      # A bounded smoke run, not a campaign. Its job is to keep the targets
+      # compiling and to re-exercise the committed corpus on every change;
+      # finding new inputs is what a longer scheduled run is for.
+      - name: Fuzz the archive reader
+        run: go test ./opc/zipdet/ -run=NONE -fuzz=FuzzRead -fuzztime=60s
+      - name: Fuzz entry-name validation
+        run: go test ./opc/zipdet/ -run=NONE -fuzz=FuzzWriteNames -fuzztime=60s
+      - name: Fuzz the package reader
+        run: go test ./opc/ -run=NONE -fuzz=FuzzOpen -fuzztime=60s
+      - name: Fuzz the read-write round trip
+        run: go test ./opc/ -run=NONE -fuzz=FuzzReadWriteRoundTrip -fuzztime=60s
+
   lint:
     runs-on: ubuntu-latest
     steps:

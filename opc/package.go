@@ -525,3 +525,88 @@ func (p *Package) Clone() *Package {
 	c.ct = &ct
 	return c
 }
+
+// Validate checks the package's referential integrity: that every internal
+// relationship target resolves to a part the package actually carries.
+//
+// It is deliberately not called by [Open]. A package Vellum did not build may
+// legitimately reference a part it does not carry — a template stripped of an
+// unused header, a document assembled by a tool with looser habits — and
+// refusing to open such a file would leave fill mode unable to inspect the
+// very documents it exists to work with. Reading is permissive about semantic
+// consistency; writing is not.
+//
+// It is also not called by [Package.WriteTo], because writing back a package
+// that was read must reproduce it exactly, including whatever inconsistencies
+// it arrived with. Compose paths, which build a package from nothing and have
+// no such excuse, call it before emitting.
+func (p *Package) Validate() error {
+	if p == nil {
+		return verr.NewCodedError(verr.VELLUM_INTERNAL_INVARIANT, "nil package")
+	}
+
+	owners := make([]string, 0, len(p.rels))
+	for owner := range p.rels {
+		owners = append(owners, owner)
+	}
+	sort.Strings(owners)
+
+	for _, owner := range owners {
+		for _, rel := range p.rels[owner].All() {
+			if rel.Mode == TargetExternal {
+				// External targets are never resolved. Vellum performs no
+				// network I/O and has no business deciding whether a hyperlink
+				// points anywhere.
+				continue
+			}
+			target := resolveTarget(owner, rel.Target)
+			if !p.Has(target) {
+				return verr.NewCodedErrorWithDetails(verr.VELLUM_OPC_RELATIONSHIP_INVALID,
+					"a relationship points at a part the package does not contain",
+					map[string]any{
+						"owner":         owner,
+						"relationship":  rel.ID,
+						"target":        rel.Target,
+						"resolved_part": target,
+					})
+			}
+		}
+	}
+	return nil
+}
+
+// resolveTarget resolves a relationship target against its owner's directory.
+//
+// An absolute target is package-rooted; a relative one is resolved against the
+// directory holding the owning part, which is why the owner's own name — not
+// the relationships part's name — is the base.
+func resolveTarget(owner, target string) string {
+	if strings.HasPrefix(target, "/") {
+		return target
+	}
+
+	base := "/"
+	if owner != "/" && owner != "" {
+		if i := strings.LastIndexByte(owner, '/'); i >= 0 {
+			base = owner[:i+1]
+		}
+	}
+
+	segments := strings.Split(strings.TrimPrefix(base, "/"), "/")
+	if len(segments) > 0 && segments[len(segments)-1] == "" {
+		segments = segments[:len(segments)-1]
+	}
+	for _, seg := range strings.Split(target, "/") {
+		switch seg {
+		case "", ".":
+			// Nothing to do; an empty segment is a doubled slash.
+		case "..":
+			if len(segments) > 0 {
+				segments = segments[:len(segments)-1]
+			}
+		default:
+			segments = append(segments, seg)
+		}
+	}
+	return "/" + strings.Join(segments, "/")
+}

@@ -280,6 +280,11 @@ Non-destructiveness and fill:
 - `TestDefragCorpusComplete` — a case directory under `testdata/corpus/defrag/` without its `expect.json` fails the build. Live from day one, including while the corpus is empty.
 - `TestBindBannedBuiltinsComplete` — the nondeterministic-builtin registry covers everything `bind.Validate` rejects.
 
+Fuzz (bounded smoke run per PR; the job is to keep the targets compiling and re-exercise the committed corpus, not to run a campaign):
+- `FuzzRead`, `FuzzWriteNames` over the archive reader and entry-name validation.
+- `FuzzOpen`, `FuzzReadWriteRoundTrip` over the package reader. The round-trip target also asserts the writer is idempotent, which is the determinism guarantee restated over arbitrary input rather than over fixtures.
+- The hostile seed corpus lives at `opc/testdata/seeds/` with a documented expectation per file. A seed with no expectation, or an expectation with no seed, fails the build.
+
 Conformance:
 - `TestPDFAConformance` — build-tagged `verapdf`; runs a digest-pinned veraPDF against every PDF golden and asserts zero errors.
 
