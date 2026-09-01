@@ -19,6 +19,10 @@
         "table.cell_span",
         "asset.media.image/png",
         "asset.media.image/jpeg",
+        "text.script.latin",
+        "text.script.greek",
+        "text.script.cyrillic",
+        "text.script.other",
         "fill"
       ],
       "note": "A flowing document. Word paginates it, so Vellum does not compute page breaks."
@@ -32,6 +36,10 @@
         "table.hierarchical_headers",
         "table.margins",
         "table.cell_span",
+        "text.script.latin",
+        "text.script.greek",
+        "text.script.cyrillic",
+        "text.script.other",
         "fill"
       ],
       "note": "Presentation tables, not a spreadsheet: no formulas, no pivot tables, no macros. A consumer wanting a live model builds it elsewhere."
@@ -53,6 +61,10 @@
         "table.cell_span",
         "asset.media.image/png",
         "asset.media.image/jpeg",
+        "text.script.latin",
+        "text.script.greek",
+        "text.script.cyrillic",
+        "text.script.other",
         "overflow.continue_repeat_headers",
         "fill"
       ],
@@ -77,6 +89,9 @@
         "asset.media.image/jpeg",
         "font.embed.subset",
         "font.embed.whole",
+        "text.script.latin",
+        "text.script.greek",
+        "text.script.cyrillic",
         "overflow.continue_repeat_headers"
       ],
       "note": "PDF/A-2b, emitted directly rather than converted. Every font is embedded, because the archival profile requires it."
@@ -214,6 +229,27 @@
       "note": "The outline format does not change the answer here, because this format embeds no font programs in v1: every face is referenced by name whatever its outlines are."
     },
     {
+      "feature": "text.script.latin",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "text.script.greek",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "text.script.cyrillic",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "text.script.other",
+      "format": "docx",
+      "outcome": "renders",
+      "note": "Vellum writes the characters and the application lays them out. It does no shaping or line breaking for this format, so it imposes no restriction on the writing system."
+    },
+    {
       "feature": "overflow.continue_repeat_headers",
       "format": "docx",
       "outcome": "degrades",
@@ -340,6 +376,27 @@
       "note": "The outline format does not change the answer here, because this format embeds no font programs in v1: every face is referenced by name whatever its outlines are."
     },
     {
+      "feature": "text.script.latin",
+      "format": "xlsx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "text.script.greek",
+      "format": "xlsx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "text.script.cyrillic",
+      "format": "xlsx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "text.script.other",
+      "format": "xlsx",
+      "outcome": "renders",
+      "note": "Vellum writes the characters and the application lays them out. It does no shaping or line breaking for this format, so it imposes no restriction on the writing system."
+    },
+    {
       "feature": "overflow.continue_repeat_headers",
       "format": "xlsx",
       "outcome": "degrades",
@@ -452,6 +509,27 @@
       "note": "The outline format does not change the answer here, because this format embeds no font programs in v1: every face is referenced by name whatever its outlines are."
     },
     {
+      "feature": "text.script.latin",
+      "format": "pptx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "text.script.greek",
+      "format": "pptx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "text.script.cyrillic",
+      "format": "pptx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "text.script.other",
+      "format": "pptx",
+      "outcome": "renders",
+      "note": "Vellum writes the characters and the application lays them out. It does no shaping or line breaking for this format, so it imposes no restriction on the writing system."
+    },
+    {
       "feature": "overflow.continue_repeat_headers",
       "format": "pptx",
       "outcome": "renders",
@@ -556,6 +634,28 @@
       "degrade": "the whole font program embedded rather than a subset",
       "code": "VELLUM_CAPABILITY_DEGRADED",
       "note": "Vellum subsets glyf and not CFF: a CFF subsetter means a second outline format and a charstring interpreter, and the size it saves is not worth the ways it can be subtly wrong. The face is embedded whole and the document is conforming. A theme demanding embed: \"subset\" of a CFF face gets VELLUM_FONT_EMBED_UNSUPPORTED rather than this degradation, because subset-only may be a licence condition and must never be silently ignored."
+    },
+    {
+      "feature": "text.script.latin",
+      "format": "pdf",
+      "outcome": "renders"
+    },
+    {
+      "feature": "text.script.greek",
+      "format": "pdf",
+      "outcome": "renders"
+    },
+    {
+      "feature": "text.script.cyrillic",
+      "format": "pdf",
+      "outcome": "renders"
+    },
+    {
+      "feature": "text.script.other",
+      "format": "pdf",
+      "outcome": "rejects",
+      "code": "VELLUM_PDF_SCRIPT_UNSUPPORTED",
+      "note": "Vellum lays PDF out itself, so it can only promise the systems it has established it shapes and breaks correctly: horizontal left-to-right Latin, Greek and Cyrillic in v1. Anything else is refused at compose time rather than rendered wrong — an unsupported script does not fail to draw, it draws incorrectly, and that is a defect a reader of the language finds and a test does not. Two supported systems mixed in one string is also refused, for the same reason. Compose to an OOXML target, which does its own layout."
     },
     {
       "feature": "overflow.continue_repeat_headers",
@@ -706,9 +806,11 @@
     "VELLUM_PDF_WRITE_FAILED",
     "VELLUM_PDF_FONT_INVALID",
     "VELLUM_PDF_GLYPH_MISSING",
+    "VELLUM_PDF_SCRIPT_UNSUPPORTED",
+    "VELLUM_PDF_TEXT_OVERFLOW",
     "VELLUM_INTERNAL_INVARIANT"
   ],
-  "error_codes_count": 42,
+  "error_codes_count": 44,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: 20ca7152e6159fee689537b4b2f1de4296c23446c98eca3af8318a422453c1ef
+// golden-hash: b573b339d57e7914916e2d8adb318a08bb0ca0c52482414d73593517f7a0156c

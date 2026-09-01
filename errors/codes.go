@@ -252,6 +252,19 @@ const (
 	// implement, or a glyph outline it cannot follow.
 	VELLUM_PDF_FONT_INVALID Code = "VELLUM_PDF_FONT_INVALID"
 
+	// VELLUM_PDF_SCRIPT_UNSUPPORTED indicates text in a writing system Vellum
+	// does not lay out. The supported set is declared in the capability matrix
+	// under text.script rather than discovered: a script laid out incorrectly
+	// produces a document that renders and is wrong, which a reader notices and
+	// a test does not.
+	VELLUM_PDF_SCRIPT_UNSUPPORTED Code = "VELLUM_PDF_SCRIPT_UNSUPPORTED"
+
+	// VELLUM_PDF_TEXT_OVERFLOW indicates a single unbreakable piece of text
+	// wider than the space it was given. It is an error rather than a silent
+	// overhang, because text running off the edge of a page is a defect nobody
+	// sees until the artifact is printed.
+	VELLUM_PDF_TEXT_OVERFLOW Code = "VELLUM_PDF_TEXT_OVERFLOW"
+
 	// VELLUM_PDF_GLYPH_MISSING indicates text containing a character the
 	// selected face has no glyph for. It is an error rather than a substitution
 	// with a notdef box, because a document that silently renders a row of
@@ -378,6 +391,8 @@ var allCodes = []Code{
 	VELLUM_PDF_WRITE_FAILED,
 	VELLUM_PDF_FONT_INVALID,
 	VELLUM_PDF_GLYPH_MISSING,
+	VELLUM_PDF_SCRIPT_UNSUPPORTED,
+	VELLUM_PDF_TEXT_OVERFLOW,
 
 	// INTERNAL
 	VELLUM_INTERNAL_INVARIANT,

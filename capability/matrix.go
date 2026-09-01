@@ -55,6 +55,12 @@ var matrix = Matrix{
 		Note: "The outline format does not change the answer here, because this format embeds no font programs in v1: every face is referenced by name whatever its outlines are.",
 	},
 
+	{Feature: FeatureScriptLatin, Format: artifact.FormatDOCX, Outcome: Renders},
+	{Feature: FeatureScriptGreek, Format: artifact.FormatDOCX, Outcome: Renders},
+	{Feature: FeatureScriptCyrillic, Format: artifact.FormatDOCX, Outcome: Renders},
+	{Feature: FeatureScriptOther, Format: artifact.FormatDOCX, Outcome: Renders,
+		Note: "Vellum writes the characters and the application lays them out. It does no shaping or line breaking for this format, so it imposes no restriction on the writing system."},
+
 	{
 		Feature: FeatureOverflowContinue, Format: artifact.FormatDOCX, Outcome: Degrades,
 		Degrade: "flow", Code: verr.VELLUM_CAPABILITY_DEGRADED,
@@ -121,6 +127,12 @@ var matrix = Matrix{
 		Note: "The outline format does not change the answer here, because this format embeds no font programs in v1: every face is referenced by name whatever its outlines are.",
 	},
 
+	{Feature: FeatureScriptLatin, Format: artifact.FormatXLSX, Outcome: Renders},
+	{Feature: FeatureScriptGreek, Format: artifact.FormatXLSX, Outcome: Renders},
+	{Feature: FeatureScriptCyrillic, Format: artifact.FormatXLSX, Outcome: Renders},
+	{Feature: FeatureScriptOther, Format: artifact.FormatXLSX, Outcome: Renders,
+		Note: "Vellum writes the characters and the application lays them out. It does no shaping or line breaking for this format, so it imposes no restriction on the writing system."},
+
 	{
 		Feature: FeatureOverflowContinue, Format: artifact.FormatXLSX, Outcome: Degrades,
 		Degrade: "one continuous sheet", Code: verr.VELLUM_CAPABILITY_DEGRADED,
@@ -168,6 +180,12 @@ var matrix = Matrix{
 		Note: "The outline format does not change the answer here, because this format embeds no font programs in v1: every face is referenced by name whatever its outlines are.",
 	},
 
+	{Feature: FeatureScriptLatin, Format: artifact.FormatPPTX, Outcome: Renders},
+	{Feature: FeatureScriptGreek, Format: artifact.FormatPPTX, Outcome: Renders},
+	{Feature: FeatureScriptCyrillic, Format: artifact.FormatPPTX, Outcome: Renders},
+	{Feature: FeatureScriptOther, Format: artifact.FormatPPTX, Outcome: Renders,
+		Note: "Vellum writes the characters and the application lays them out. It does no shaping or line breaking for this format, so it imposes no restriction on the writing system."},
+
 	{Feature: FeatureOverflowContinue, Format: artifact.FormatPPTX, Outcome: Renders,
 		Note: "A table longer than a slide continues onto the next with its headers repeated. Capacity is theme-derived rather than measured, so the split is reproducible."},
 	{Feature: FeatureFill, Format: artifact.FormatPPTX, Outcome: Renders},
@@ -206,6 +224,15 @@ var matrix = Matrix{
 		Feature: FeatureFontOutlinesCFF, Format: artifact.FormatPDF, Outcome: Degrades,
 		Degrade: "the whole font program embedded rather than a subset", Code: verr.VELLUM_CAPABILITY_DEGRADED,
 		Note: "Vellum subsets glyf and not CFF: a CFF subsetter means a second outline format and a charstring interpreter, and the size it saves is not worth the ways it can be subtly wrong. The face is embedded whole and the document is conforming. A theme demanding embed: \"subset\" of a CFF face gets VELLUM_FONT_EMBED_UNSUPPORTED rather than this degradation, because subset-only may be a licence condition and must never be silently ignored.",
+	},
+
+	{Feature: FeatureScriptLatin, Format: artifact.FormatPDF, Outcome: Renders},
+	{Feature: FeatureScriptGreek, Format: artifact.FormatPDF, Outcome: Renders},
+	{Feature: FeatureScriptCyrillic, Format: artifact.FormatPDF, Outcome: Renders},
+	{
+		Feature: FeatureScriptOther, Format: artifact.FormatPDF, Outcome: Rejects,
+		Code: verr.VELLUM_PDF_SCRIPT_UNSUPPORTED,
+		Note: "Vellum lays PDF out itself, so it can only promise the systems it has established it shapes and breaks correctly: horizontal left-to-right Latin, Greek and Cyrillic in v1. Anything else is refused at compose time rather than rendered wrong — an unsupported script does not fail to draw, it draws incorrectly, and that is a defect a reader of the language finds and a test does not. Two supported systems mixed in one string is also refused, for the same reason. Compose to an OOXML target, which does its own layout.",
 	},
 
 	{Feature: FeatureOverflowContinue, Format: artifact.FormatPDF, Outcome: Renders,

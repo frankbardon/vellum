@@ -88,6 +88,46 @@ func (b *Builder) ShowGlyphs(gids []uint16) *Builder {
 	return b.op("Tj")
 }
 
+// Adjusted is one run of glyphs in a TJ array, with the displacement that
+// follows it.
+type Adjusted struct {
+	// Glyphs are shown as a hexadecimal string.
+	Glyphs []uint16
+
+	// Adjust is subtracted from the pen's displacement after the run, in
+	// thousandths of a unit of text space. A negative value therefore moves the
+	// pen further right, which is how extra space is inserted.
+	//
+	// Zero writes no number at all, so an unjustified line costs nothing.
+	Adjust object.Real
+}
+
+// ShowAdjusted emits TJ: runs of glyphs with displacements between them.
+//
+// This is how justified text is set. The obvious alternative, the Tw word
+// spacing parameter, does not work here: Tw applies only to single-byte
+// character code 32, and an Identity-H composite font addresses glyphs by
+// two-byte identifier, so no code 32 ever appears in the stream. A content
+// stream that sets Tw and expects justified output produces a flush-left
+// paragraph and no error.
+func (b *Builder) ShowAdjusted(items []Adjusted) *Builder {
+	b.buf = append(b.buf, '[')
+	for _, it := range items {
+		if len(it.Glyphs) > 0 {
+			raw := make([]byte, 0, len(it.Glyphs)*2)
+			for _, g := range it.Glyphs {
+				raw = append(raw, byte(g>>8), byte(g))
+			}
+			b.buf = object.HexString(raw).AppendPDF(b.buf)
+		}
+		if it.Adjust != 0 {
+			b.buf = it.Adjust.AppendPDF(b.buf)
+		}
+	}
+	b.buf = append(b.buf, ']', ' ')
+	return b.op("TJ")
+}
+
 // SetFillRGB emits rg, setting the non-stroking colour.
 //
 // Components are in the range zero to one, so [object.Ratio] is the usual way

@@ -66,6 +66,22 @@ var pdfExpectations = map[string]pdfExpectation{
 			{"Metadata Stream", "yes"},
 		},
 	},
+	"pdf-prose": {
+		WantText: []string{
+			"Justified",
+			"Flush left",
+			// A phrase that spans a line break in the wrapped output, so
+			// extraction proves the lines were drawn in order and the
+			// justification adjustments did not reorder or drop anything.
+			"harfbuzz",
+			"two-byte encoding.",
+		},
+		WantInfo: [][2]string{
+			{"Title", "Justified Prose"},
+			{"Pages", "1"},
+			{"Metadata Stream", "yes"},
+		},
+	},
 }
 
 // TestPDFReaderSeesTheContent checks every PDF golden with poppler.

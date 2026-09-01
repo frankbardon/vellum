@@ -95,6 +95,24 @@ const (
 	FeatureFontOutlinesCFF Feature = "font.outlines.cff"
 )
 
+// Text layout features.
+//
+// A writing system is a matrix row because the answer differs by format for a
+// structural reason: an OOXML target hands the text to Word, which does its own
+// shaping and line breaking, while a PDF is laid out by Vellum and can only
+// promise what Vellum has established it lays out correctly.
+//
+// The set is declared rather than discovered by a reader. A script laid out with
+// the wrong algorithm produces a document that renders and is wrong — Arabic set
+// left to right and unjoined — and that is a defect no test of ours catches and
+// every reader of the language does.
+const (
+	FeatureScriptLatin    Feature = "text.script.latin"
+	FeatureScriptGreek    Feature = "text.script.greek"
+	FeatureScriptCyrillic Feature = "text.script.cyrillic"
+	FeatureScriptOther    Feature = "text.script.other"
+)
+
 // Overflow and fill.
 const (
 	FeatureOverflowContinue Feature = "overflow.continue_repeat_headers"
@@ -123,6 +141,11 @@ var allFeatures = []Feature{
 	FeatureFontEmbedSubset,
 	FeatureFontEmbedWhole,
 	FeatureFontOutlinesCFF,
+
+	FeatureScriptLatin,
+	FeatureScriptGreek,
+	FeatureScriptCyrillic,
+	FeatureScriptOther,
 
 	FeatureOverflowContinue,
 	FeatureFill,

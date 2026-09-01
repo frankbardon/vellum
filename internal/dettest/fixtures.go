@@ -15,6 +15,8 @@ import (
 	"github.com/frankbardon/vellum/pdf/content"
 	pdffont "github.com/frankbardon/vellum/pdf/font"
 	"github.com/frankbardon/vellum/pdf/object"
+	"github.com/frankbardon/vellum/pdf/shape"
+	"github.com/frankbardon/vellum/pdf/text"
 	"github.com/frankbardon/vellum/pdf/xmp"
 	"github.com/frankbardon/vellum/provenance"
 	"github.com/frankbardon/vellum/resolve"
@@ -34,7 +36,107 @@ func Cases() []Case {
 		docxProfileCase(),
 		pdfSpikeCase(),
 		pdfPagesCase(),
+		pdfProseCase(),
 	}
+}
+
+// pdfProseCase exercises shaping, line breaking and justification.
+//
+// A paragraph long enough to wrap several times, set justified, beside the same
+// text set flush left so the difference is visible in the artifact rather than
+// only in the assertions. It is the case that would catch a sign error in the
+// TJ adjustments, which draws as a line that tightens rather than spreads and
+// looks like a kerning fault.
+func pdfProseCase() Case {
+	return Case{
+		Name:  "pdf-prose",
+		Ext:   "pdf",
+		Write: writePDFProse,
+	}
+}
+
+// proseText is deliberately ordinary. Its job is to wrap, not to be interesting.
+const proseText = "Vellum lays this paragraph out itself: it shapes the text with " +
+	"harfbuzz, finds break opportunities with the Unicode line breaking algorithm, " +
+	"and fills each line greedily in integer font units. Justification distributes " +
+	"the remaining space between words through TJ adjustments, because word spacing " +
+	"does nothing for a two-byte encoding."
+
+func writePDFProse(w io.Writer, epoch time.Time) error {
+	shaper, err := shape.New(goregular.TTF)
+	if err != nil {
+		return err
+	}
+	face, err := pdffont.New(pdffont.Options{
+		Resource: "F1",
+		BaseName: "GoRegular",
+		Program:  goregular.TTF,
+		Plan:     pdffont.PlanSubset,
+	})
+	if err != nil {
+		return err
+	}
+
+	const (
+		size    = object.Real(11 * object.RealScale)
+		leading = object.Real(15 * object.RealScale)
+		measure = object.Real(300 * object.RealScale)
+		left    = object.Real(72 * object.RealScale)
+	)
+
+	lines, err := text.Wrap(shaper, proseText, text.WrapOptions{Size: size, Width: measure})
+	if err != nil {
+		return err
+	}
+
+	var c content.Builder
+	top := object.Points(700)
+	for _, block := range []struct {
+		label string
+		align text.Align
+	}{
+		{"Justified", text.AlignJustify},
+		{"Flush left", text.AlignLeft},
+	} {
+		heading, err := face.Encode(block.label)
+		if err != nil {
+			return err
+		}
+		c.BeginText().
+			SetFont("F1", object.Points(9)).
+			MoveText(left, top).
+			ShowGlyphs(heading).
+			EndText()
+		top -= object.Points(18)
+
+		for _, l := range lines {
+			c.BeginText().
+				SetFont("F1", size).
+				MoveText(left+l.Offset(block.align, measure), top)
+			if err := l.Show(&c, face, block.align, measure); err != nil {
+				return err
+			}
+			c.EndText()
+			top -= leading
+		}
+		top -= object.Points(24)
+	}
+
+	d := pdf.Document{
+		Metadata: xmp.Metadata{
+			Title:    "Justified Prose",
+			Creator:  "Vellum determinism fixture",
+			Producer: "Vellum 0.0.0-golden",
+			Date:     epoch,
+		},
+		Pages: []pdf.Page{{
+			Width:   object.Points(612),
+			Height:  object.Points(792),
+			Content: c.Bytes(),
+			Fonts:   []*pdffont.Face{face},
+		}},
+	}
+	return d.WriteTo(w, pdf.WriteOptions{SourceDateEpoch: epoch})
 }
 
 // pdfPagesCase exercises the page tree at a size where its shape matters.

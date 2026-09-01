@@ -368,6 +368,39 @@ var codeMetadata = map[Code]Metadata{
 		},
 	},
 
+	VELLUM_PDF_SCRIPT_UNSUPPORTED: {
+		Message: "the text is in a writing system Vellum does not lay out",
+		Fixups: []Fixup{
+			{
+				Action: FixupSetField,
+				Path:   []string{"Sections", "*", "Blocks", "*", "Text", "Content"},
+				Hint:   "Vellum lays out horizontal left-to-right Latin, Greek and Cyrillic in v1. A script it has not established it can shape and break correctly is refused rather than rendered subtly wrong, because a reader notices that and a test does not.",
+			},
+			{
+				Action:   FixupSetField,
+				Path:     []string{"Format"},
+				Hint:     "An OOXML target has no such restriction: Word does its own shaping, so the same text composes to .docx, .xlsx or .pptx.",
+				Examples: []any{"docx", "pptx"},
+			},
+		},
+	},
+
+	VELLUM_PDF_TEXT_OVERFLOW: {
+		Message: "a piece of text with no break opportunity is wider than the space available",
+		Fixups: []Fixup{
+			{
+				Action: FixupSetField,
+				Path:   []string{"Sections", "*", "Blocks", "*", "Text", "Content"},
+				Hint:   "Give the text somewhere to break — a hyphen, a space, or a zero-width space in a long identifier. Vellum will not break mid-word: a break Unicode does not permit is one no reader would have made.",
+			},
+			{
+				Action: FixupSetField,
+				Path:   []string{"Theme"},
+				Hint:   "Or widen the box the text is set in, in the theme's layout for this format.",
+			},
+		},
+	},
+
 	VELLUM_TABLE_FORMAT_INVALID: {
 		Message: "the cell's number-format code does not parse",
 		Fixups: []Fixup{{

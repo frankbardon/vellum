@@ -15,6 +15,11 @@
       "sha256": "c3a1ed390c1551d916f9deb251b122e899ac529d4734e86b9788a61234577644",
       "bytes": 20340
     },
+    "pdf-prose": {
+      "file": "pdf-prose/expected.pdf",
+      "sha256": "753df7719590dd34a10a3243aed75fc4a1c66a626043581e6be1beb51bec2a70",
+      "bytes": 15886
+    },
     "pdf-spike": {
       "file": "pdf-spike/expected.pdf",
       "sha256": "044b55cc337641257ea65f6008311af654e609301d679be49afb6c95e6fc71f2",
@@ -27,4 +32,4 @@
     }
   }
 }
-// golden-hash: 94d36abf3c53b110fda584931e8ce3070305f97336a2f32f534984e16b11f324
+// golden-hash: 88c5d12a0dcccf6016f7c5e018e9a09402a8885aeaaafc13dcfda8ac98962f2a

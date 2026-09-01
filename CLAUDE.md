@@ -174,6 +174,15 @@ The compressed statement; the full table is `.claude/reference/determinism.md`.
   instead — make the nondeterminism unrepresentable rather than tested-against.
 - No `x/text/collate`. Bytewise `sort.Strings` only.
 - EMU is `int64`. Measurements never round-trip through `float64`.
+- Text is measured in integer font units and converted to text space once per
+  line. A line's fit is decided by comparing `advance x size` against
+  `width x unitsPerEm` — two products, never a division — because converting
+  each glyph and summing rounds per glyph, and a paragraph measured one way
+  then re-measured the other breaks into different lines.
+- Line breaking is greedy over UAX#14 opportunities. Not because greedy is
+  better: because an optimal-fit shaper produces different breaks, and a
+  document's pagination must not change when a later version gets cleverer
+  about ragged edges.
 - Assertions are on raw bytes. Normalise XML for failure *display* only.
 
 ### Byte-layout invariants
