@@ -509,6 +509,26 @@ var codeMetadata = map[Code]Metadata{
 		}},
 	},
 
+	VELLUM_DECK_INVALID: {
+		Message: "the deck cannot be serialised as PresentationML",
+		// No fixup on the specification, and deliberately so. Nothing a
+		// consumer can write in a spec produces one of these: the lowering
+		// builds the masters, layouts and media table itself, so a dangling
+		// layout reference or a picture indexing past the media is Vellum
+		// having assembled a deck wrong. A consumer driving the deck model
+		// directly gets the detail keys, which name the slide and the shape.
+		FixupNotApplicable: true,
+	},
+
+	VELLUM_DECK_BLOCK_UNSUPPORTED: {
+		Message: "the PPTX writer does not render this block kind yet",
+		Fixups: []Fixup{{
+			Action: FixupRemoveField,
+			Path:   []string{"Sections", "*", "Blocks", "*"},
+			Hint:   "Remove the block, or target a format that supports it. The capability matrix reports which blocks render in which formats before a render is attempted, so this can be checked rather than discovered.",
+		}},
+	},
+
 	VELLUM_FONT_SUBSTITUTED: {
 		Message: "a font was replaced by its declared substitute because the theme marks it as not embeddable",
 		Fixups: []Fixup{

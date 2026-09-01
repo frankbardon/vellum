@@ -195,6 +195,25 @@ const (
 	VELLUM_DOC_BLOCK_UNSUPPORTED Code = "VELLUM_DOC_BLOCK_UNSUPPORTED"
 )
 
+// DECK domain — PresentationML.
+const (
+	// VELLUM_DECK_INVALID indicates a deck the PresentationML writer cannot
+	// serialise: a slide naming a layout the deck does not carry, a layout
+	// naming a missing master, a picture indexing past the media, a shape
+	// carrying neither content nor a frame.
+	//
+	// Checked before anything is written rather than discovered part by part,
+	// because every one of these produces a package that opens and is silently
+	// wrong — a slide with no formatting, a picture that draws nothing — which
+	// is the failure mode this library exists to prevent.
+	VELLUM_DECK_INVALID Code = "VELLUM_DECK_INVALID"
+
+	// VELLUM_DECK_BLOCK_UNSUPPORTED indicates a block kind the PPTX writer
+	// does not yet render. A hard failure rather than a silent omission, for
+	// the reason VELLUM_DOC_BLOCK_UNSUPPORTED is.
+	VELLUM_DECK_BLOCK_UNSUPPORTED Code = "VELLUM_DECK_BLOCK_UNSUPPORTED"
+)
+
 // FONT domain — font resolution and embedding.
 const (
 	// VELLUM_FONT_SUBSTITUTED is a WARNING, not an error. It reports that a
@@ -404,6 +423,10 @@ var allCodes = []Code{
 
 	// DOC
 	VELLUM_DOC_BLOCK_UNSUPPORTED,
+
+	// DECK
+	VELLUM_DECK_INVALID,
+	VELLUM_DECK_BLOCK_UNSUPPORTED,
 
 	// ZIP
 	VELLUM_ZIP_MALFORMED,

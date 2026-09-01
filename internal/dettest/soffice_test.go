@@ -48,6 +48,29 @@ var officeExpectations = map[string]officeExpectation{
 			"Why this exists",
 		},
 	},
+	"pptx-master": {
+		// Flat ODP rather than a text filter. Impress has no text export that
+		// accepts a file destination, and this one carries what the others
+		// drop: the speaker notes, which live on a part of their own and are
+		// the half of the deck most likely to arrive unreferenced.
+		TextFilter: "fodp:OpenDocument Presentation Flat XML",
+		TextExt:    "fodp",
+		WantText: []string{
+			"Authored From The Theme",
+			"No template ships with this deck",
+			"Three content models",
+			// An outline level, which proves the body placeholder's list style
+			// reached the slide rather than merely reaching the master.
+			"theme by reference, values untyped",
+			// The speaker note. It is in a separate part reached through a
+			// separate relationship, so seeing it proves that graph resolved.
+			"Nothing here was copied from a shipped package.",
+			// The theme's own font, read back off the master rather than off
+			// the run: a deck whose runs name no family and whose master names
+			// the wrong one renders in the reader's default and looks fine.
+			"Helvetica Neue",
+		},
+	},
 	"docx-profile": {
 		TextFilter: "txt:Text",
 		TextExt:    "txt",

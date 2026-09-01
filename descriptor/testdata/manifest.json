@@ -967,6 +967,7 @@
     "MARK",
     "TABLE",
     "DOC",
+    "DECK",
     "ZIP",
     "FONT",
     "PDF",
@@ -1002,6 +1003,8 @@
     "VELLUM_TABLE_ROW_ARITY",
     "VELLUM_TABLE_FORMAT_INVALID",
     "VELLUM_DOC_BLOCK_UNSUPPORTED",
+    "VELLUM_DECK_INVALID",
+    "VELLUM_DECK_BLOCK_UNSUPPORTED",
     "VELLUM_ZIP_MALFORMED",
     "VELLUM_ZIP_TOO_LARGE",
     "VELLUM_ZIP_ENTRY_NAME_INVALID",
@@ -1022,7 +1025,7 @@
     "VELLUM_PDFA_NONCONFORMANT",
     "VELLUM_INTERNAL_INVARIANT"
   ],
-  "error_codes_count": 47,
+  "error_codes_count": 49,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: c7cc876af624cc5de5e5d306a7db74a9c31fe8b9d1f3b0101469f6200985e154
+// golden-hash: 8c496232e3ca4bcdf3865af8ebf2ed81f1d26b838281a2acfda30878b27fc528

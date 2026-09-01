@@ -9,6 +9,7 @@ import (
 
 	"github.com/frankbardon/vellum/artifact"
 	"github.com/frankbardon/vellum/asset"
+	"github.com/frankbardon/vellum/deck"
 	"github.com/frankbardon/vellum/doc"
 	"github.com/frankbardon/vellum/internal/imagetest"
 	"github.com/frankbardon/vellum/opc"
@@ -38,6 +39,7 @@ func Cases() []Case {
 		substrateCase(),
 		docxSkeletonCase(),
 		docxProfileCase(),
+		pptxMasterCase(),
 		pdfSpikeCase(),
 		pdfPagesCase(),
 		pdfProseCase(),
@@ -576,6 +578,116 @@ func writePDFSpike(w io.Writer, epoch time.Time) error {
 // It is registered rather than tested privately in the doc package, because a
 // format epic should prove its determinism by joining this suite rather than
 // by writing one of its own that may quietly assert something weaker.
+// pptxMasterCase is the authored master, layout and theme set reaching a
+// package.
+//
+// Built from the deck model directly rather than lowered from a specification,
+// because there is no lowering yet and the thing under test is not the mapping
+// — it is that a .pptx Vellum authored from a theme, with no shipped template
+// anywhere in it, is a package a reader opens and finds its content in.
+//
+// It carries notes on one slide, deliberately. A notes slide drags in a notes
+// master and a second theme part, which is where the relationship graph gets
+// wide enough to go wrong.
+func pptxMasterCase() Case {
+	return Case{
+		Name:  "pptx-master",
+		Ext:   "pptx",
+		Write: writePPTXMaster,
+	}
+}
+
+// pptxDesign is the design the PPTX golden is authored from.
+//
+// Its colours are the built-in theme's, mapped onto DrawingML's twelve slots by
+// hand. The mapping is not mechanical — DrawingML says dk1/lt1 where the theme
+// says text/background — and doing it here rather than in the deck package is
+// the same boundary the design struct exists to draw.
+func pptxDesign() deck.Design {
+	const pt = 12700
+	return deck.Design{
+		Name:          "Vellum",
+		MarginTop:     457200,
+		MarginRight:   457200,
+		MarginBottom:  457200,
+		MarginLeft:    457200,
+		HeadingFamily: "Helvetica Neue",
+		BodyFamily:    "Helvetica",
+		TitleSize:     40 * pt,
+		BodySizes:     []int64{20 * pt, 18 * pt, 16 * pt},
+		LineHeight:    1.2,
+		SpaceBefore:   6 * pt,
+		Colors: deck.ColorScheme{
+			Dark1: "1A1A1A", Light1: "FFFFFF",
+			Dark2: "0B3D91", Light2: "F2F2F2",
+			Accent1: "0B3D91", Accent2: "C8102E", Accent3: "007A5E",
+			Accent4: "F2A900", Accent5: "6B4E9B", Accent6: "5B6770",
+			Hyperlink: "0B3D91", FollowedHyperlink: "6B4E9B",
+		},
+	}
+}
+
+// writePPTXMaster emits the authored deck.
+func writePPTXMaster(w io.Writer, epoch time.Time) error {
+	d, err := deck.Author(pptxDesign())
+	if err != nil {
+		return err
+	}
+	d.Title = "Authored From The Theme"
+
+	d.Slides = []deck.Slide{
+		{
+			LayoutID: deck.LayoutIDTitle,
+			Shapes: []deck.Shape{
+				{
+					Placeholder: &deck.Placeholder{Type: deck.PlaceholderCenterTitle},
+					Text:        deckBody("Authored From The Theme"),
+				},
+				{
+					Placeholder: &deck.Placeholder{Type: deck.PlaceholderSubTitle, Index: 1},
+					Text:        deckBody("No template ships with this deck"),
+				},
+			},
+		},
+		{
+			LayoutID: deck.LayoutIDContent,
+			Notes:    "The master, the layouts and the theme part were all written from the theme document.\n\nNothing here was copied from a shipped package.",
+			Shapes: []deck.Shape{
+				{
+					Placeholder: &deck.Placeholder{Type: deck.PlaceholderTitle},
+					Text:        deckBody("Three content models"),
+				},
+				{
+					Placeholder: &deck.Placeholder{Type: deck.PlaceholderContent, Index: 1},
+					Text: &deck.TextBody{Paragraphs: []deck.Paragraph{
+						{Runs: []deck.Run{{Text: "spec is unresolved and hashable"}}},
+						{Level: 1, Runs: []deck.Run{{Text: "theme by reference, values untyped"}}},
+						{Runs: []deck.Run{{Text: "fragment is resolved and format neutral"}}},
+						{Level: 1, Runs: []deck.Run{{Text: "every length in EMU"}}},
+						{Runs: []deck.Run{{Text: "doc, sheet, deck and pdf are laid out"}}},
+					}},
+				},
+			},
+		},
+		{
+			LayoutID: deck.LayoutIDTitleOnly,
+			Shapes: []deck.Shape{
+				{
+					Placeholder: &deck.Placeholder{Type: deck.PlaceholderTitle},
+					Text:        deckBody("Declared, not emergent"),
+				},
+			},
+		},
+	}
+
+	return d.WriteTo(w, deck.WriteOptions{SourceDateEpoch: epoch})
+}
+
+// deckBody builds a single-paragraph text body.
+func deckBody(text string) *deck.TextBody {
+	return &deck.TextBody{Paragraphs: []deck.Paragraph{{Runs: []deck.Run{{Text: text}}}}}
+}
+
 func docxSkeletonCase() Case {
 	return Case{
 		Name: "docx-skeleton",

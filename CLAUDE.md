@@ -211,6 +211,34 @@ The compressed statement; the full table is `.claude/reference/determinism.md`.
 - xlsx `styles.xml` keeps the fixed preamble with builtin indices intact. Fill
   index 0 and 1 are reserved by the spec; getting it wrong makes Excel refuse to
   open the file.
+- pptx slide and master identifier spaces are disjoint and both are bounded. A
+  `sldId` is at least 256 and below 2147483648; a `sldMasterId` and a
+  `sldLayoutId` are at or above it. A deck that mixes them is one PowerPoint
+  repairs on open.
+- A pptx shape identifier starts at 2. Identifier 1 belongs to the `spTree`'s
+  own group shape, which every shape tree carries, and a shape numbered 1
+  collides with it. Identifiers are assigned by position within the tree, so
+  two slides carrying the same shapes produce the same identifiers.
+- **A pptx title placeholder carries no `idx`; every other placeholder carries
+  one.** The asymmetry is the schema's. A title matches its layout counterpart
+  by type alone and everything else matches by index, so a title with an index
+  or a body without one inherits from the wrong layout shape — the slide opens
+  with its placeholders stacked on each other and nothing anywhere reports a
+  problem. Pinned by `TestWrite_TitlePlaceholdersCarryNoIndex`.
+- **Every colour a pptx master, layout or slide states is a scheme reference,
+  never a literal.** `theme1.xml` is the only part carrying `srgbClr`. A literal
+  elsewhere is a colour the theme cannot restyle, and it produces a deck that
+  looks correct and cannot be restyled — worse than one that looks wrong,
+  because nothing reports it. Pinned by
+  `TestWrite_ColoursOnSlidesAreSchemeReferences`, which also asserts the master
+  states a scheme colour so the check cannot pass by there being none.
+- **pptx masters, layouts and the theme part are authored from the theme, not
+  shipped.** A .pptx carries no loose formatting: a slide inherits from a
+  layout, a layout from a master, and the master from a theme part naming its
+  colours and fonts by slot. A deck with none of those is not a deck with
+  default styling but a file PowerPoint refuses. Shipping a fixed template and
+  copying its parts through would make every consumer's deck look like Vellum's.
+  See `deck.Author`.
 - PDF uses a classic xref table and trailer, never object streams.
 - **Image data is embedded verbatim.** A JPEG's own bytes become the DCTDecode
   stream and an opaque PNG's own IDAT becomes the FlateDecode stream, carrying
