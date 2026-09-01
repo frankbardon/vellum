@@ -205,6 +205,46 @@ The compressed statement; the full table is `.claude/reference/determinism.md`.
   order and padding, and recompute checksums with `head.checkSumAdjustment`
   written last.
 
+### The office-reader oracle
+
+Every assertion in the determinism harness compares our bytes against our bytes.
+That proves determinism and proves nothing about whether the file opens: an
+artifact can be byte-identical across a thousand runs and still be one no office
+application will accept. Three defects have reached a human that way — zip
+version fields left at zero, ECMA-376 children emitted out of schema order, and
+a golden "PNG" carrying no IDAT chunk. Every Go-side reader accepted all three.
+Word accepted none.
+
+The gap is structural: **the readers available to the build are more tolerant
+than the readers that matter.** `internal/oovalidate` narrows it by driving an
+installed LibreOffice over the committed goldens — converting each to PDF, which
+forces a full parse and layout, and extracting the text a reader would see.
+
+This does not reopen the LibreOffice question. That ruling is about *producing*
+artifacts and stands unchanged. Here LibreOffice is an oracle: it reads bytes
+Vellum already wrote and reports whether it could. Its output is examined for
+presence and content and **never compared for equality**, because a conversion's
+bytes vary with renderer version and installed fonts — the exact nondeterminism
+the ruling exists to exclude.
+
+Two mechanisms keep it out of the library. The implementation is behind the
+`soffice` build tag, so it cannot link into a build that did not ask for it, and
+`TestNoOfficeToolingOnTheLibraryPath` asserts no shipped package reaches it. The
+tag alone would suffice today and would stop sufficing the moment somebody
+removed it for convenience.
+
+**It is evidence, not proof.** LibreOffice is not Word, it is more tolerant on
+several of the constraints above, and it is less tolerant on some legitimate
+constructs — so a failure is read before it is believed. It is worth having
+because the failures it does catch, a package that will not open and content
+that silently vanished, are the expensive ones, and nothing else catches them
+before a human opens the file by hand.
+
+Run it with `make test-office`. `make test` prints a warning naming what it did
+not check when no installation is found, because a skip is invisible in a
+non-verbose run and an optional gate nobody is told about is one nobody
+provisions.
+
 ### Declared, not emergent
 
 A behaviour a consumer can observe — a block degrading, an asset media type
@@ -264,6 +304,14 @@ CLAUDE.md hygiene:
 Contract and registry completeness:
 - `TestCapabilityMatrixComplete` — every (feature x format) pair has a declared outcome.
 - `TestCapabilityCodesRegistered` — every code named by a matrix row parses via `errors.ParseCode`.
+- `TestCapabilityEveryBlockKindHasAFeature` — no block kind is absent from the matrix.
+- `TestCapabilityOutcomesAreWellFormed` — a `degrades` row names its alternative and a `rejects` row names its code; the three outcomes stay distinguishable.
+- `TestCapabilityKnownDecisions` — the decisions that were argued, pinned as cases, so a matrix edit that reverses one is deliberate.
+- `TestManifestCapabilitiesComplete` — the manifest enumerates the live matrix.
+- `TestPayloadSchemaEmbedsSpecDefinitions` — the schema carries the `spec` definitions rather than referencing them out of band.
+- `TestNoPulseCodes` — no `PULSE_*` error code leaks in through `ingest`. Vellum reads a Pulse envelope; it does not import Pulse and does not re-emit its vocabulary.
+- `TestNoSemanticSectionVocabulary` — no built-in section type ("cover", "methodology"). That vocabulary belongs to the consumer.
+- `TestNoOfficeToolingOnTheLibraryPath` — no shipped package reaches `internal/oovalidate`. See "The office-reader oracle".
 - `TestCodesHaveFixups` — every error code has a `codeMetadata` row with a `Message` and a `Fixup`, or `FixupNotApplicable: true`.
 - `TestManifestBlocksComplete`, `TestManifestFormatsComplete`, `TestManifestErrorCodesComplete`, `TestManifestMCPToolsComplete` — the manifest enumerates the live registries.
 - `TestPayloadSchemaGolden`, `TestPayloadSchemaEnumsMatchRegistry`, `TestPayloadSchemaVersionMatchesEnvelope`.
@@ -292,8 +340,9 @@ Fuzz (bounded smoke run per PR; the job is to keep the targets compiling and re-
 - `FuzzOpen`, `FuzzReadWriteRoundTrip` over the package reader. The round-trip target also asserts the writer is idempotent, which is the determinism guarantee restated over arbitrary input rather than over fixtures.
 - The hostile seed corpus lives at `opc/testdata/seeds/` with a documented expectation per file. A seed with no expectation, or an expectation with no seed, fails the build.
 
-Conformance:
+Conformance (externally provisioned; skipped when the tool is absent unless `VELLUM_REQUIRE_OPTIONAL_GATES` is set):
 - `TestPDFAConformance` — build-tagged `verapdf`; runs a digest-pinned veraPDF against every PDF golden and asserts zero errors.
+- `TestOfficeReaderOpensGoldens` — build-tagged `soffice`; opens every OOXML golden with an installed LibreOffice and asserts the content a reader sees. See "The office-reader oracle".
 
 Skill and example coverage:
 - `TestSkillsCoverAllBlockKinds`, `TestSkillsCoverAllFormats`, `TestSkillsCoverAllFeatures`, `TestSkillsCoverAllMCPTools`, `TestSkillsCoverAllBindModes`, `TestSkillsCoverThemeSlots`, `TestSkillsCoverAllCliLeaves`.
@@ -307,6 +356,7 @@ make build   # bin/vellum, version-stamped via -X main.version=$(VERSION)
 make test
 make lint    # go vet + staticcheck
 make cover
+make test-office  # build-tagged; needs a LibreOffice installation
 make bench   # manual; asserts no threshold
 make docs    # mdBook
 ```
@@ -321,6 +371,10 @@ Environment variables:
 - `VELLUM_SOURCE_DATE_EPOCH` — RFC 3339 timestamp pinning every date Vellum writes. Unset selects the pinned 1980 epoch, which is the deterministic default. Setting a real time is a deliberate opt-out of byte-identical output and is recorded in provenance.
 - `VELLUM_MAX_ASSET_BYTES` — cap on a single resolved asset. Unset selects the built-in default.
 - `VELLUM_VERAPDF` — path or container digest for the veraPDF binary used by the build-tagged conformance gate.
+- `VELLUM_SOFFICE` — path to a LibreOffice `soffice` binary, for the build-tagged office-reader checks. Unset searches the `PATH` and the platform's conventional install location. Test-only: the library runs no subprocess, and this changes nothing a consumer can observe. See "The office-reader oracle".
+- `VELLUM_REQUIRE_OPTIONAL_GATES` — turns a missing external tool from a skip into a failure. Unset lets a developer without veraPDF or LibreOffice run the suite; CI sets it so a gate cannot pass forever without ever running. Shared across the externally-provisioned gates rather than one variable per tool.
+- `VELLUM_DETTEST_CASE` — names the single case a re-executed child process emits, for `TestDeterminismCrossProcess`. Set by the harness, never by hand.
+- `VELLUM_SPEC_HASH_CHILD` — marks the re-executed child process in `TestSpecHashPinnedVectors`' cross-process arm. Set by the harness, never by hand.
 
 ## Dependencies
 
@@ -346,7 +400,7 @@ Permanently ruled out, with reasons, so they are not re-proposed:
 - **`github.com/tdewolff/font`** — MIT with a real subsetter, but its write path stamps `time.Now()` into `head.modified`, inside the exact byte stream we are required to pin. Never tagged. Read as reference; do not import.
 - **`github.com/pdfcpu/pdfcpu`** — a processor for existing PDFs; a deterministic writer needs total control of object numbering and xref layout.
 - **`github.com/google/uuid`** — Vellum generates no random identifiers, ever.
-- **LibreOffice, in any form** — conversion output varies with renderer version and installed fonts, which defeats byte-identical output and the consumer dedupe that rests on it.
+- **LibreOffice, in any form, on the output path** — conversion output varies with renderer version and installed fonts, which defeats byte-identical output and the consumer dedupe that rests on it. Vellum never converts. It is permitted in one place and one only: as a build-tagged *test oracle* that reads artifacts Vellum already wrote and reports whether a real reader accepts them, never comparing bytes. See "The office-reader oracle". It is not a module dependency and the library runs no subprocess.
 
 ## Extension Points
 
@@ -397,7 +451,7 @@ They are not the same document written twice.
 - Do not hand-edit a golden, including "just to fix formatting". The gate exists
   because that is exactly how goldens stop being evidence.
 - Do not re-marshal a source part with `encoding/xml`.
-- Do not shell out to anything.
+- Do not shell out to anything **from the library**. A consumer embedding Vellum gets the same bytes whether or not any external tool is installed. The build-tagged test oracles are the sole exception, fenced by a tag and by `TestNoOfficeToolingOnTheLibraryPath`.
 - Do not perform network I/O.
 - Do not log. Diagnostics are returned as data.
 - Do not scaffold empty `convert/` or worker directories. They are cut
