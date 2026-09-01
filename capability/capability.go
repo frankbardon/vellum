@@ -99,6 +99,12 @@ const (
 	FeatureAssetPNGInterlaced   Feature = "asset.png.interlaced"
 	FeatureAssetJPEGProgressive Feature = "asset.jpeg.progressive"
 	FeatureAssetJPEGCMYK        Feature = "asset.jpeg.cmyk"
+
+	// FeatureAssetAltText is the accessible description travelling with an
+	// asset. A row of its own because it is content a consumer supplied and a
+	// format may have nowhere to put it — and content with nowhere to go is the
+	// case that has to be declared rather than discovered.
+	FeatureAssetAltText Feature = "asset.alt_text"
 )
 
 // Font features.
@@ -185,6 +191,7 @@ var allFeatures = []Feature{
 	FeatureAssetPNGInterlaced,
 	FeatureAssetJPEGProgressive,
 	FeatureAssetJPEGCMYK,
+	FeatureAssetAltText,
 
 	FeatureFontEmbedSubset,
 	FeatureFontEmbedWhole,

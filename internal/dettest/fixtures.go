@@ -164,11 +164,25 @@ func composeBlocks() []spec.Block {
 			spec.Block{Kind: spec.BlockText, Text: &spec.Text{Content: composeBody}},
 		)
 	}
+	png := "data:image/png;base64," + base64.StdEncoding.EncodeToString(imagetest.RGB())
+
 	out = append(out,
 		spec.Block{Kind: spec.BlockPageBreak, PageBreak: &spec.PageBreak{}},
 		spec.Block{Kind: spec.BlockHeading, Heading: &spec.Heading{Level: 1, Content: "After the break"}},
 		spec.Block{Kind: spec.BlockText, Text: &spec.Text{
 			Content: "An explicit page break starts a page even when the one before it had room.",
+		}},
+		// The asset and the note, together on the last page, so one reading of
+		// the artifact shows both declared behaviours: a picture embedded at
+		// the size the theme box chose, and a notes block that became a
+		// footnote at the foot of the page rather than small print in the flow.
+		spec.Block{Kind: spec.BlockAsset, Asset: &spec.Asset{
+			Handle:  png,
+			Role:    "asset.full",
+			AltText: "a placeholder square, which PDF has nowhere to put",
+		}},
+		spec.Block{Kind: spec.BlockNotes, Notes: &spec.Notes{
+			Content: "Base: every respondent. This note is a footnote, which is what the capability matrix says a note becomes here.",
 		}},
 	)
 	return out

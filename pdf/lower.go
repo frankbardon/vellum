@@ -6,6 +6,7 @@ import (
 	"github.com/frankbardon/vellum/fragment"
 	"github.com/frankbardon/vellum/pdf/color"
 	"github.com/frankbardon/vellum/pdf/font"
+	pdfimage "github.com/frankbardon/vellum/pdf/image"
 	"github.com/frankbardon/vellum/pdf/object"
 	"github.com/frankbardon/vellum/pdf/shape"
 	"github.com/frankbardon/vellum/pdf/text"
@@ -114,11 +115,39 @@ type lowering struct {
 	pages   []Page
 	current *Page
 
+	// images are built on first use and shared afterwards, keyed by the index
+	// into the document's asset manifest. Resource names come from that index,
+	// so a document's /Im2 is its second asset however the pages use it.
+	images map[int]*pdfimage.XObject
+
 	// geometry is the current page's, and cursor the baseline the next line
 	// would sit on.
 	geometry fragment.Page
 	cursor   object.Real
 	open     bool
+
+	// notes are the footnotes waiting to be laid out at the foot of the current
+	// page, and reserve the vertical space they will need. The reserve raises
+	// the floor the flow may write down to, which is why a note has to be
+	// admitted before the body that follows it is placed rather than after.
+	notes   []pendingNote
+	reserve object.Real
+
+	// noteNumber counts footnotes across the document, so the marks run
+	// continuously rather than restarting on each page.
+	noteNumber int
+}
+
+// pendingNote is a footnote whose body has been wrapped but not yet placed.
+type pendingNote struct {
+	number  int
+	lines   []text.Line
+	leading object.Real
+}
+
+// height is the space the note occupies once placed.
+func (n pendingNote) height() object.Real {
+	return object.Real(len(n.lines)) * n.leading
 }
 
 // buildFaces turns the resolved font manifest into embeddable faces.
@@ -206,10 +235,16 @@ func (l *lowering) block(sectionIndex int, sectionID string, blockIndex int, b *
 		l.flush()
 		l.newPage(l.geometry)
 		return nil
+
+	case spec.BlockAsset:
+		return l.asset(b.Asset, sectionIndex, sectionID, blockIndex)
+
+	case spec.BlockNotes:
+		return l.note(b.Note)
 	}
 
-	// Every remaining kind is declared as rendering on PDF in the capability
-	// matrix and is not built yet. It is an invariant rather than a capability
+	// Every remaining kind — tables, in v1 — is declared as rendering on PDF in
+	// the capability matrix and is not built yet. It is an invariant rather than a capability
 	// rejection precisely because the matrix says it renders: the gap is in
 	// this package, not in what Vellum promises, and saying otherwise here
 	// would make the matrix a description of the code instead of a contract on
@@ -318,9 +353,14 @@ func (l *lowering) measure() object.Real {
 	return points(l.geometry.ContentWidth())
 }
 
-// bottom is the lowest baseline a line may sit on.
+// bottom is the lowest baseline the flow may write down to.
+//
+// It rises as footnotes are admitted, because the space they will occupy is not
+// available to the body above them. That is why a note is admitted before the
+// text that follows it is placed: after the fact, the body would already be
+// sitting where the note has to go.
 func (l *lowering) bottom() object.Real {
-	return points(l.geometry.MarginBottom)
+	return points(l.geometry.MarginBottom) + l.reserve
 }
 
 // empty reports whether nothing has been placed on the current page.
@@ -396,6 +436,208 @@ func (l *lowering) flush() {
 	if l.current == nil {
 		return
 	}
+	l.placeNotes()
 	l.pages = append(l.pages, *l.current)
 	l.current = nil
+	l.notes, l.reserve = nil, 0
 }
+
+// asset places a resolved asset, breaking the page when it does not fit.
+//
+// The size is already concrete: resolution applied the theme box and, where the
+// box declared an intrinsic height, the asset's own aspect ratio. Nothing here
+// asks a picture how tall it is, and nothing here scales one — a picture placed
+// at a size the layout did not choose is a picture in the wrong place.
+func (l *lowering) asset(a *fragment.AssetRef, sectionIndex int, sectionID string, blockIndex int) error {
+	if a == nil {
+		return verr.NewCodedError(verr.VELLUM_INTERNAL_INVARIANT,
+			"an asset block carries no asset reference")
+	}
+	if a.AssetIndex < 0 || a.AssetIndex >= len(l.doc.Assets) {
+		return verr.NewCodedErrorWithDetails(verr.VELLUM_INTERNAL_INVARIANT,
+			"an asset block references an asset that is not in the manifest",
+			map[string]any{"section_index": sectionIndex, "section_id": sectionID,
+				"block_index": blockIndex, "asset_index": a.AssetIndex})
+	}
+
+	im, err := l.image(a.AssetIndex)
+	if err != nil {
+		return err
+	}
+
+	height := points(a.HeightEMU)
+	l.ensurePage()
+	if l.cursor-height < l.bottom() && !l.empty() {
+		// It does not fit here and the page has content, so the picture moves
+		// rather than being cropped by the page edge. A picture taller than the
+		// whole text box stays on a page of its own and overflows visibly,
+		// which is a geometry the theme chose and not something to silently
+		// resize away.
+		l.flush()
+		l.newPage(l.geometry)
+	}
+
+	top := l.cursor
+	l.current.Items = append(l.current.Items, Image(ImageItem{
+		X:      points(l.geometry.MarginLeft),
+		Y:      top - height,
+		Width:  points(a.WidthEMU),
+		Height: height,
+		Image:  im,
+	}))
+	l.cursor = top - height
+	return nil
+}
+
+// image builds an image XObject for an asset, once per document.
+func (l *lowering) image(index int) (*pdfimage.XObject, error) {
+	if im, ok := l.images[index]; ok {
+		return im, nil
+	}
+
+	a := &l.doc.Assets[index]
+	im, err := pdfimage.New(pdfimage.Options{
+		Resource:  object.Name("Im" + strconv.Itoa(index+1)),
+		Handle:    a.Handle,
+		MediaType: a.MediaType,
+		Bytes:     a.Bytes,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if l.images == nil {
+		l.images = map[int]*pdfimage.XObject{}
+	}
+	l.images[index] = im
+	return im, nil
+}
+
+// note lowers a notes block into a footnote.
+//
+// The matrix declares this degradation and names what it becomes. A PDF
+// annotation would be closer in spirit to a note and is not guaranteed visible
+// in every reader, and PDF/A restricts the annotation types a conforming file
+// may carry; a footnote is legible everywhere and needs nothing but text.
+//
+// The mark goes where the block sat in the flow and the body goes to the foot
+// of the page, which is what makes it a footnote rather than small print in the
+// middle of the document.
+func (l *lowering) note(n *fragment.Note) error {
+	if n == nil {
+		return verr.NewCodedError(verr.VELLUM_INTERNAL_INVARIANT,
+			"a notes block carries no note")
+	}
+
+	spans, err := l.spans(&n.Body)
+	if err != nil {
+		return err
+	}
+	lines, err := text.Wrap(spans, text.WrapOptions{Width: l.measure()})
+	if err != nil {
+		return err
+	}
+
+	l.ensurePage()
+	note := pendingNote{
+		number:  l.noteNumber + 1,
+		lines:   lines,
+		leading: leadingFor(lines, n.Body.LineHeight),
+	}
+
+	// Admitting the note raises the page's floor, and the body already placed
+	// above may now be sitting in the space the note needs. When it is, the
+	// note and its mark move to the next page together — splitting them would
+	// put a mark on one page and its text on another, which is the one thing a
+	// footnote may not do.
+	grown := note.height()
+	if len(l.notes) == 0 {
+		grown += noteSeparatorGap
+	}
+	if l.cursor-noteMarkHeight < l.bottom()+grown && !l.empty() {
+		l.flush()
+		l.newPage(l.geometry)
+		return l.note(n)
+	}
+
+	l.noteNumber = note.number
+	l.notes = append(l.notes, note)
+	l.reserve += grown
+
+	// The mark: the note's number, set small, on the flow's own baseline.
+	mark := l.markSpans(note.number)
+	if len(mark) > 0 {
+		markLines, err := text.Wrap(mark, text.WrapOptions{Width: l.measure()})
+		if err != nil {
+			return err
+		}
+		leading := leadingFor(markLines, 1)
+		l.place(markLines, leading)
+	}
+	return nil
+}
+
+// noteSeparatorGap is the space between the body text and the first footnote,
+// which the separator rule sits in.
+const noteSeparatorGap = object.Real(10 * object.RealScale)
+
+// noteMarkHeight is the space a footnote's in-flow mark occupies.
+const noteMarkHeight = object.Real(12 * object.RealScale)
+
+// markSpans builds the in-flow reference mark for a footnote.
+func (l *lowering) markSpans(number int) []text.Span {
+	if len(l.faces) == 0 {
+		return nil
+	}
+	return []text.Span{{
+		Text: strconv.Itoa(number),
+		Style: text.Style{
+			Face:   l.faces[0],
+			Shaper: l.shapers[0],
+			Size:   noteMarkSize,
+			Color:  color.Black,
+		},
+	}}
+}
+
+// noteMarkSize is the type size of a reference mark.
+const noteMarkSize = object.Real(8 * object.RealScale)
+
+// placeNotes lays the pending footnotes at the foot of the page.
+//
+// Called from flush, so a page's notes are placed after everything above them
+// is known — which is the whole reason the reserve exists rather than the notes
+// being emitted where they were encountered.
+func (l *lowering) placeNotes() {
+	if len(l.notes) == 0 {
+		return
+	}
+
+	// Stacked upward from the bottom margin, so the last note ends exactly at
+	// the margin however many there are.
+	y := points(l.geometry.MarginBottom)
+	for i := len(l.notes) - 1; i >= 0; i-- {
+		n := l.notes[i]
+		y += n.height()
+		l.current.Items = append(l.current.Items, Text(TextItem{
+			X:       points(l.geometry.MarginLeft),
+			Y:       y - n.leading,
+			Width:   l.measure(),
+			Align:   text.AlignLeft,
+			Leading: n.leading,
+			Lines:   n.lines,
+		}))
+	}
+
+	// The separator, a third of the measure wide, above the first note. Its
+	// only job is to say where the body stops and the notes start.
+	l.current.Items = append(l.current.Items, Rule(RuleItem{
+		X:      points(l.geometry.MarginLeft),
+		Y:      y + noteSeparatorGap/2,
+		Width:  l.measure() / 3,
+		Height: noteRuleHeight,
+		Color:  color.RGB{R: 0x80, G: 0x80, B: 0x80},
+	}))
+}
+
+// noteRuleHeight is the thickness of the footnote separator.
+const noteRuleHeight = object.Real(object.RealScale / 2)

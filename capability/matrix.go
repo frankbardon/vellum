@@ -43,6 +43,8 @@ var matrix = Matrix{
 	{Feature: FeatureAssetPNGInterlaced, Format: artifact.FormatDOCX, Outcome: Renders},
 	{Feature: FeatureAssetJPEGProgressive, Format: artifact.FormatDOCX, Outcome: Renders},
 	{Feature: FeatureAssetJPEGCMYK, Format: artifact.FormatDOCX, Outcome: Renders},
+	{Feature: FeatureAssetAltText, Format: artifact.FormatDOCX, Outcome: Renders,
+		Note: "Carried as the drawing's descr attribute, which is what a screen reader announces."},
 
 	{
 		Feature: FeatureFontEmbedSubset, Format: artifact.FormatDOCX, Outcome: Degrades,
@@ -125,6 +127,7 @@ var matrix = Matrix{
 	{Feature: FeatureAssetPNGInterlaced, Format: artifact.FormatXLSX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED},
 	{Feature: FeatureAssetJPEGProgressive, Format: artifact.FormatXLSX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED},
 	{Feature: FeatureAssetJPEGCMYK, Format: artifact.FormatXLSX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED},
+	{Feature: FeatureAssetAltText, Format: artifact.FormatXLSX, Outcome: Rejects, Code: verr.VELLUM_CAPABILITY_REJECTED},
 
 	{
 		Feature: FeatureFontEmbedSubset, Format: artifact.FormatXLSX, Outcome: Degrades,
@@ -187,6 +190,8 @@ var matrix = Matrix{
 	{Feature: FeatureAssetPNGInterlaced, Format: artifact.FormatPPTX, Outcome: Renders},
 	{Feature: FeatureAssetJPEGProgressive, Format: artifact.FormatPPTX, Outcome: Renders},
 	{Feature: FeatureAssetJPEGCMYK, Format: artifact.FormatPPTX, Outcome: Renders},
+	{Feature: FeatureAssetAltText, Format: artifact.FormatPPTX, Outcome: Renders,
+		Note: "Carried as the drawing's descr attribute, which is what a screen reader announces."},
 
 	{
 		Feature: FeatureFontEmbedSubset, Format: artifact.FormatPPTX, Outcome: Degrades,
@@ -258,6 +263,11 @@ var matrix = Matrix{
 		Feature: FeatureAssetJPEGProgressive, Format: artifact.FormatPDF, Outcome: Rejects,
 		Code: verr.VELLUM_PDF_IMAGE_UNSUPPORTED,
 		Note: "DCTDecode is defined over baseline and extended sequential JPEG. Progressive is legal JPEG that a conforming PDF reader is not obliged to decode, so embedding it produces a file that opens in the reader it was tested against and shows a blank frame in the next one. Refused rather than accepted on the strength of one reader.",
+	},
+	{
+		Feature: FeatureAssetAltText, Format: artifact.FormatPDF, Outcome: Degrades,
+		Degrade: "dropped", Code: verr.VELLUM_CAPABILITY_DEGRADED,
+		Note: "An accessible description needs somewhere to attach, and in PDF that is the structure tree — which PDF/A-2b does not require and Vellum does not write. A bare /Alt on a marked-content sequence is legal and no reader surfaces it, so writing one would satisfy a checker and help nobody. Tagged output is PDF/A-2a and 2u, which is a different conformance level and a different piece of work. Warned rather than dropped silently, because the description is content the consumer wrote.",
 	},
 	{
 		Feature: FeatureAssetJPEGCMYK, Format: artifact.FormatPDF, Outcome: Rejects,

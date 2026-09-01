@@ -157,9 +157,49 @@ type resolver struct {
 	marks map[string]bool
 
 	warnings []*verr.CodedError
+
+	// degraded records which features have already been reported as degrading
+	// for this format, so a document with four hundred emphasised runs produces
+	// one warning rather than four hundred. The same reason marks are deduped.
+	degraded map[capability.Feature]bool
 }
 
 func (r *resolver) warn(w *verr.CodedError) { r.warnings = append(r.warnings, w) }
+
+// degrade reports a feature the target format cannot carry, once per document.
+//
+// The matrix is asked rather than a condition written here, so a row that
+// changes from degrades to renders stops the warning without a second edit. A
+// feature the format renders produces nothing, which is what makes this safe to
+// call unconditionally at the site where the content appears.
+func (r *resolver) degrade(f capability.Feature, where map[string]any) {
+	e, ok := capability.Lookup(f, r.opts.Format)
+	if !ok || e.Outcome != capability.Degrades {
+		return
+	}
+	if r.degraded == nil {
+		r.degraded = map[capability.Feature]bool{}
+	}
+	if r.degraded[f] {
+		return
+	}
+	r.degraded[f] = true
+
+	code := e.Code
+	if code == "" {
+		code = verr.VELLUM_CAPABILITY_DEGRADED
+	}
+	details := map[string]any{
+		"feature": string(f),
+		"format":  string(r.opts.Format),
+		"becomes": e.Degrade,
+	}
+	for k, v := range where {
+		details[k] = v
+	}
+	r.warn(verr.NewCodedErrorWithDetails(code,
+		"the target format cannot carry this and it was degraded", details))
+}
 
 // sortWarnings puts the warnings in a stable order.
 //

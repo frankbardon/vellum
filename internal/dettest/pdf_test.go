@@ -123,6 +123,9 @@ var pdfExpectations = map[string]pdfExpectation{
 			// and that a page break starts a page rather than being ignored.
 			"Section 9",
 			"After the break",
+			// The declared degradation, in an artifact rather than only in a
+			// unit test: a notes block became a footnote.
+			"Base: every respondent.",
 		},
 		WantInfo: [][2]string{
 			{"Title", "Composed to PDF"},
@@ -130,6 +133,9 @@ var pdfExpectations = map[string]pdfExpectation{
 			// This is the only golden whose page count Vellum decided.
 			{"Pages", "3"},
 			{"Metadata Stream", "yes"},
+		},
+		WantImages: []wantImage{
+			{Kind: "image", Width: "8", Height: "8", Color: "rgb", BPC: "8", Enc: "image"},
 		},
 	},
 	"pdf-prose": {

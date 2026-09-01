@@ -23,6 +23,7 @@
         "asset.png.interlaced",
         "asset.jpeg.progressive",
         "asset.jpeg.cmyk",
+        "asset.alt_text",
         "font.embed.none",
         "text.bold",
         "text.italic",
@@ -75,6 +76,7 @@
         "asset.png.interlaced",
         "asset.jpeg.progressive",
         "asset.jpeg.cmyk",
+        "asset.alt_text",
         "font.embed.none",
         "text.bold",
         "text.italic",
@@ -242,6 +244,12 @@
       "feature": "asset.jpeg.cmyk",
       "format": "docx",
       "outcome": "renders"
+    },
+    {
+      "feature": "asset.alt_text",
+      "format": "docx",
+      "outcome": "renders",
+      "note": "Carried as the drawing's descr attribute, which is what a screen reader announces."
     },
     {
       "feature": "font.embed.subset",
@@ -432,6 +440,12 @@
       "code": "VELLUM_CAPABILITY_REJECTED"
     },
     {
+      "feature": "asset.alt_text",
+      "format": "xlsx",
+      "outcome": "rejects",
+      "code": "VELLUM_CAPABILITY_REJECTED"
+    },
+    {
       "feature": "font.embed.subset",
       "format": "xlsx",
       "outcome": "degrades",
@@ -600,6 +614,12 @@
       "outcome": "renders"
     },
     {
+      "feature": "asset.alt_text",
+      "format": "pptx",
+      "outcome": "renders",
+      "note": "Carried as the drawing's descr attribute, which is what a screen reader announces."
+    },
+    {
       "feature": "font.embed.subset",
       "format": "pptx",
       "outcome": "degrades",
@@ -764,6 +784,14 @@
       "outcome": "rejects",
       "code": "VELLUM_PDF_IMAGE_UNSUPPORTED",
       "note": "DCTDecode is defined over baseline and extended sequential JPEG. Progressive is legal JPEG that a conforming PDF reader is not obliged to decode, so embedding it produces a file that opens in the reader it was tested against and shows a blank frame in the next one. Refused rather than accepted on the strength of one reader."
+    },
+    {
+      "feature": "asset.alt_text",
+      "format": "pdf",
+      "outcome": "degrades",
+      "degrade": "dropped",
+      "code": "VELLUM_CAPABILITY_DEGRADED",
+      "note": "An accessible description needs somewhere to attach, and in PDF that is the structure tree — which PDF/A-2b does not require and Vellum does not write. A bare /Alt on a marked-content sequence is legal and no reader surfaces it, so writing one would satisfy a checker and help nobody. Tagged output is PDF/A-2a and 2u, which is a different conformance level and a different piece of work. Warned rather than dropped silently, because the description is content the consumer wrote."
     },
     {
       "feature": "asset.jpeg.cmyk",
@@ -995,4 +1023,4 @@
   "error_codes_count": 46,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: 516c08dae368afa07f9051e1c77b9f524361a11a6866db17b0beb1d0195c9d68
+// golden-hash: 784f8896f3edfdcd1f891662a6069e6ce1e1fbf0d855b88fd3a6136a24350b4f

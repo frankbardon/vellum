@@ -6,10 +6,14 @@ import (
 	"strings"
 	"testing"
 
+	"encoding/base64"
+
 	"github.com/frankbardon/vellum/artifact"
 	"github.com/frankbardon/vellum/asset"
+	"github.com/frankbardon/vellum/capability"
 	verr "github.com/frankbardon/vellum/errors"
 	"github.com/frankbardon/vellum/fragment"
+	"github.com/frankbardon/vellum/internal/imagetest"
 	"github.com/frankbardon/vellum/pdf"
 	"github.com/frankbardon/vellum/pdf/object"
 	"github.com/frankbardon/vellum/resolve"
@@ -206,6 +210,191 @@ func TestLower_IsDeterministic(t *testing.T) {
 	}
 }
 
+// TestLower_PlacesAnAsset checks a picture reaches a page at the size
+// resolution chose.
+func TestLower_PlacesAnAsset(t *testing.T) {
+	d := lower(t, text("before"), assetBlock(""), text("after"))
+
+	var found *pdf.ImageItem
+	for _, p := range d.Pages {
+		for _, it := range p.Items {
+			if it.Kind == pdf.ItemImage {
+				found = it.Image
+			}
+		}
+	}
+	if found == nil {
+		t.Fatal("the asset block produced no image item")
+	}
+	if found.Width <= 0 || found.Height <= 0 {
+		t.Errorf("the image was placed at %sx%s", found.Width, found.Height)
+	}
+	if found.Image == nil {
+		t.Fatal("the image item carries no XObject")
+	}
+	// The bytes have to reach the file, not just the model.
+	var buf bytes.Buffer
+	if err := d.WriteTo(&buf, pdf.WriteOptions{}); err != nil {
+		t.Fatalf("WriteTo: %v", err)
+	}
+	if !bytes.Contains(buf.Bytes(), []byte("/Subtype /Image")) {
+		t.Error("no image XObject reached the document")
+	}
+}
+
+// TestLower_TheSameAssetIsEmbeddedOnce pins that a picture used twice costs one
+// copy of its bytes.
+func TestLower_TheSameAssetIsEmbeddedOnce(t *testing.T) {
+	d := lower(t, assetBlock(""), assetBlock(""))
+
+	var buf bytes.Buffer
+	if err := d.WriteTo(&buf, pdf.WriteOptions{}); err != nil {
+		t.Fatalf("WriteTo: %v", err)
+	}
+	if n := bytes.Count(buf.Bytes(), []byte("/Subtype /Image")); n != 1 {
+		t.Errorf("the same asset was embedded %d times", n)
+	}
+}
+
+// TestLower_AltTextIsDegradedRatherThanDropped pins the matrix row.
+//
+// PDF/A-2b carries no structure tree, so an accessible description has nowhere
+// to attach. It is content the consumer wrote, so the consumer is told.
+func TestLower_AltTextIsDegradedRatherThanDropped(t *testing.T) {
+	res := resolveFor(t, assetBlock("a placeholder square"))
+
+	var found bool
+	for _, w := range res.Warnings {
+		if v, ok := w.Detail("feature"); ok && v == string(capability.FeatureAssetAltText) {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no warning names the dropped description; got %v", res.Warnings)
+	}
+}
+
+// TestLower_ANoteBecomesAFootnote pins the declared degradation.
+//
+// The matrix says a notes block becomes a footnote on PDF, which means two
+// things a test can check: a mark where the block sat, and the body at the foot
+// of the page rather than in the middle of it.
+func TestLower_ANoteBecomesAFootnote(t *testing.T) {
+	d := lower(t,
+		text(strings.Repeat("Body prose that fills some of the page. ", 10)),
+		spec.Block{Kind: spec.BlockNotes, Notes: &spec.Notes{Content: "Base: all respondents."}},
+	)
+	if len(d.Pages) != 1 {
+		t.Fatalf("got %d pages, want the note to fit on the first", len(d.Pages))
+	}
+
+	page := d.Pages[0]
+	var lowest object.Real = 1 << 40
+	var noteY object.Real = -1
+	var rule bool
+	for _, it := range page.Items {
+		switch it.Kind {
+		case pdf.ItemText:
+			if strings.Contains(lineTextOf(it.Text), "Base: all respondents.") {
+				noteY = it.Text.Y
+				continue
+			}
+			lowest = min(lowest, it.Text.Y)
+		case pdf.ItemRule:
+			rule = true
+		}
+	}
+	if noteY < 0 {
+		t.Fatal("the note's body is not on the page")
+	}
+	if !rule {
+		t.Error("no separator rule divides the body from the notes")
+	}
+	if noteY >= lowest {
+		t.Errorf("the note sits at %s and the lowest body line at %s; a footnote goes below the body",
+			noteY, lowest)
+	}
+}
+
+// TestLower_FootnotesRaiseTheFloorForTheBody is the invariant that makes the
+// footnote a footnote rather than an overlap.
+//
+// The space a note will occupy is not available to the text above it. Without
+// the reserve, the body fills to the bottom margin and the notes are drawn on
+// top of it — which renders, and is wrong.
+func TestLower_FootnotesRaiseTheFloorForTheBody(t *testing.T) {
+	blocks := []spec.Block{
+		{Kind: spec.BlockNotes, Notes: &spec.Notes{
+			Content: strings.Repeat("A long note that wraps over several lines. ", 6),
+		}},
+	}
+	for range 12 {
+		blocks = append(blocks, text(strings.Repeat("Body prose that wraps and wraps. ", 8)))
+	}
+
+	d := lower(t, blocks...)
+	checked := 0
+	for i, p := range d.Pages {
+		var noteTop object.Real = -1
+		var bodyBottom object.Real = 1 << 40
+		for _, it := range p.Items {
+			if it.Kind != pdf.ItemText {
+				continue
+			}
+			if strings.Contains(lineTextOf(it.Text), "A long note that wraps") {
+				noteTop = it.Text.Y
+				continue
+			}
+			last := it.Text.Y - it.Text.Leading*object.Real(len(it.Text.Lines)-1)
+			bodyBottom = min(bodyBottom, last)
+		}
+		if noteTop < 0 {
+			continue
+		}
+		checked++
+		if bodyBottom <= noteTop {
+			t.Errorf("page %d: body reaches %s and the note starts at %s; they overlap",
+				i, bodyBottom, noteTop)
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no page carried a footnote, so the overlap check ran on nothing")
+	}
+}
+
+// lineTextOf reassembles a text item's characters.
+func lineTextOf(t *pdf.TextItem) string {
+	var b strings.Builder
+	for _, l := range t.Lines {
+		b.WriteString(l.Text())
+	}
+	return b.String()
+}
+
+// assetBlock is a real PNG placed through the asset seam.
+func assetBlock(alt string) spec.Block {
+	handle := "data:image/png;base64," + base64.StdEncoding.EncodeToString(imagetest.RGB())
+	return spec.Block{Kind: spec.BlockAsset, Asset: &spec.Asset{Handle: handle, AltText: alt}}
+}
+
+// resolveFor resolves one block and returns the whole result, warnings included.
+func resolveFor(t *testing.T, blocks ...spec.Block) *resolve.Result {
+	t.Helper()
+
+	s := &spec.Spec{
+		FormatVersion: spec.FormatVersion,
+		Theme:         "embeddable",
+		Sections:      []spec.Section{{ID: "s", Blocks: blocks}},
+	}
+	res, err := resolve.Resolve(context.Background(), s, resolve.Options{
+		Format: artifact.FormatPDF, Themes: embeddableTheme(t), Assets: fontStore(),
+	})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	return res
+}
+
 // blockOf builds a minimal block of a kind, for the pending-kinds check.
 func blockOf(kind spec.BlockKind) spec.Block {
 	switch kind {
@@ -231,7 +420,10 @@ func blockOf(kind spec.BlockKind) spec.Block {
 // is a loud failure rather than a document missing a section — which is the
 // failure the whole library is arranged to prevent.
 func TestLower_RefusesABlockKindItCannotDraw(t *testing.T) {
-	pending := []spec.BlockKind{spec.BlockTable, spec.BlockAsset, spec.BlockNotes}
+	// Tables only, now. The list shrinks as E8-S2 lands, and this test is where
+	// it is written down — a kind quietly gaining an arm without a test noticing
+	// is how a writer starts dropping content.
+	pending := []spec.BlockKind{spec.BlockTable}
 
 	for _, kind := range pending {
 		t.Run(string(kind), func(t *testing.T) {

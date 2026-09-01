@@ -157,6 +157,13 @@ func (r *resolver) resolveAsset(a *spec.Asset, layout *theme.Layout) (*fragment.
 		return nil, err
 	}
 
+	if a.AltText != "" {
+		// The description is content the consumer wrote. A format with nowhere
+		// to attach it drops it, and a drop nobody is told about is
+		// indistinguishable from never having written one.
+		r.degrade(capability.FeatureAssetAltText, map[string]any{"handle": a.Handle})
+	}
+
 	return &fragment.AssetRef{
 		AssetIndex: idx,
 		Role:       role,
@@ -399,9 +406,16 @@ func (r *resolver) applyMarks(base fragment.TextStyle, marks []string, sectionIn
 		}
 		if style.Bold {
 			out.Bold = true
+			// Asked at the point the content appears rather than at the end,
+			// so the warning can say which mark and where. A format that
+			// renders bold produces nothing here.
+			r.degrade(capability.FeatureTextBold, map[string]any{
+				"mark": name, "section_index": sectionIndex, "block_index": blockIndex})
 		}
 		if style.Italic {
 			out.Italic = true
+			r.degrade(capability.FeatureTextItalic, map[string]any{
+				"mark": name, "section_index": sectionIndex, "block_index": blockIndex})
 		}
 		if style.Underline {
 			out.Underline = true
