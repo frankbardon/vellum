@@ -1,0 +1,661 @@
+{
+  "$defs": {
+    "annotation": {
+      "additionalProperties": false,
+      "description": "Attaches to a value rather than replacing it — a significance letter beside a number, not instead of it.",
+      "properties": {
+        "marks": {
+          "$ref": "#/$defs/marks"
+        },
+        "position": {
+          "enum": [
+            "superscript",
+            "suffix",
+            "prefix",
+            "note"
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
+    "asset": {
+      "additionalProperties": false,
+      "description": "References an asset by handle. Vellum never renders one and never fetches one; the host's resolver supplies the bytes.",
+      "properties": {
+        "alt_text": {
+          "type": "string"
+        },
+        "handle": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "role": {
+          "description": "The theme box this asset fills, so its size comes from the theme.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "handle"
+      ],
+      "type": "object"
+    },
+    "block": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "heading"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "heading"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "text"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "text"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "asset"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "asset"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "table"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "table"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "page_break"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "page_break"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "notes"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "notes"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "spacer"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "spacer"
+            ]
+          }
+        }
+      ],
+      "description": "A tagged union. The kind names which arm carries content, and the arm for that kind must be present.",
+      "properties": {
+        "asset": {
+          "$ref": "#/$defs/asset"
+        },
+        "heading": {
+          "$ref": "#/$defs/heading"
+        },
+        "kind": {
+          "enum": [
+            "heading",
+            "text",
+            "asset",
+            "table",
+            "page_break",
+            "notes",
+            "spacer"
+          ]
+        },
+        "marks": {
+          "$ref": "#/$defs/marks"
+        },
+        "notes": {
+          "$ref": "#/$defs/notes"
+        },
+        "page_break": {
+          "$ref": "#/$defs/pageBreak"
+        },
+        "spacer": {
+          "$ref": "#/$defs/spacer"
+        },
+        "table": {
+          "$ref": "#/$defs/table"
+        },
+        "text": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "capabilityFault": {
+      "additionalProperties": false,
+      "properties": {
+        "block_index": {
+          "type": "integer"
+        },
+        "code": {
+          "type": "string"
+        },
+        "degrade": {
+          "type": "string"
+        },
+        "feature": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "section_id": {
+          "type": "string"
+        },
+        "section_index": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "feature",
+        "outcome",
+        "code",
+        "section_index",
+        "block_index",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "cell": {
+      "additionalProperties": false,
+      "properties": {
+        "annotations": {
+          "items": {
+            "$ref": "#/$defs/annotation"
+          },
+          "type": "array"
+        },
+        "class": {
+          "enum": [
+            "",
+            "margin",
+            "total",
+            "header"
+          ]
+        },
+        "col_span": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "format": {
+          "description": "An xlsx number-format code — one formatting vocabulary across every target.",
+          "type": "string"
+        },
+        "marks": {
+          "$ref": "#/$defs/marks"
+        },
+        "row_span": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "text": {
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/value"
+        }
+      },
+      "type": "object"
+    },
+    "composeRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/format"
+        },
+        "spec": {
+          "$ref": "#/$defs/spec"
+        },
+        "theme": {
+          "description": "Overrides the theme the specification names.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "spec",
+        "format"
+      ],
+      "type": "object"
+    },
+    "entry": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^VELLUM_[A-Z0-9_]+$",
+          "type": "string"
+        },
+        "details": {
+          "description": "Structured context — the offending block, part, anchor or coordinate.",
+          "type": "object"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "type": "object"
+    },
+    "envelope": {
+      "additionalProperties": false,
+      "description": "Every JSON payload Vellum emits. Errors and warnings are always present as arrays, never null and never omitted, so a consumer can iterate them without a guard.",
+      "properties": {
+        "data": {
+          "description": "The payload. Not trustworthy when errors is non-empty."
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/entry"
+          },
+          "type": "array"
+        },
+        "format_version": {
+          "const": "1.0",
+          "type": "string"
+        },
+        "request": {
+          "description": "The originating request, echoed only when asked for."
+        },
+        "warnings": {
+          "description": "Decisions Vellum made on the caller's behalf — a font substituted, a block degraded to a format's stated alternative. Reported so that none of them is silent.",
+          "items": {
+            "$ref": "#/$defs/entry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "format_version",
+        "data",
+        "errors",
+        "warnings"
+      ],
+      "type": "object"
+    },
+    "format": {
+      "description": "An output format.",
+      "enum": [
+        "docx",
+        "xlsx",
+        "pptx",
+        "pdf"
+      ]
+    },
+    "headerNode": {
+      "additionalProperties": false,
+      "properties": {
+        "children": {
+          "$ref": "#/$defs/headerTree"
+        },
+        "label": {
+          "type": "string"
+        },
+        "marks": {
+          "$ref": "#/$defs/marks"
+        },
+        "span": {
+          "description": "Omit to derive from the tree shape. Stating it is checked against the children.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "type": "object"
+    },
+    "headerTree": {
+      "items": {
+        "$ref": "#/$defs/headerNode"
+      },
+      "type": "array"
+    },
+    "heading": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "level": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "level",
+        "content"
+      ],
+      "type": "object"
+    },
+    "length": {
+      "additionalProperties": false,
+      "description": "A measurement with an explicit unit. A bare number is the classic source of a document that is right on one machine and wrong on another.",
+      "properties": {
+        "unit": {
+          "enum": [
+            "pt",
+            "mm",
+            "in",
+            "emu"
+          ]
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "value",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "marks": {
+      "description": "Consumer-defined style hooks. Vellum never interprets a mark; the theme maps it to a style.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "notes": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ],
+      "type": "object"
+    },
+    "pageBreak": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "section": {
+      "additionalProperties": false,
+      "properties": {
+        "blocks": {
+          "items": {
+            "$ref": "#/$defs/block"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "id": {
+          "type": "string"
+        },
+        "layout": {
+          "type": "string"
+        },
+        "marks": {
+          "$ref": "#/$defs/marks"
+        }
+      },
+      "required": [
+        "blocks"
+      ],
+      "type": "object"
+    },
+    "spacer": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "$ref": "#/$defs/length"
+        }
+      },
+      "required": [
+        "height"
+      ],
+      "type": "object"
+    },
+    "spec": {
+      "additionalProperties": false,
+      "description": "A declarative description of an artifact as ordered sections of generic blocks.",
+      "properties": {
+        "format_version": {
+          "const": "1.0",
+          "description": "The wire version this specification was authored against.",
+          "type": "string"
+        },
+        "sections": {
+          "description": "The ordered divisions of the document.",
+          "items": {
+            "$ref": "#/$defs/section"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "theme": {
+          "description": "The theme document to render against. Empty selects the built-in theme.",
+          "type": "string"
+        },
+        "title": {
+          "description": "The document title, carried into format metadata.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sections"
+      ],
+      "title": "Vellum specification",
+      "type": "object"
+    },
+    "table": {
+      "additionalProperties": false,
+      "description": "An analytical table: hierarchical headers on both axes, annotations attached to values, and margins distinguishable from data.",
+      "properties": {
+        "body": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/cell"
+            },
+            "type": "array"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "caption": {
+          "type": "string"
+        },
+        "column_headers": {
+          "$ref": "#/$defs/headerTree"
+        },
+        "marks": {
+          "$ref": "#/$defs/marks"
+        },
+        "row_headers": {
+          "$ref": "#/$defs/headerTree"
+        }
+      },
+      "required": [
+        "body"
+      ],
+      "type": "object"
+    },
+    "text": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ],
+      "type": "object"
+    },
+    "validateRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/format"
+        },
+        "spec": {
+          "$ref": "#/$defs/spec"
+        }
+      },
+      "required": [
+        "spec",
+        "format"
+      ],
+      "type": "object"
+    },
+    "validateResult": {
+      "additionalProperties": false,
+      "properties": {
+        "degradations": {
+          "items": {
+            "$ref": "#/$defs/capabilityFault"
+          },
+          "type": "array"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "rejections": {
+          "items": {
+            "$ref": "#/$defs/capabilityFault"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "value": {
+      "additionalProperties": false,
+      "properties": {
+        "bool": {
+          "type": "boolean"
+        },
+        "date": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "",
+            "number",
+            "text",
+            "bool",
+            "date"
+          ]
+        },
+        "number": {
+          "type": "number"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://frankbardon.github.io/vellum/payload-schema-1.0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "The envelope, the specification, and the request and result shapes on Vellum's wire.",
+  "title": "Vellum payload contract"
+}
+// golden-hash: 0770b2fad9d5a36ee1e630eae7e0b32078145f6798e0da342832b6b5a26a4fb5

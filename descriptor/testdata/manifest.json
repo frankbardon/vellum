@@ -1,0 +1,651 @@
+{
+  "format_version": "1.0",
+  "description": "Vellum is a declarative artifact emitter: a specification of generic blocks in, a document out. It emits DOCX, XLSX, PPTX and PDF/A-2b from one model, and fills existing OOXML templates without disturbing the parts it does not understand. Identical inputs produce byte-identical outputs. Vellum never renders a chart, never performs network I/O, and never runs an external binary.",
+  "formats": [
+    {
+      "name": "docx",
+      "extension": "docx",
+      "ooxml": true,
+      "renders": [
+        "block.heading",
+        "block.text",
+        "block.asset",
+        "block.table",
+        "block.page_break",
+        "block.spacer",
+        "table.hierarchical_headers",
+        "table.cell_annotation",
+        "table.margins",
+        "table.cell_span",
+        "asset.media.image/png",
+        "asset.media.image/jpeg",
+        "fill"
+      ],
+      "note": "A flowing document. Word paginates it, so Vellum does not compute page breaks."
+    },
+    {
+      "name": "xlsx",
+      "extension": "xlsx",
+      "ooxml": true,
+      "renders": [
+        "block.table",
+        "table.hierarchical_headers",
+        "table.margins",
+        "table.cell_span",
+        "fill"
+      ],
+      "note": "Presentation tables, not a spreadsheet: no formulas, no pivot tables, no macros. A consumer wanting a live model builds it elsewhere."
+    },
+    {
+      "name": "pptx",
+      "extension": "pptx",
+      "ooxml": true,
+      "renders": [
+        "block.heading",
+        "block.text",
+        "block.asset",
+        "block.table",
+        "block.notes",
+        "block.spacer",
+        "table.hierarchical_headers",
+        "table.cell_annotation",
+        "table.margins",
+        "table.cell_span",
+        "asset.media.image/png",
+        "asset.media.image/jpeg",
+        "overflow.continue_repeat_headers",
+        "fill"
+      ],
+      "note": "A deck. The only format with a native speaker-note channel, and the only one where Vellum computes the overflow split itself."
+    },
+    {
+      "name": "pdf",
+      "extension": "pdf",
+      "ooxml": false,
+      "renders": [
+        "block.heading",
+        "block.text",
+        "block.asset",
+        "block.table",
+        "block.page_break",
+        "block.spacer",
+        "table.hierarchical_headers",
+        "table.cell_annotation",
+        "table.margins",
+        "table.cell_span",
+        "asset.media.image/png",
+        "asset.media.image/jpeg",
+        "font.embed.subset",
+        "overflow.continue_repeat_headers"
+      ],
+      "note": "PDF/A-2b, emitted directly rather than converted. Every font is embedded, because the archival profile requires it."
+    }
+  ],
+  "blocks": [
+    {
+      "kind": "heading",
+      "purpose": "A titled division of the content. Level 1 is the most prominent."
+    },
+    {
+      "kind": "text",
+      "purpose": "A paragraph of prose."
+    },
+    {
+      "kind": "asset",
+      "purpose": "An artifact the host resolves by handle. Vellum embeds it; it never renders one. Ask Boxes what size to render at."
+    },
+    {
+      "kind": "table",
+      "purpose": "An analytical table: hierarchical headers on both axes, annotations attached to values, margins distinguishable from data."
+    },
+    {
+      "kind": "page_break",
+      "purpose": "Starts a new page, slide or sheet, depending on the format."
+    },
+    {
+      "kind": "notes",
+      "purpose": "Annotation content. Native in a deck; a footnote or a cell comment elsewhere, as the capability matrix declares."
+    },
+    {
+      "kind": "spacer",
+      "purpose": "Vertical space."
+    }
+  ],
+  "capabilities": [
+    {
+      "feature": "block.heading",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.text",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.asset",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.table",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.page_break",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.notes",
+      "format": "docx",
+      "outcome": "degrades",
+      "degrade": "footnote",
+      "code": "VELLUM_CAPABILITY_DEGRADED",
+      "note": "A flowing document has no speaker-note channel, so a note becomes a footnote anchored where the block sits."
+    },
+    {
+      "feature": "block.spacer",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "table.hierarchical_headers",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "table.cell_annotation",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "table.margins",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "table.cell_span",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "asset.media.image/png",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "asset.media.image/jpeg",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "asset.media.image/svg+xml",
+      "format": "docx",
+      "outcome": "degrades",
+      "degrade": "raster fallback with the vector embedded alongside",
+      "code": "VELLUM_CAPABILITY_DEGRADED",
+      "note": "Word 2016 and later read an SVG only when a raster blip accompanies it. The caller supplies the pair; Vellum will not rasterise, because it never renders."
+    },
+    {
+      "feature": "font.embed.subset",
+      "format": "docx",
+      "outcome": "rejects",
+      "code": "VELLUM_CAPABILITY_REJECTED",
+      "note": "Font embedding in OOXML is a document-settings feature Vellum does not author in v1; the theme's declared faces are referenced by name."
+    },
+    {
+      "feature": "font.embed.whole",
+      "format": "docx",
+      "outcome": "rejects",
+      "code": "VELLUM_CAPABILITY_REJECTED",
+      "note": "As above."
+    },
+    {
+      "feature": "overflow.continue_repeat_headers",
+      "format": "docx",
+      "outcome": "degrades",
+      "degrade": "flow",
+      "code": "VELLUM_CAPABILITY_DEGRADED",
+      "note": "A flowing format paginates itself. Vellum does not lay out OOXML, and a split it computed would disagree with the one Word performs."
+    },
+    {
+      "feature": "fill",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.heading",
+      "format": "xlsx",
+      "outcome": "degrades",
+      "degrade": "a styled cell above the table",
+      "code": "VELLUM_CAPABILITY_DEGRADED",
+      "note": "A sheet has no heading construct; the text occupies a cell."
+    },
+    {
+      "feature": "block.text",
+      "format": "xlsx",
+      "outcome": "degrades",
+      "degrade": "a wrapped cell",
+      "code": "VELLUM_CAPABILITY_DEGRADED"
+    },
+    {
+      "feature": "block.asset",
+      "format": "xlsx",
+      "outcome": "rejects",
+      "code": "VELLUM_CAPABILITY_REJECTED",
+      "note": "Declared unsupported rather than approximated. A workbook is where a reader goes for the numbers behind a chart, not for the chart."
+    },
+    {
+      "feature": "block.table",
+      "format": "xlsx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.page_break",
+      "format": "xlsx",
+      "outcome": "degrades",
+      "degrade": "a new sheet",
+      "code": "VELLUM_CAPABILITY_DEGRADED"
+    },
+    {
+      "feature": "block.notes",
+      "format": "xlsx",
+      "outcome": "degrades",
+      "degrade": "a cell comment",
+      "code": "VELLUM_CAPABILITY_DEGRADED"
+    },
+    {
+      "feature": "block.spacer",
+      "format": "xlsx",
+      "outcome": "degrades",
+      "degrade": "a blank row",
+      "code": "VELLUM_CAPABILITY_DEGRADED"
+    },
+    {
+      "feature": "table.hierarchical_headers",
+      "format": "xlsx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "table.cell_annotation",
+      "format": "xlsx",
+      "outcome": "degrades",
+      "degrade": "text appended to the cell, with the typed value preserved in a neighbouring column",
+      "code": "VELLUM_CAPABILITY_DEGRADED",
+      "note": "A cell holds one typed value. Appending the annotation to the number would turn it into text and defeat the reason to export a workbook at all."
+    },
+    {
+      "feature": "table.margins",
+      "format": "xlsx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "table.cell_span",
+      "format": "xlsx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "asset.media.image/png",
+      "format": "xlsx",
+      "outcome": "rejects",
+      "code": "VELLUM_CAPABILITY_REJECTED"
+    },
+    {
+      "feature": "asset.media.image/jpeg",
+      "format": "xlsx",
+      "outcome": "rejects",
+      "code": "VELLUM_CAPABILITY_REJECTED"
+    },
+    {
+      "feature": "asset.media.image/svg+xml",
+      "format": "xlsx",
+      "outcome": "rejects",
+      "code": "VELLUM_CAPABILITY_REJECTED"
+    },
+    {
+      "feature": "font.embed.subset",
+      "format": "xlsx",
+      "outcome": "rejects",
+      "code": "VELLUM_CAPABILITY_REJECTED"
+    },
+    {
+      "feature": "font.embed.whole",
+      "format": "xlsx",
+      "outcome": "rejects",
+      "code": "VELLUM_CAPABILITY_REJECTED"
+    },
+    {
+      "feature": "overflow.continue_repeat_headers",
+      "format": "xlsx",
+      "outcome": "degrades",
+      "degrade": "one continuous sheet",
+      "code": "VELLUM_CAPABILITY_DEGRADED",
+      "note": "A sheet has no page, so a long table simply continues."
+    },
+    {
+      "feature": "fill",
+      "format": "xlsx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.heading",
+      "format": "pptx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.text",
+      "format": "pptx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.asset",
+      "format": "pptx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.table",
+      "format": "pptx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.page_break",
+      "format": "pptx",
+      "outcome": "degrades",
+      "degrade": "a new slide",
+      "code": "VELLUM_CAPABILITY_DEGRADED"
+    },
+    {
+      "feature": "block.notes",
+      "format": "pptx",
+      "outcome": "renders",
+      "note": "The only format with a native speaker-note channel."
+    },
+    {
+      "feature": "block.spacer",
+      "format": "pptx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "table.hierarchical_headers",
+      "format": "pptx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "table.cell_annotation",
+      "format": "pptx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "table.margins",
+      "format": "pptx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "table.cell_span",
+      "format": "pptx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "asset.media.image/png",
+      "format": "pptx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "asset.media.image/jpeg",
+      "format": "pptx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "asset.media.image/svg+xml",
+      "format": "pptx",
+      "outcome": "degrades",
+      "degrade": "raster fallback with the vector embedded alongside",
+      "code": "VELLUM_CAPABILITY_DEGRADED"
+    },
+    {
+      "feature": "font.embed.subset",
+      "format": "pptx",
+      "outcome": "rejects",
+      "code": "VELLUM_CAPABILITY_REJECTED"
+    },
+    {
+      "feature": "font.embed.whole",
+      "format": "pptx",
+      "outcome": "rejects",
+      "code": "VELLUM_CAPABILITY_REJECTED"
+    },
+    {
+      "feature": "overflow.continue_repeat_headers",
+      "format": "pptx",
+      "outcome": "renders",
+      "note": "A table longer than a slide continues onto the next with its headers repeated. Capacity is theme-derived rather than measured, so the split is reproducible."
+    },
+    {
+      "feature": "fill",
+      "format": "pptx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.heading",
+      "format": "pdf",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.text",
+      "format": "pdf",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.asset",
+      "format": "pdf",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.table",
+      "format": "pdf",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.page_break",
+      "format": "pdf",
+      "outcome": "renders"
+    },
+    {
+      "feature": "block.notes",
+      "format": "pdf",
+      "outcome": "degrades",
+      "degrade": "a footnote",
+      "code": "VELLUM_CAPABILITY_DEGRADED",
+      "note": "A PDF annotation would be closer in spirit but is not guaranteed visible in every reader, and PDF/A restricts annotation types. A footnote is legible everywhere."
+    },
+    {
+      "feature": "block.spacer",
+      "format": "pdf",
+      "outcome": "renders"
+    },
+    {
+      "feature": "table.hierarchical_headers",
+      "format": "pdf",
+      "outcome": "renders"
+    },
+    {
+      "feature": "table.cell_annotation",
+      "format": "pdf",
+      "outcome": "renders"
+    },
+    {
+      "feature": "table.margins",
+      "format": "pdf",
+      "outcome": "renders"
+    },
+    {
+      "feature": "table.cell_span",
+      "format": "pdf",
+      "outcome": "renders"
+    },
+    {
+      "feature": "asset.media.image/png",
+      "format": "pdf",
+      "outcome": "renders"
+    },
+    {
+      "feature": "asset.media.image/jpeg",
+      "format": "pdf",
+      "outcome": "renders"
+    },
+    {
+      "feature": "asset.media.image/svg+xml",
+      "format": "pdf",
+      "outcome": "rejects",
+      "code": "VELLUM_ASSET_MEDIA_UNSUPPORTED",
+      "note": "PDF has no SVG mechanism. Vellum will not rasterise, because it never renders, and will not ship an SVG-to-PDF translator, which would be a second renderer with its own text layout and font matching, free to drift from whatever produced the asset. Supply a raster, or ask Boxes what size to render at."
+    },
+    {
+      "feature": "font.embed.subset",
+      "format": "pdf",
+      "outcome": "renders",
+      "note": "PDF/A-2b requires every font embedded. TrueType outlines are subsetted."
+    },
+    {
+      "feature": "font.embed.whole",
+      "format": "pdf",
+      "outcome": "degrades",
+      "degrade": "the whole font program embedded rather than a subset",
+      "code": "VELLUM_CAPABILITY_DEGRADED",
+      "note": "CFF subsetting is deferred, so a CFF face embeds whole. A theme demanding a subset gets a hard error instead, because subset-only may be a licence condition and must never be silently ignored."
+    },
+    {
+      "feature": "overflow.continue_repeat_headers",
+      "format": "pdf",
+      "outcome": "renders",
+      "note": "Vellum paginates PDF itself, so the policy is honoured exactly."
+    },
+    {
+      "feature": "fill",
+      "format": "pdf",
+      "outcome": "rejects",
+      "code": "VELLUM_CAPABILITY_REJECTED",
+      "note": "Fill mode edits an OPC package surgically. A PDF is not one, and editing PDF in place is a different problem with none of the same guarantees."
+    }
+  ],
+  "vocabularies": {
+    "cell_classes": [
+      "",
+      "margin",
+      "total",
+      "header"
+    ],
+    "value_kinds": [
+      "",
+      "number",
+      "text",
+      "bool",
+      "date"
+    ],
+    "annotation_positions": [
+      "superscript",
+      "suffix",
+      "prefix",
+      "note"
+    ],
+    "units": [
+      "pt",
+      "mm",
+      "in",
+      "emu"
+    ],
+    "capability_outcomes": [
+      "renders",
+      "degrades",
+      "rejects"
+    ]
+  },
+  "operations": [
+    {
+      "name": "validate",
+      "summary": "Check a specification against a format's capability matrix. Reports every rejection at once.",
+      "needs_render": false
+    },
+    {
+      "name": "capabilities",
+      "summary": "Return the feature-by-format matrix, so a scheduled job can learn what will happen before it runs.",
+      "needs_render": false
+    },
+    {
+      "name": "schema",
+      "summary": "Return the published JSON Schema for a specification.",
+      "needs_render": false
+    },
+    {
+      "name": "manifest",
+      "summary": "Return this document.",
+      "needs_render": false
+    },
+    {
+      "name": "hash",
+      "summary": "Return a specification's content hash. Derived from inputs, so an artifact's identity is knowable before it is produced.",
+      "needs_render": false
+    },
+    {
+      "name": "boxes",
+      "summary": "Return the asset slots a theme declares for a format, so a host knows what size to render an asset at. Answerable before a specification exists.",
+      "needs_render": false
+    },
+    {
+      "name": "compose",
+      "summary": "Render a specification to a format.",
+      "needs_render": true
+    },
+    {
+      "name": "inspect",
+      "summary": "Report a template's anchor inventory and font requirements without modifying it.",
+      "needs_render": false
+    },
+    {
+      "name": "fill",
+      "summary": "Bind data into an OOXML template, leaving every part it did not touch byte-identical.",
+      "needs_render": true
+    }
+  ],
+  "error_domains": [
+    "OPC",
+    "SPEC",
+    "CAPABILITY",
+    "ASSET",
+    "TABLE",
+    "DOC",
+    "ZIP",
+    "FONT",
+    "INTERNAL"
+  ],
+  "error_codes": [
+    "VELLUM_OPC_INVALID",
+    "VELLUM_OPC_PART_NOT_FOUND",
+    "VELLUM_OPC_PART_DUPLICATE",
+    "VELLUM_OPC_PART_NAME_INVALID",
+    "VELLUM_OPC_CONTENT_TYPE_MISSING",
+    "VELLUM_OPC_RELATIONSHIP_INVALID",
+    "VELLUM_SPEC_INVALID",
+    "VELLUM_SPEC_BLOCK_KIND_UNKNOWN",
+    "VELLUM_CAPABILITY_REJECTED",
+    "VELLUM_CAPABILITY_DEGRADED",
+    "VELLUM_CAPABILITY_UNDECLARED",
+    "VELLUM_ASSET_MEDIA_UNSUPPORTED",
+    "VELLUM_TABLE_INVALID",
+    "VELLUM_TABLE_HEADER_SPAN_MISMATCH",
+    "VELLUM_TABLE_SPAN_OVERLAP",
+    "VELLUM_TABLE_ROW_ARITY",
+    "VELLUM_DOC_BLOCK_UNSUPPORTED",
+    "VELLUM_ZIP_MALFORMED",
+    "VELLUM_ZIP_TOO_LARGE",
+    "VELLUM_ZIP_ENTRY_NAME_INVALID",
+    "VELLUM_ZIP_ENTRY_DUPLICATE",
+    "VELLUM_FONT_SUBSTITUTED",
+    "VELLUM_INTERNAL_INVARIANT"
+  ],
+  "error_codes_count": 23,
+  "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
+}
+// golden-hash: bbaa277557a9cd89953173e69dd9ba52e5ac0df33db18fc0c27f036507aaea40
