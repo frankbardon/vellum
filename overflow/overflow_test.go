@@ -164,3 +164,146 @@ func TestAllPolicies_IsACopy(t *testing.T) {
 		t.Fatal("AllPolicies hands out the registry itself")
 	}
 }
+
+// TestPlanRows_UnevenRowsFillEachContainerToWhatItHolds is the whole reason
+// this shape exists beside [overflow.Table].
+//
+// A single row height would have to be the tallest, and every container would
+// then carry the number of rows that fits if all of them were that tall — which
+// is white space at the foot of every page of a table whose rows are mostly
+// short.
+func TestPlanRows_UnevenRowsFillEachContainerToWhatItHolds(t *testing.T) {
+	got, err := overflow.PlanRows(overflow.Rows{
+		Heights:   []int64{10, 10, 10, 40, 10, 10},
+		Available: 50,
+	})
+	if err != nil {
+		t.Fatalf("PlanRows: %v", err)
+	}
+
+	want := []overflow.Split{
+		// Three short rows, and the tall one would take the container past 50.
+		{Index: 0, From: 0, Count: 3},
+		// The tall row and one short one fill the next exactly.
+		{Index: 1, From: 3, Count: 2},
+		{Index: 2, From: 5, Count: 1},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("PlanRows = %+v, want %+v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("split %d = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}
+
+// TestPlanRows_TheFirstContainerMayBeShorter covers a table that begins part
+// way down a page.
+//
+// Without it the only honest split is to start every table that does not fit
+// entirely on a container of its own, which strands the heading above it alone
+// at the foot of the page before.
+func TestPlanRows_TheFirstContainerMayBeShorter(t *testing.T) {
+	rows := overflow.Rows{
+		Heights:   []int64{10, 10, 10, 10, 10, 10},
+		Available: 50,
+		First:     20,
+	}
+	got, err := overflow.PlanRows(rows)
+	if err != nil {
+		t.Fatalf("PlanRows: %v", err)
+	}
+
+	want := []overflow.Split{
+		{Index: 0, From: 0, Count: 2},
+		{Index: 1, From: 2, Count: 4},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("PlanRows = %+v, want %+v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("split %d = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+
+	// And the zero value means "the same as every other container", rather than
+	// meaning a first container of no height at all.
+	rows.First = 0
+	plain, err := overflow.PlanRows(rows)
+	if err != nil {
+		t.Fatalf("PlanRows: %v", err)
+	}
+	if len(plain) != 2 || plain[0].Count != 5 {
+		t.Errorf("with First unset the plan is %+v, want the full container first", plain)
+	}
+}
+
+// TestPlanRows_HeadersCostCapacityOnEveryContainer pins that the repeated
+// header is subtracted from each container rather than from the first.
+func TestPlanRows_HeadersCostCapacityOnEveryContainer(t *testing.T) {
+	got, err := overflow.PlanRows(overflow.Rows{
+		Heights:      []int64{10, 10, 10, 10, 10, 10},
+		HeaderHeight: 30,
+		Available:    50,
+	})
+	if err != nil {
+		t.Fatalf("PlanRows: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("PlanRows = %+v, want three containers of two rows each", got)
+	}
+	for i, s := range got {
+		if s.Count != 2 {
+			t.Errorf("container %d carries %d rows, want 2", i, s.Count)
+		}
+	}
+}
+
+// TestPlanRows_ARowThatFitsNowhereIsRefused is the failure the caller has to be
+// told about rather than shown.
+//
+// A container that cannot hold one row beneath its headers produces either an
+// empty container or an infinite sequence of them, and neither is something a
+// writer can render.
+func TestPlanRows_ARowThatFitsNowhereIsRefused(t *testing.T) {
+	_, err := overflow.PlanRows(overflow.Rows{
+		Heights:      []int64{10, 90, 10},
+		HeaderHeight: 20,
+		Available:    50,
+	})
+	if !verr.HasCode(err, verr.VELLUM_OVERFLOW_NO_CAPACITY) {
+		t.Fatalf("error = %v, want VELLUM_OVERFLOW_NO_CAPACITY", err)
+	}
+}
+
+// TestPlanRows_TheMinimumIsAFloorOnCapacityNotOnTheRemainder pins the
+// distinction that decides whether an ordinary table is refused.
+//
+// A table of eleven rows across a capacity of ten leaves one row over. Testing
+// the remainder against the minimum would refuse the last container of every
+// table that did not divide evenly, which is nearly all of them.
+func TestPlanRows_TheMinimumIsAFloorOnCapacityNotOnTheRemainder(t *testing.T) {
+	got, err := overflow.PlanRows(overflow.Rows{
+		Heights:   []int64{10, 10, 10, 10, 10},
+		Available: 40,
+		MinRows:   3,
+	})
+	if err != nil {
+		t.Fatalf("PlanRows: %v", err)
+	}
+	if len(got) != 2 || got[1].Count != 1 {
+		t.Fatalf("PlanRows = %+v, want a final container carrying the one row left over", got)
+	}
+
+	// The floor still bites where the container genuinely cannot hold it.
+	_, err = overflow.PlanRows(overflow.Rows{
+		Heights:   []int64{10, 10, 10, 10, 10},
+		Available: 20,
+		MinRows:   3,
+	})
+	if !verr.HasCode(err, verr.VELLUM_OVERFLOW_NO_CAPACITY) {
+		t.Fatalf("error = %v, want VELLUM_OVERFLOW_NO_CAPACITY", err)
+	}
+}

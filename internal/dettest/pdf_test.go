@@ -138,6 +138,25 @@ var pdfExpectations = map[string]pdfExpectation{
 			{Kind: "image", Width: "8", Height: "8", Color: "rgb", BPC: "8", Enc: "image"},
 		},
 	},
+	"pdf-table": {
+		WantText: []string{
+			"Awareness by band",
+			// The banner, the stub label and the annotated cell. Each is
+			// drawn by a different arm of the table lowering.
+			"Region",
+			"Band 1",
+			"40a",
+			// The caption, which sits under the last part as flow rather than
+			// as a row of the table.
+			"Percentages. Base: all adults.",
+		},
+		WantInfo: [][2]string{
+			{"Title", "A Table Longer Than A Page"},
+			// Two pages from a table Vellum split itself.
+			{"Pages", "2"},
+			{"Metadata Stream", "yes"},
+		},
+	},
 	"pdf-prose": {
 		WantText: []string{
 			"Justified",
@@ -355,4 +374,98 @@ func indentText(s string) string {
 		out += "\n    ... (truncated)"
 	}
 	return out
+}
+
+// pinnedPDFSplit is where the overflowing PDF golden's rows land.
+//
+// Committed as values, and read back through an independent reader rather than
+// off the model. The determinism harness already proves the same specification
+// produces the same bytes on every run, so the split cannot drift between runs —
+// what it cannot do is make the boundary visible. Change the row-height
+// arithmetic, rebaseline with -update, and the diff is a few thousand bytes of
+// compressed content stream in which nothing says "this table now breaks eleven
+// rows earlier".
+//
+// Here it says so, in the one line of a diff a person will read.
+//
+// The counterpart for the deck is TestDeterminismOverflowIsPinned, which scans
+// the package's XML. This one needs a reader because a PDF's text is glyph
+// identifiers in a compressed stream: the label on a row is only legible
+// through the font's own ToUnicode mapping, which is exactly what poppler
+// applies. That makes it the stronger of the two — it pins what a reader sees,
+// not what the writer wrote — and the weaker in one respect, since it skips
+// where poppler is absent. VELLUM_REQUIRE_OPTIONAL_GATES turns that skip into
+// a failure in CI.
+var pinnedPDFSplit = map[string][]pageRows{
+	"pdf-table": {
+		{Page: 1, Want: []string{"Region", "Age", "Band 1", "Band 35"}, NotWant: []string{"Band 36"}},
+		{Page: 2, Want: []string{"Region", "Age", "Band 36", "Band 46"}, NotWant: []string{"Band 35"}},
+	},
+}
+
+// pageRows is what one page of a split table must and must not show.
+type pageRows struct {
+	// Page is the one-based page number.
+	Page int
+
+	// Want are strings the page must show and NotWant strings it must not.
+	//
+	// Both halves are needed. Presence alone cannot pin a boundary — a split
+	// that moved by one row still shows every label it did before, one page
+	// earlier — and absence alone would pass on a page that drew nothing.
+	Want, NotWant []string
+}
+
+// TestDeterminismOverflowIsPinnedInPDF checks the split against the ink.
+//
+// The banner and the stub label are asserted on every page, not only the first.
+// A split that carried the right rows and stopped repeating them would satisfy
+// every other check in this suite and produce a second page that is a grid of
+// numbers with no column names and no row labels — which is the failure the
+// whole policy exists to prevent.
+func TestDeterminismOverflowIsPinnedInPDF(t *testing.T) {
+	tool := locatePoppler(t)
+	ctx := context.Background()
+
+	for name, want := range pinnedPDFSplit {
+		c, ok := caseNamed(name)
+		if !ok {
+			t.Errorf("pinnedPDFSplit names %q, which is not a registered case", name)
+			continue
+		}
+
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			path := writeGoldenFile(t, c)
+
+			for _, page := range want {
+				text, err := tool.PageText(ctx, path, page.Page)
+				if err != nil {
+					t.Fatalf("extracting page %d failed.\n%v", page.Page, err)
+				}
+				for _, w := range page.Want {
+					if !strings.Contains(text, w) {
+						t.Errorf("page %d does not show %q.\n\nWhat it shows:\n%s",
+							page.Page, w, indentText(text))
+					}
+				}
+				for _, w := range page.NotWant {
+					if strings.Contains(text, w) {
+						t.Errorf("page %d shows %q, which belongs on another page: the boundary moved.\n\nWhat it shows:\n%s",
+							page.Page, w, indentText(text))
+					}
+				}
+			}
+		})
+	}
+}
+
+// caseNamed finds a registered case by name.
+func caseNamed(name string) (dettest.Case, bool) {
+	for _, c := range dettest.Cases() {
+		if c.Name == name {
+			return c, true
+		}
+	}
+	return dettest.Case{}, false
 }

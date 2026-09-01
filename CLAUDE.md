@@ -272,6 +272,28 @@ The compressed statement; the full table is `.claude/reference/determinism.md`.
   copying its parts through would make every consumer's deck look like Vellum's.
   See `deck.Author`.
 - PDF uses a classic xref table and trailer, never object streams.
+- **A PDF table is drawn in three passes: every fill, then every hairline, then
+  every cell's text.** PDF paints in the order the operators appear, so a fill
+  emitted after a neighbour's hairline covers the hairline, and text emitted
+  before a fill vanishes under it. One pass per cell is fewer operators and
+  produces a table missing a line here and a number there, in a pattern that
+  looks like a rendering artefact rather than like a bug. Pinned by
+  `TestTable_FillsAndRulesPrecedeText`.
+- **A PDF table's capacity is measured, not theme-derived** — the one place
+  Vellum departs from the rule stated in `overflow`'s own doc comment, and the
+  departure is what the rule is about. That rule is about who lays the content
+  out: Word and PowerPoint do, with the fonts installed where the file is
+  opened, so a measured capacity there would not be reproducible. Vellum lays
+  PDF out completely, so every row height is a number it computed and then drew.
+  The greedy fill stays shared — `overflow.PlanRows` holds it and
+  `overflow.PlanTable` delegates — so a boundary cannot fall in two places.
+- **A PDF table's rows are measured before any split is planned, and every stub
+  position is measured carrying its own label.** `fragment.ClipStub` restarts a
+  merge at the first row of a continuation page, so a row that carried no label
+  under one plan carries one under another — and a height that changed with the
+  plan would be a capacity computed for a table nobody draws. The cost is white
+  space under a long stub label; the alternative is a table that overflows the
+  page it was measured to fit.
 - **Image data is embedded verbatim.** A JPEG's own bytes become the DCTDecode
   stream and an opaque PNG's own IDAT becomes the FlateDecode stream, carrying
   the PNG predictor its scanlines are already filtered with. Nothing is decoded
@@ -489,6 +511,7 @@ Determinism:
 - `TestDeterminismCrossProcess` — re-exec in fresh processes and compare digests.
 - `TestDeterminismGOMAXPROCS` — the same goldens at `GOMAXPROCS=1` and `=8` under `-race`.
 - `TestDeterminismEpochInvariance` — wall-clock time does not affect output; an explicit `SourceDateEpoch` produces a different but stable result.
+- `TestDeterminismOverflowIsPinnedInPDF` — the overflowing PDF golden's split is committed as values and read back through poppler, page by page: which row labels each page shows and which it must not. A PDF's text is glyph identifiers in a compressed stream, so the label on a row is only legible through the font's own ToUnicode mapping — which is why this one needs a reader where the deck's arm needs only a scan of the XML. Both halves are asserted, presence and absence: a boundary that moved by one row still shows every label it did before, one page earlier.
 - `TestDeterminismOverflowIsPinned` — each overflowing golden's split is committed as values: rows per slide and the label at each boundary, read back out of the written package. The harness already proves the split cannot drift between runs; this makes it visible, because a change to the row-height arithmetic otherwise moves the boundary and hides inside a few thousand bytes of rebaselined XML.
 - `TestNoTimeNow` — no `time.Now(` in non-test source outside the `provenance` opt-in.
 - `TestNoUnsortedMapIteration` — AST gate over the output-path packages.

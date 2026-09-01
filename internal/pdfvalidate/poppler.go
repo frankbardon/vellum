@@ -86,6 +86,24 @@ func (p Poppler) Text(ctx context.Context, path string) (string, error) {
 	return string(res.Stdout), nil
 }
 
+// PageText extracts one page's text.
+//
+// The whole document's text answers whether a reader found the content; one
+// page's answers where it found it, and that difference is the entire content
+// of an overflow split. A table's rows are all present whichever page they
+// landed on, so a document-wide check cannot tell a working split from one that
+// put every row on the first page and ran them off the bottom of it.
+func (p Poppler) PageText(ctx context.Context, path string, page int) (string, error) {
+	res, err := p.text.Run(ctx, nil, "-layout", "-f", itoa(page), "-l", itoa(page), path, "-")
+	if err != nil {
+		return "", err
+	}
+	if res.ExitCode != 0 {
+		return "", &ReadError{Tool: "pdftotext", ExitCode: res.ExitCode, Output: res.Combined()}
+	}
+	return string(res.Stdout), nil
+}
+
 // Info reads the document's catalogue and information dictionary.
 func (p Poppler) Info(ctx context.Context, path string) (Info, error) {
 	res, err := p.info.Run(ctx, nil, path)

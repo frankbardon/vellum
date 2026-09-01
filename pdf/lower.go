@@ -81,6 +81,7 @@ func Lower(d *fragment.Doc) (*Document, error) {
 		l.flush()
 	}
 	out.Pages = l.pages
+	out.Overflow = l.splits
 	return out, nil
 }
 
@@ -136,6 +137,9 @@ type lowering struct {
 	// noteNumber counts footnotes across the document, so the marks run
 	// continuously rather than restarting on each page.
 	noteNumber int
+
+	// splits is the overflow report, accumulated as tables are placed.
+	splits []TableSplit
 }
 
 // pendingNote is a footnote whose body has been wrapped but not yet placed.
@@ -241,16 +245,22 @@ func (l *lowering) block(sectionIndex int, sectionID string, blockIndex int, b *
 
 	case spec.BlockNotes:
 		return l.note(b.Note)
+
+	case spec.BlockTable:
+		if b.Table == nil {
+			return verr.NewCodedError(verr.VELLUM_INTERNAL_INVARIANT,
+				"a table block carries no table")
+		}
+		return l.table(b.Table, sectionIndex, sectionID, blockIndex)
 	}
 
-	// Every remaining kind — tables, in v1 — is declared as rendering on PDF in
-	// the capability matrix and is not built yet. It is an invariant rather than a capability
-	// rejection precisely because the matrix says it renders: the gap is in
-	// this package, not in what Vellum promises, and saying otherwise here
-	// would make the matrix a description of the code instead of a contract on
-	// it.
+	// A kind the matrix declares and this writer does not draw is an invariant
+	// rather than a capability rejection, and deliberately so: the matrix says
+	// it renders, so the gap would be in this package rather than in what
+	// Vellum promises. Saying otherwise here would turn the matrix into a
+	// description of the code instead of a contract on it.
 	return verr.NewCodedErrorWithDetails(verr.VELLUM_INTERNAL_INVARIANT,
-		"the PDF writer does not yet lower this block kind",
+		"the PDF writer does not lower this block kind",
 		map[string]any{
 			"kind":          string(b.Kind),
 			"section_index": sectionIndex,

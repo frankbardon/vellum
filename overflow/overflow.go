@@ -138,15 +138,25 @@ func PlanTable(t Table) ([]Split, error) {
 		return []Split{{Index: 0, From: 0, Count: 0}}, nil
 	}
 
-	var out []Split
-	for from := 0; from < t.Rows; from += capacity {
-		count := capacity
-		if remaining := t.Rows - from; remaining < count {
-			count = remaining
-		}
-		out = append(out, Split{Index: len(out), From: from, Count: count})
+	// The greedy fill itself lives in [PlanRows], so a table measured once and
+	// a table measured row by row cannot disagree about where a boundary falls.
+	// The capacity check above stays here because it is an answer this shape can
+	// give and the measured one cannot: a single row height either fits or it
+	// does not, whatever the rows happen to contain.
+	heights := make([]int64, t.Rows)
+	for i := range heights {
+		heights[i] = t.RowHeight
 	}
-	return out, nil
+	headers := int64(0)
+	if t.HeaderRows > 0 {
+		headers = int64(t.HeaderRows) * t.HeaderHeight
+	}
+	return PlanRows(Rows{
+		Heights:      heights,
+		HeaderHeight: headers,
+		Available:    t.Available,
+		MinRows:      minimum,
+	})
 }
 
 // capacity is how many body rows fit beneath the repeated headers.
@@ -167,4 +177,114 @@ func (t Table) capacity() (int, error) {
 		return 0, nil
 	}
 	return int(free / t.RowHeight), nil
+}
+
+// Rows describes a table whose body rows have already been measured, one by
+// one.
+//
+// Lengths here are in whatever unit the caller measures in — EMU for the OOXML
+// writers, thousandths of a point for PDF — and the only requirement is that
+// one call uses one of them. Converting to a common unit would round, and a
+// planner that rounds hands back a capacity for rows of a height nobody draws,
+// which is the exact failure this type exists to remove.
+//
+// Where [Table] states a single row height for the whole table, this states one
+// per row. The distinction is not a convenience. A format that lays its own
+// text out — which is PDF, and only PDF — knows how tall each row actually
+// came out, and flattening that back to one height would leave white space at
+// the foot of some containers and overflow at others for no reason but the
+// shape of this struct.
+//
+// The declared-not-measured rule in this package's doc comment is not weakened
+// by that. It is a rule about who does the laying out: Vellum does not lay out
+// OOXML, so it may not measure there. It lays out PDF completely, so the
+// measurement is its own and is the same on every machine.
+type Rows struct {
+	// Heights is one entry per body row, in row order.
+	Heights []int64
+
+	// HeaderHeight is the total height the repeated headers occupy at the top
+	// of every container.
+	//
+	// A total rather than a count multiplied by a height, because the levels of
+	// a multi-level banner are not the same height as each other once each has
+	// been measured — which is the whole reason this type exists.
+	HeaderHeight int64
+
+	// Available is a container's usable height.
+	Available int64
+
+	// First is the first container's usable height, when it differs. Zero means
+	// it does not.
+	//
+	// A table beginning part way down a page has less room than the pages that
+	// follow it. Without this the only honest split is to start every table
+	// that does not fit entirely on a container of its own, which strands the
+	// heading above it alone at the foot of the page before — a widow the
+	// author did not write and cannot remove.
+	First int64
+
+	// MinRows is the fewest body rows a container may carry. Zero means one.
+	// It is a floor on capacity, not on the final container: a table with two
+	// rows left over does not fail because two is fewer than the minimum.
+	MinRows int
+}
+
+// PlanRows computes the split of a measured table.
+//
+// The greedy fill lives here and [PlanTable] delegates to it, so the two cannot
+// disagree about where a boundary falls. Greedy for the reason stated at the
+// top of this file: balancing makes every container's contents a function of
+// the total.
+func PlanRows(r Rows) ([]Split, error) {
+	minimum := r.MinRows
+	if minimum < 1 {
+		minimum = 1
+	}
+
+	if len(r.Heights) == 0 {
+		// Headers alone still occupy a container. Returning no splits would
+		// make the caller decide what an empty table means, and two callers
+		// would decide differently.
+		return []Split{{Index: 0, From: 0, Count: 0}}, nil
+	}
+
+	var out []Split
+	for from := 0; from < len(r.Heights); {
+		free := r.Available
+		if len(out) == 0 && r.First > 0 {
+			free = r.First
+		}
+		free -= r.HeaderHeight
+
+		used, fit := int64(0), 0
+		for i := from; i < len(r.Heights); i++ {
+			if used+r.Heights[i] > free {
+				break
+			}
+			used += r.Heights[i]
+			fit++
+		}
+
+		// The floor is on capacity rather than on what is left, so a table
+		// whose remainder is smaller than the minimum still places it. Testing
+		// the remainder instead would refuse the last container of every table
+		// that did not divide evenly.
+		if fit == 0 || (fit < minimum && len(r.Heights)-from >= minimum) {
+			return nil, verr.NewCodedErrorWithDetails(verr.VELLUM_OVERFLOW_NO_CAPACITY,
+				"the container cannot hold even one row beneath its repeated headers",
+				map[string]any{
+					"available":     free + r.HeaderHeight,
+					"header_height": r.HeaderHeight,
+					"row_index":     from,
+					"row_height":    r.Heights[from],
+					"rows_that_fit": fit,
+					"minimum_rows":  minimum,
+				})
+		}
+
+		out = append(out, Split{Index: len(out), From: from, Count: fit})
+		from += fit
+	}
+	return out, nil
 }

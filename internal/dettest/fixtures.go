@@ -48,6 +48,7 @@ func Cases() []Case {
 		pdfProseCase(),
 		pdfImageCase(),
 		pdfComposeCase(),
+		pdfTableCase(),
 	}
 }
 
@@ -1121,4 +1122,110 @@ func fixturePNG() []byte {
 		panic("dettest: the fixture PNG does not decode: " + err.Error())
 	}
 	return raw
+}
+
+// pdfTableCase is an analytical table longer than a page, split by the declared
+// policy.
+//
+// PDF is the one format where the policy is honoured exactly rather than
+// approximately. Word and PowerPoint lay their own content out with the fonts
+// installed on the machine that opens the file, so Vellum may not measure for
+// them; it lays PDF out completely, so every row height here is a number it
+// computed and then drew. That makes this golden the only artifact in the
+// corpus where the split can be checked against the ink rather than against the
+// arithmetic that produced it.
+//
+// It carries a two-level column banner, a merged row-header stub that has to
+// restart on the continuation page, a total row and an annotated cell — the
+// four things that draw correctly when they are right and draw plausibly when
+// they are wrong.
+func pdfTableCase() Case {
+	return Case{
+		Name:  "pdf-table",
+		Ext:   "pdf",
+		Write: writePDFTable,
+	}
+}
+
+// pdfTableRows is enough to run past the foot of an A4 page.
+const pdfTableRows = 46
+
+// writePDFTable composes the overflowing crosstab.
+func writePDFTable(w io.Writer, epoch time.Time) error {
+	th, err := composeTheme()
+	if err != nil {
+		return err
+	}
+	provider, err := theme.NewStaticProvider(th)
+	if err != nil {
+		return err
+	}
+
+	bands := make(spec.HeaderTree, 0, pdfTableRows)
+	body := make([][]spec.Cell, 0, pdfTableRows)
+	for i := 0; i < pdfTableRows; i++ {
+		bands = append(bands, spec.HeaderNode{Label: "Band " + strconv.Itoa(i+1)})
+
+		row := []spec.Cell{
+			{Text: strconv.Itoa(40 + i)},
+			{Text: strconv.Itoa(60 - i)},
+			{Text: "100"},
+		}
+		if i == 0 {
+			row[0].Annotations = []spec.Annotation{{Text: "a"}}
+		}
+		if i == pdfTableRows-1 {
+			for j := range row {
+				row[j].Class = spec.CellTotal
+			}
+		}
+		body = append(body, row)
+	}
+
+	s := &spec.Spec{
+		FormatVersion: spec.FormatVersion,
+		Title:         "A Table Longer Than A Page",
+		Theme:         th.ID,
+		Sections: []spec.Section{{
+			ID: "crosstab",
+			Blocks: []spec.Block{
+				{Kind: spec.BlockHeading, Heading: &spec.Heading{Level: 1, Content: "Awareness by band"}},
+				{Kind: spec.BlockText, Text: &spec.Text{
+					Content: "The table below begins under this paragraph rather than on a page " +
+						"of its own, and continues onto the next with its banner and its stub " +
+						"label repeated.",
+				}},
+				{Kind: spec.BlockTable, Table: &spec.Table{
+					ColumnHeaders: spec.HeaderTree{
+						{Label: "Region", Span: 2, Children: spec.HeaderTree{
+							{Label: "North"}, {Label: "South"},
+						}},
+						{Label: "Total"},
+					},
+					RowHeaders: spec.HeaderTree{{Label: "Age", Children: bands}},
+					Body:       body,
+					Caption:    "Percentages. Base: all adults.",
+				}},
+			},
+		}},
+	}
+
+	res, err := resolve.Resolve(context.Background(), s, resolve.Options{
+		Format: artifact.FormatPDF,
+		Themes: provider,
+		Assets: composeFonts(),
+	})
+	if err != nil {
+		return err
+	}
+
+	d, err := pdf.Lower(res.Doc)
+	if err != nil {
+		return err
+	}
+	d.Metadata.Creator = "Vellum determinism fixture"
+	d.Metadata.Producer = "Vellum 0.0.0-golden"
+	d.Metadata.Date = epoch
+
+	return d.WriteTo(w, pdf.WriteOptions{SourceDateEpoch: epoch})
 }

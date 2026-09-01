@@ -136,6 +136,38 @@ type Document struct {
 
 	// Pages are the document's pages, in order.
 	Pages []Page
+
+	// Overflow reports where every table's rows went.
+	//
+	// It is a report rather than a diagnostic: a table that fitted on one page
+	// appears here with one part, because a report that shows up only when
+	// something went wrong is one nobody can distinguish from a missing report.
+	// A consumer reads it to point at a block rather than at a page number.
+	Overflow []TableSplit
+}
+
+// TableSplit is one page's share of a table.
+type TableSplit struct {
+	// SectionID, SectionIndex and BlockIndex locate the table in the
+	// specification, so a consumer reading the report can point at the block
+	// the rows came from rather than at where they landed.
+	SectionID    string
+	SectionIndex int
+	BlockIndex   int
+
+	// Page is the index into [Document.Pages] this part landed on.
+	Page int
+
+	// Part is this share's ordinal, from zero, and Parts is how many the table
+	// was split into. Parts is one for a table that fitted.
+	Part, Parts int
+
+	// FromRow is the first body row on this page and Rows is how many it
+	// carries. TotalRows is the table's own row count.
+	FromRow, Rows, TotalRows int
+
+	// HeaderRows is how many banner rows repeat at the top of every part.
+	HeaderRows int
 }
 
 // WriteOptions configures a write. The zero value is the deterministic default.

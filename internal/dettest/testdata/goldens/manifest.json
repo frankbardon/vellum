@@ -35,6 +35,11 @@
       "sha256": "c05aac31c00870f2fce7fa251eb80748a4ade8fa065fcfd57feb32945d956e08",
       "bytes": 15021
     },
+    "pdf-table": {
+      "file": "pdf-table/expected.pdf",
+      "sha256": "dfbea335d9c00fecbcd060dfa5997753d9add0a32959d5b788626516fdd59039",
+      "bytes": 30486
+    },
     "pptx-assets": {
       "file": "pptx-assets/expected.pptx",
       "sha256": "4119fa65b284590f276c5e5dbdc56bea3322e9885daa783fbdd66f4137429f5f",
@@ -62,4 +67,4 @@
     }
   }
 }
-// golden-hash: b15aa008524f66faf86c4b9447a6f1cb4c78d7f6f569220684b6d8191ee550c3
+// golden-hash: c8c0a6ed2b45dcf8ee4dc596a6047e8690cf475879c8aa79951162bf78bd6a57

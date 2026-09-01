@@ -395,9 +395,16 @@ func resolveFor(t *testing.T, blocks ...spec.Block) *resolve.Result {
 	return res
 }
 
-// blockOf builds a minimal block of a kind, for the pending-kinds check.
+// blockOf builds the smallest valid block of a kind.
+//
+// Smallest, and valid: a block the decoder would reject proves nothing about
+// the writer, because resolution never hands it over.
 func blockOf(kind spec.BlockKind) spec.Block {
 	switch kind {
+	case spec.BlockHeading:
+		return spec.Block{Kind: kind, Heading: &spec.Heading{Level: 1, Content: "a heading"}}
+	case spec.BlockText:
+		return spec.Block{Kind: kind, Text: &spec.Text{Content: "some prose"}}
 	case spec.BlockTable:
 		return spec.Block{Kind: kind, Table: &spec.Table{
 			ColumnHeaders: spec.HeaderTree{{Label: "h"}},
@@ -405,27 +412,32 @@ func blockOf(kind spec.BlockKind) spec.Block {
 		}}
 	case spec.BlockAsset:
 		return spec.Block{Kind: kind, Asset: &spec.Asset{
-			Handle: "data:image/png;base64,iVBORw0KGgo=",
+			Handle: "data:image/png;base64," +
+				base64.StdEncoding.EncodeToString(imagetest.RGB()),
 		}}
 	case spec.BlockNotes:
 		return spec.Block{Kind: kind, Notes: &spec.Notes{Content: "a note"}}
+	case spec.BlockPageBreak:
+		return spec.Block{Kind: kind, PageBreak: &spec.PageBreak{}}
+	case spec.BlockSpacer:
+		return spec.Block{Kind: kind, Spacer: &spec.Spacer{Height: spec.Points(12)}}
 	}
 	return spec.Block{Kind: kind}
 }
 
-// TestLower_RefusesABlockKindItCannotDraw pins that nothing is dropped.
+// TestLower_DrawsEveryDeclaredBlockKind pins that nothing is dropped.
 //
-// Tables, assets and notes are declared as rendering on PDF in the capability
-// matrix and are not built yet. Until they are, a specification containing one
-// is a loud failure rather than a document missing a section — which is the
-// failure the whole library is arranged to prevent.
-func TestLower_RefusesABlockKindItCannotDraw(t *testing.T) {
-	// Tables only, now. The list shrinks as E8-S2 lands, and this test is where
-	// it is written down — a kind quietly gaining an arm without a test noticing
-	// is how a writer starts dropping content.
-	pending := []spec.BlockKind{spec.BlockTable}
-
-	for _, kind := range pending {
+// The capability matrix declares every block kind as rendering on PDF, and this
+// is where that declaration is checked against the code rather than against
+// itself. It walks the live registry, so a kind added to the model and not to
+// this writer fails here — with the message the writer itself would have
+// produced — rather than reaching a consumer as a document missing a section.
+//
+// It replaced a list of kinds not yet built, which is the shape this check had
+// while the writer was incomplete. A list is a thing that goes stale silently;
+// the registry cannot.
+func TestLower_DrawsEveryDeclaredBlockKind(t *testing.T) {
+	for _, kind := range spec.AllBlockKinds() {
 		t.Run(string(kind), func(t *testing.T) {
 			s := &spec.Spec{
 				FormatVersion: spec.FormatVersion,
@@ -436,10 +448,10 @@ func TestLower_RefusesABlockKindItCannotDraw(t *testing.T) {
 				Format: artifact.FormatPDF, Themes: embeddableTheme(t), Assets: fontStore(),
 			})
 			if err != nil {
-				t.Skipf("resolution refuses this kind before lowering sees it: %v", err)
+				t.Fatalf("resolution refused a kind the matrix declares: %v", err)
 			}
-			if _, err := pdf.Lower(res.Doc); err == nil {
-				t.Fatal("the block was lowered silently; a kind this writer cannot draw must fail loudly")
+			if _, err := pdf.Lower(res.Doc); err != nil {
+				t.Fatalf("Lower: %v", err)
 			}
 		})
 	}
