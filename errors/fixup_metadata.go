@@ -117,6 +117,51 @@ var codeMetadata = map[Code]Metadata{
 		}},
 	},
 
+	VELLUM_CAPABILITY_REJECTED: {
+		Message: "the target format does not render this feature",
+		Fixups: []Fixup{
+			{
+				Action: FixupChangeFormat,
+				Hint:   "Render to a format that supports the feature. The capability matrix reports every outcome before a render is attempted, so this can be checked rather than discovered.",
+			},
+			{
+				Action: FixupRemoveField,
+				Path:   []string{"Sections", "*", "Blocks", "*"},
+				Hint:   "Or remove the block. Vellum refuses rather than dropping it, because a silently missing section reaches a reader instead of the author.",
+			},
+		},
+	},
+
+	VELLUM_CAPABILITY_DEGRADED: {
+		Message: "the feature became the stated alternative in this format",
+		Fixups: []Fixup{{
+			Action: FixupChangeFormat,
+			Hint:   "No action is needed — this is a warning, reported so that no degradation is ever silent. Render to a format where the feature is native if the alternative will not do.",
+		}},
+	},
+
+	VELLUM_CAPABILITY_UNDECLARED: {
+		Message: "a feature and format pair has no declared outcome",
+		// Always a Vellum bug; the completeness gate exists so it cannot reach
+		// a release, and no caller input can resolve it.
+		FixupNotApplicable: true,
+	},
+
+	VELLUM_ASSET_MEDIA_UNSUPPORTED: {
+		Message: "the target format cannot embed an asset of this media type",
+		Fixups: []Fixup{
+			{
+				Action: FixupSupplyAsset,
+				Hint:   "Supply the asset in a media type the format accepts. The error names the accepted set, and Boxes reports the size to render at.",
+			},
+			{
+				Action:   FixupSupplyAsset,
+				Hint:     "For an SVG destined for a format that also accepts raster, supply a raster fallback alongside it; Vellum embeds the pair. It will not rasterise one for you — it never renders.",
+				Examples: []any{"image/png", "image/jpeg"},
+			},
+		},
+	},
+
 	VELLUM_TABLE_INVALID: {
 		Message: "the table is structurally invalid",
 		Fixups: []Fixup{{

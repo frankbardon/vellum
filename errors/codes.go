@@ -81,6 +81,40 @@ const (
 	VELLUM_SPEC_BLOCK_KIND_UNKNOWN Code = "VELLUM_SPEC_BLOCK_KIND_UNKNOWN"
 )
 
+// CAPABILITY domain — the declared (feature x format) matrix.
+const (
+	// VELLUM_CAPABILITY_REJECTED indicates the specification uses a feature
+	// the target format declares it will not render. Raised at validate time,
+	// before any bytes are written, so a consumer learns about a gap from an
+	// error rather than from a reader noticing an absence.
+	VELLUM_CAPABILITY_REJECTED Code = "VELLUM_CAPABILITY_REJECTED"
+
+	// VELLUM_CAPABILITY_DEGRADED is a WARNING. It reports that a feature
+	// became the stated alternative in this format — notes rendered as a
+	// footnote rather than as a speaker note, for instance. The alternative is
+	// declared in advance, never discovered at render time.
+	VELLUM_CAPABILITY_DEGRADED Code = "VELLUM_CAPABILITY_DEGRADED"
+
+	// VELLUM_CAPABILITY_UNDECLARED indicates a (feature, format) pair with no
+	// declared outcome. Always a Vellum bug: the completeness gate exists so
+	// this cannot reach a release.
+	VELLUM_CAPABILITY_UNDECLARED Code = "VELLUM_CAPABILITY_UNDECLARED"
+)
+
+// ASSET domain — asset resolution and media policy.
+const (
+	// VELLUM_ASSET_MEDIA_UNSUPPORTED indicates an asset whose media type the
+	// target format cannot embed.
+	//
+	// PDF is the case that matters: it has no SVG mechanism at all. Vellum will
+	// not rasterise — it never renders — and will not ship an SVG-to-PDF vector
+	// translator, which would be a renderer with its own text layout and font
+	// matching, free to drift from whatever produced the asset. So the target
+	// format and its accepted media types travel with the request, and an
+	// unsupported one is a loud error naming what is accepted.
+	VELLUM_ASSET_MEDIA_UNSUPPORTED Code = "VELLUM_ASSET_MEDIA_UNSUPPORTED"
+)
+
 // TABLE domain — the analytical table model.
 const (
 	// VELLUM_TABLE_INVALID indicates a structurally invalid table: no body, a
@@ -147,6 +181,14 @@ var allCodes = []Code{
 	// SPEC
 	VELLUM_SPEC_INVALID,
 	VELLUM_SPEC_BLOCK_KIND_UNKNOWN,
+
+	// CAPABILITY
+	VELLUM_CAPABILITY_REJECTED,
+	VELLUM_CAPABILITY_DEGRADED,
+	VELLUM_CAPABILITY_UNDECLARED,
+
+	// ASSET
+	VELLUM_ASSET_MEDIA_UNSUPPORTED,
 
 	// TABLE
 	VELLUM_TABLE_INVALID,
