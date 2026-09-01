@@ -17,10 +17,16 @@
 //
 // # Conformance
 //
-// The output claims PDF/A-2b, and that claim is checked: TestPDFAConformance
-// runs veraPDF over every PDF golden. A file asserting conformance and failing
-// validation is worse than one making no claim at all, which is why the gate
-// exists rather than a comment saying the output should conform.
+// The output claims PDF/A-2b, and that claim is checked twice. Every document
+// passes through [pdfa.Preflight] on the way out — unconditionally, with no
+// option to skip it — and TestPDFAConformance runs veraPDF over every PDF
+// golden. A file asserting conformance and failing validation is worse than one
+// making no claim at all, which is why there is a gate rather than a comment
+// saying the output should conform.
+//
+// The two are not redundant. The validator implements the profile and has to be
+// provisioned; the preflight implements the clauses this writer's own code
+// decides and runs on a machine with nothing installed.
 package pdf
 
 import (
@@ -227,6 +233,19 @@ func (d *Document) WriteTo(w io.Writer, opts WriteOptions) error {
 	))
 	doc.Info = doc.Add(meta.InfoEntries())
 	doc.ID = d.fileID(meta)
+
+	// The self-gate, and it is unconditional. There is no option to skip it,
+	// because the only reason to want one would be to write a file that does
+	// not conform while still claiming in its own metadata that it does — and
+	// a false conformance claim is worse than no claim at all.
+	//
+	// It runs here rather than over the finished bytes: at this point the
+	// object graph is still addressable, so a violation names the object it is
+	// in instead of a byte offset. See [pdfa.Preflight] for what it does and
+	// does not cover.
+	if err := pdfa.Preflight(&doc); err != nil {
+		return err
+	}
 
 	return doc.Write(w)
 }

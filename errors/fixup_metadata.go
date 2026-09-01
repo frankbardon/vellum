@@ -410,6 +410,17 @@ var codeMetadata = map[Code]Metadata{
 		}},
 	},
 
+	VELLUM_PDFA_NONCONFORMANT: {
+		Message: "the assembled document would violate ISO 19005-2 level B",
+		// No fixup, and deliberately so. Every conformance question a
+		// specification can decide — whether a face is embeddable, whether an
+		// image variant can be carried — is answered before the document is
+		// assembled, with a code that names the field to change. Reaching this
+		// one means Vellum built something the standard forbids, and there is
+		// nothing in the specification for a consumer to edit.
+		FixupNotApplicable: true,
+	},
+
 	VELLUM_PDF_IMAGE_UNSUPPORTED: {
 		Message: "the image is in an encoding variant a PDF cannot carry unmodified",
 		Fixups: []Fixup{

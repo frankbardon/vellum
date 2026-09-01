@@ -289,6 +289,21 @@ const (
 	VELLUM_PDF_IMAGE_UNSUPPORTED Code = "VELLUM_PDF_IMAGE_UNSUPPORTED"
 )
 
+// PDFA domain — the conformance claim the file makes about itself.
+const (
+	// VELLUM_PDFA_NONCONFORMANT indicates the assembled document would violate
+	// ISO 19005-2 level B, caught by the in-process preflight before any bytes
+	// reach the writer.
+	//
+	// It is an internal invariant rather than a specification fault: nothing a
+	// consumer can put in a spec produces a nonconformant document, because the
+	// constructs that would — an unembedded font, an unsupported image variant
+	// — are refused earlier with their own codes. This fires when Vellum itself
+	// assembles something the standard forbids, which makes it a bug report
+	// rather than a fixup.
+	VELLUM_PDFA_NONCONFORMANT Code = "VELLUM_PDFA_NONCONFORMANT"
+)
+
 // THEME domain — the theme document and what a specification asks of it.
 const (
 	// VELLUM_THEME_NOT_FOUND indicates the provider has no theme under the id
@@ -412,6 +427,9 @@ var allCodes = []Code{
 	VELLUM_PDF_TEXT_OVERFLOW,
 	VELLUM_PDF_IMAGE_INVALID,
 	VELLUM_PDF_IMAGE_UNSUPPORTED,
+
+	// PDFA
+	VELLUM_PDFA_NONCONFORMANT,
 
 	// INTERNAL
 	VELLUM_INTERNAL_INVARIANT,

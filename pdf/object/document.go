@@ -120,6 +120,21 @@ func (d *Document) AddRawStream(dict Dict, data []byte) Ref {
 // Len returns the number of objects allocated so far.
 func (d *Document) Len() int { return len(d.objects) }
 
+// Object returns the object a reference names. The second result reports
+// whether the reference names an object of this document at all.
+//
+// Present so a check can read the graph it is about to write — the PDF/A
+// preflight resolves a font's descriptor and an output intent's profile this
+// way. Nothing here copies: the object returned is the one that will be
+// written, which is the point.
+func (d *Document) Object(ref Ref) (Object, bool) {
+	if ref.Number < 1 || ref.Number > len(d.objects) {
+		return nil, false
+	}
+	o := d.objects[ref.Number-1]
+	return o, o != nil
+}
+
 // Write serialises the document.
 //
 // Named Write rather than WriteTo because it is not an io.WriterTo: that

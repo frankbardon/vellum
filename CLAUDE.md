@@ -232,7 +232,8 @@ The compressed statement; the full table is `.claude/reference/determinism.md`.
   *explicitly associated* resource dictionary, and veraPDF rejects the
   inherited form. `MediaBox`, `CropBox` and `Rotate` are hoisted; `Resources`
   is not. Pinned by `TestBuildPageTree_DoesNotHoistResources` so re-adding it
-  fails in a second rather than in the conformance gate.
+  fails in a second rather than in the conformance gate, and re-checked on
+  every document written by `pdfa.Preflight`.
 - A PDF page's font and image resources are **derived from its items**, not
   listed beside them. Listing them separately gives a caller two ways to say one
   thing, and the interesting half of the failure — a stream selecting a font the
@@ -307,6 +308,30 @@ test`. When a tool is absent the check skips and `make test` prints a warning
 naming what went unchecked, because a skip is invisible in a non-verbose run and
 an optional gate nobody is told about is one nobody provisions. CI sets
 `VELLUM_REQUIRE_OPTIONAL_GATES`, which turns every such skip into a failure.
+
+### The PDF/A preflight
+
+`pdfa.Preflight` runs on **every** document the PDF writer emits, before any
+byte reaches the destination, and there is no option to skip it. The only
+reason to want one would be to write a file that does not conform while its own
+metadata claims it does, and a false conformance claim is worse than no claim.
+
+It is the complement to the veraPDF oracle rather than a second copy of it. The
+oracle implements the profile and needs provisioning; the preflight implements
+the handful of clauses where Vellum's own code decides the answer — the output
+intent and its embedded profile, the XMP packet's presence, filtering and
+conformance claim, agreement between the packet and the information dictionary
+field by field, the file identifier, every descendant font's embedded program,
+`Resources` on the page and not on the tree, and the image constraints on
+`/Interpolate`, `/ColorSpace` and `/LZWDecode`. Those are the ones a refactor
+can break, so they fail in `make test` on a machine with nothing installed.
+
+What it deliberately does **not** check is anything unrepresentable in this
+writer: encryption, object streams, JavaScript, embedded files, annotations
+without appearance streams. A check for a condition that cannot arise passes
+forever while proving nothing, which is the failure this repository has already
+been bitten by twice. Every check has a test that breaks the document in the one
+way that check exists to catch.
 
 ### Declared, not emergent
 
