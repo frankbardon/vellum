@@ -208,6 +208,25 @@ func TestResolve_FontPolicy(t *testing.T) {
 		}
 	})
 
+	t.Run("a non-embeddable theme cannot be resolved for PDF", func(t *testing.T) {
+		// The one row that decides whether a theme is usable for PDF at all.
+		// The built-in theme fails it, deliberately: Vellum ships no font
+		// program, so its three faces name families and carry nothing.
+		s := doc(text("x"))
+
+		_, err := resolve.Resolve(context.Background(), s, resolve.Options{Format: artifact.FormatPDF})
+		if !verr.HasCode(err, verr.VELLUM_FONT_EMBED_UNSUPPORTED) {
+			t.Fatalf("error = %v, want VELLUM_FONT_EMBED_UNSUPPORTED", err)
+		}
+
+		// The same theme is fine for a target that resolves families by name,
+		// which is what makes this a per-format answer rather than a bad theme.
+		if _, err := resolve.Resolve(context.Background(), s,
+			resolve.Options{Format: artifact.FormatDOCX}); err != nil {
+			t.Fatalf("the built-in theme failed for docx as well: %v", err)
+		}
+	})
+
 	t.Run("a font handle the resolver cannot produce is a font error", func(t *testing.T) {
 		th := embeddableTheme(t, theme.EmbedAuto)
 		p, err := theme.NewStaticProvider(th)
@@ -332,7 +351,20 @@ func TestResolve_PDFRejectsSVG(t *testing.T) {
 	handle := "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString([]byte(wideSVG))
 	s := doc(spec.Block{Kind: spec.BlockAsset, Asset: &spec.Asset{Handle: handle}})
 
-	_, err := resolve.Resolve(context.Background(), s, resolve.Options{Format: artifact.FormatPDF})
+	// An embeddable theme, because the built-in one cannot be resolved for PDF
+	// at all: its three faces are declared non-embeddable and PDF/A-2b requires
+	// every font embedded. Using it here would fail on the font before reaching
+	// the asset, and the test would pass for the wrong reason.
+	th := embeddableTheme(t, theme.EmbedAuto)
+	p, err := theme.NewStaticProvider(th)
+	if err != nil {
+		t.Fatalf("NewStaticProvider: %v", err)
+	}
+	s.Theme = th.ID
+
+	_, err = resolve.Resolve(context.Background(), s, resolve.Options{
+		Format: artifact.FormatPDF, Themes: p, Assets: fontStore(),
+	})
 	if !verr.HasCode(err, verr.VELLUM_ASSET_MEDIA_UNSUPPORTED) {
 		t.Fatalf("error = %v, want VELLUM_ASSET_MEDIA_UNSUPPORTED", err)
 	}

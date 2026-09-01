@@ -108,10 +108,34 @@ const (
 // answer independently: a PDF honours a subset request for TrueType outlines
 // and cannot honour one for CFF, and no single outcome on font.embed.subset
 // states both.
+// The two embed modes are what a theme asks for. FeatureFontEmbedNone is the
+// third answer and the one that is easy to leave undeclared: referencing a
+// family by name and embedding nothing at all. Every OOXML target does that
+// routinely — it is what happens for every face in v1 — and PDF/A-2b forbids
+// it outright, because an archival document that depends on a font installed
+// on the reader's machine is not archival.
+//
+// Declared as its own row rather than inferred from the other two, because
+// "this format can embed" and "this format can manage without" are different
+// questions, and only the second one decides whether a theme of non-embeddable
+// faces can be used at all.
 const (
 	FeatureFontEmbedSubset Feature = "font.embed.subset"
 	FeatureFontEmbedWhole  Feature = "font.embed.whole"
+	FeatureFontEmbedNone   Feature = "font.embed.none"
 	FeatureFontOutlinesCFF Feature = "font.outlines.cff"
+)
+
+// Character-level styling.
+//
+// Bold and italic are matrix rows because the answer differs by format for a
+// structural reason. An OOXML target sets a flag and the application picks the
+// bold cut of the family, or synthesises one; a PDF names one font program per
+// face and has no second cut to reach for, because a theme in v1 declares one
+// program per role.
+const (
+	FeatureTextBold   Feature = "text.bold"
+	FeatureTextItalic Feature = "text.italic"
 )
 
 // Text layout features.
@@ -164,7 +188,11 @@ var allFeatures = []Feature{
 
 	FeatureFontEmbedSubset,
 	FeatureFontEmbedWhole,
+	FeatureFontEmbedNone,
 	FeatureFontOutlinesCFF,
+
+	FeatureTextBold,
+	FeatureTextItalic,
 
 	FeatureScriptLatin,
 	FeatureScriptGreek,

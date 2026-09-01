@@ -24,6 +24,7 @@ import (
 	"github.com/frankbardon/vellum/provenance"
 	"github.com/frankbardon/vellum/resolve"
 	"github.com/frankbardon/vellum/spec"
+	"github.com/frankbardon/vellum/theme"
 	"golang.org/x/image/font/gofont/goregular"
 )
 
@@ -41,8 +42,146 @@ func Cases() []Case {
 		pdfPagesCase(),
 		pdfProseCase(),
 		pdfImageCase(),
+		pdfComposeCase(),
 	}
 }
+
+// pdfComposeCase is the block model reaching a PDF: spec in, document out.
+//
+// The other PDF cases build a page by hand, which proves the substrate and
+// proves nothing about the writer above it. This one goes through the same door
+// a consumer does — decode, resolve, lower, write — and it is the only case
+// where the line breaks and the page breaks are Vellum's decisions rather than
+// the fixture's.
+//
+// It carries more prose than fits on one page, deliberately. Pagination that is
+// never exercised is pagination that is not known to work, and the page a
+// paragraph splits across is where a flow layout goes wrong.
+func pdfComposeCase() Case {
+	return Case{
+		Name:  "pdf-compose",
+		Ext:   "pdf",
+		Write: writePDFCompose,
+	}
+}
+
+// composeTheme is a theme whose faces can actually be embedded.
+//
+// The built-in theme cannot be used for a PDF and that is deliberate rather
+// than an oversight: its three faces are declared non-embeddable, because
+// Vellum ships no font program, and PDF/A-2b requires every font embedded. The
+// capability matrix says so at font.embed.none, and resolution refuses it
+// before any bytes exist. A consumer targeting PDF supplies a theme like this
+// one.
+func composeTheme() (*theme.Theme, error) {
+	th, err := theme.Builtin()
+	if err != nil {
+		return nil, err
+	}
+	th.ID = "compose-pdf"
+	for i := range th.Fonts {
+		th.Fonts[i].Family = "Go Regular"
+		th.Fonts[i].Embeddable = true
+		th.Fonts[i].Substitute = ""
+		th.Fonts[i].Embed = theme.EmbedSubset
+		th.Fonts[i].Handle = "font/go-regular"
+	}
+	return th, nil
+}
+
+// composeFonts serves the one font program the theme names.
+func composeFonts() asset.Resolver {
+	return asset.NewMap(map[string]asset.Asset{
+		"font/go-regular": {MediaType: "font/ttf", Bytes: goregular.TTF},
+	})
+}
+
+// writePDFCompose composes the block-model document.
+func writePDFCompose(w io.Writer, epoch time.Time) error {
+	th, err := composeTheme()
+	if err != nil {
+		return err
+	}
+	provider, err := theme.NewStaticProvider(th)
+	if err != nil {
+		return err
+	}
+
+	s := &spec.Spec{
+		FormatVersion: spec.FormatVersion,
+		Title:         "Composed to PDF",
+		Theme:         th.ID,
+		Sections: []spec.Section{{
+			ID:     "prose",
+			Blocks: composeBlocks(),
+		}},
+	}
+
+	res, err := resolve.Resolve(context.Background(), s, resolve.Options{
+		Format: artifact.FormatPDF,
+		Themes: provider,
+		Assets: composeFonts(),
+	})
+	if err != nil {
+		return err
+	}
+
+	d, err := pdf.Lower(res.Doc)
+	if err != nil {
+		return err
+	}
+	d.Metadata.Creator = "Vellum determinism fixture"
+	d.Metadata.Producer = "Vellum 0.0.0-golden"
+	d.Metadata.Date = epoch
+
+	return d.WriteTo(w, pdf.WriteOptions{SourceDateEpoch: epoch})
+}
+
+// composeBlocks is enough prose to paginate, with a marked run in it so the
+// styled-span path is exercised by an artifact rather than only by a unit test.
+func composeBlocks() []spec.Block {
+	out := []spec.Block{
+		{Kind: spec.BlockHeading, Heading: &spec.Heading{Level: 1, Content: "Composed to PDF"}},
+		{Kind: spec.BlockText, Text: &spec.Text{
+			Content: "This document was not assembled by hand. A specification was decoded, " +
+				"resolved against a theme, lowered into a page tree, and written — the same " +
+				"path a consumer takes.",
+		}},
+		{Kind: spec.BlockText, Marks: []string{"flagged"}, Text: &spec.Text{
+			Content: "A marked paragraph, whose mark the theme styles.",
+		}},
+		{Kind: spec.BlockSpacer, Spacer: &spec.Spacer{Height: spec.Points(12)}},
+	}
+
+	// Repeated bodies rather than one long string, so the page break falls
+	// between paragraphs on one page and inside a paragraph on another. Both
+	// are pagination and only one of them is easy.
+	for i := 1; i <= 9; i++ {
+		out = append(out,
+			spec.Block{Kind: spec.BlockHeading, Heading: &spec.Heading{
+				Level: 2, Content: "Section " + strconv.Itoa(i),
+			}},
+			spec.Block{Kind: spec.BlockText, Text: &spec.Text{Content: composeBody}},
+		)
+	}
+	out = append(out,
+		spec.Block{Kind: spec.BlockPageBreak, PageBreak: &spec.PageBreak{}},
+		spec.Block{Kind: spec.BlockHeading, Heading: &spec.Heading{Level: 1, Content: "After the break"}},
+		spec.Block{Kind: spec.BlockText, Text: &spec.Text{
+			Content: "An explicit page break starts a page even when the one before it had room.",
+		}},
+	)
+	return out
+}
+
+// composeBody is deliberately ordinary. Its job is to wrap and to run past the
+// bottom of a page, not to be interesting.
+const composeBody = "Vellum decides every line break and every page break in this file. " +
+	"There is no application behind a PDF to lay the text out afterwards, so the " +
+	"positions in the content stream are the positions a reader sees. The breaking " +
+	"is greedy over the opportunities Unicode permits, and the measurement is integer " +
+	"arithmetic from the font's own design units, so the same specification paginates " +
+	"the same way on every machine that renders it."
 
 // pdfImageCase exercises the asset path: the three embeddings that differ.
 //
@@ -144,11 +283,13 @@ func writePDFImage(w io.Writer, epoch time.Time) error {
 			Date:     epoch,
 		},
 		Pages: []pdf.Page{{
-			Width:   object.Points(612),
-			Height:  object.Points(792),
-			Content: c.Bytes(),
-			Fonts:   []*pdffont.Face{face},
-			Images:  images,
+			Width:  object.Points(612),
+			Height: object.Points(792),
+			Items: []pdf.Item{pdf.Raw(pdf.RawItem{
+				Content: c.Bytes(),
+				Fonts:   []*pdffont.Face{face},
+				Images:  images,
+			})},
 		}},
 	}
 	return d.WriteTo(w, pdf.WriteOptions{SourceDateEpoch: epoch})
@@ -198,7 +339,8 @@ func writePDFProse(w io.Writer, epoch time.Time) error {
 		left    = object.Real(72 * object.RealScale)
 	)
 
-	lines, err := text.Wrap(shaper, proseText, text.WrapOptions{Size: size, Width: measure})
+	body := text.Style{Face: face, Shaper: shaper, Size: size}
+	lines, err := text.WrapText(body, proseText, text.WrapOptions{Width: measure})
 	if err != nil {
 		return err
 	}
@@ -225,9 +367,11 @@ func writePDFProse(w io.Writer, epoch time.Time) error {
 
 		for _, l := range lines {
 			c.BeginText().
-				SetFont("F1", size).
 				MoveText(left+l.Offset(block.align, measure), top)
-			if err := l.Show(&c, face, block.align, measure); err != nil {
+			// Show emits the Tf itself now: the size and the face travel with
+			// the line's own segments, so a line cannot be drawn in a font it
+			// was not measured in.
+			if err := l.Show(&c, block.align, measure); err != nil {
 				return err
 			}
 			c.EndText()
@@ -244,10 +388,12 @@ func writePDFProse(w io.Writer, epoch time.Time) error {
 			Date:     epoch,
 		},
 		Pages: []pdf.Page{{
-			Width:   object.Points(612),
-			Height:  object.Points(792),
-			Content: c.Bytes(),
-			Fonts:   []*pdffont.Face{face},
+			Width:  object.Points(612),
+			Height: object.Points(792),
+			Items: []pdf.Item{pdf.Raw(pdf.RawItem{
+				Content: c.Bytes(),
+				Fonts:   []*pdffont.Face{face},
+			})},
 		}},
 	}
 	return d.WriteTo(w, pdf.WriteOptions{SourceDateEpoch: epoch})
@@ -302,10 +448,12 @@ func writePDFPages(w io.Writer, epoch time.Time) error {
 			EndText()
 
 		pages[i] = pdf.Page{
-			Width:   object.Points(612),
-			Height:  object.Points(792),
-			Content: c.Bytes(),
-			Fonts:   []*pdffont.Face{face},
+			Width:  object.Points(612),
+			Height: object.Points(792),
+			Items: []pdf.Item{pdf.Raw(pdf.RawItem{
+				Content: c.Bytes(),
+				Fonts:   []*pdffont.Face{face},
+			})},
 		}
 	}
 
@@ -397,10 +545,12 @@ func writePDFSpike(w io.Writer, epoch time.Time) error {
 			Date:     epoch,
 		},
 		Pages: []pdf.Page{{
-			Width:   object.Points(612),
-			Height:  object.Points(792),
-			Content: c.Bytes(),
-			Fonts:   []*pdffont.Face{face},
+			Width:  object.Points(612),
+			Height: object.Points(792),
+			Items: []pdf.Item{pdf.Raw(pdf.RawItem{
+				Content: c.Bytes(),
+				Fonts:   []*pdffont.Face{face},
+			})},
 		}},
 	}
 	return d.WriteTo(w, pdf.WriteOptions{SourceDateEpoch: epoch})

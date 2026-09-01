@@ -3,7 +3,6 @@ package text
 import (
 	verr "github.com/frankbardon/vellum/errors"
 	"github.com/frankbardon/vellum/pdf/content"
-	"github.com/frankbardon/vellum/pdf/font"
 	"github.com/frankbardon/vellum/pdf/font/sfnt"
 	"github.com/frankbardon/vellum/pdf/object"
 	"github.com/frankbardon/vellum/pdf/shape"
@@ -44,76 +43,128 @@ func (l Line) Justifiable(align Align) bool {
 
 // Show emits the line's glyphs into a content stream.
 //
-// The face records the glyphs as used, which is what keeps the subset and the
-// content stream in agreement about which glyphs exist.
+// One text-showing operator per segment, each preceded by the Tf and the fill
+// colour that segment is set in. Each face records the glyphs as used, which is
+// what keeps the subsets and the content stream in agreement about which glyphs
+// exist.
 //
 // Trailing whitespace is not drawn. It stays on the line because it is part of
 // the text, and drawing it would push the pen past the measure and, on a
 // justified line, would earn a share of the slack.
-func (l Line) Show(b *content.Builder, f *font.Face, align Align, width object.Real) error {
-	glyphs := l.Glyphs[:l.Visible]
-	if len(glyphs) == 0 {
-		return nil
-	}
-
-	ids := make([]uint16, len(glyphs))
-	for i, g := range glyphs {
-		ids[i] = uint16(g.ID)
-	}
-	if _, err := f.EncodeGlyphs(glyphIDs(glyphs)); err != nil {
-		return err
-	}
-
+func (l Line) Show(b *content.Builder, align Align, width object.Real) error {
 	slack := width - l.Width
-	if !l.Justifiable(align) || slack <= 0 {
-		b.ShowGlyphs(ids)
-		return nil
+	justify := l.Justifiable(align) && slack > 0
+
+	// The slack is divided over the line's gaps before any segment is drawn,
+	// because a gap's share depends on how many gaps the whole line has — not
+	// on how many its own segment has. Dividing per segment would give a line
+	// whose bold word contains its only space a full measure of slack in one
+	// place.
+	var extra []object.Real
+	if justify {
+		var err error
+		if extra, err = l.share(slack); err != nil {
+			return err
+		}
 	}
 
-	items, err := l.justify(ids, slack)
-	if err != nil {
-		return err
+	seen := 0
+	for i := range l.Segments {
+		seg := l.Segments[i]
+		glyphs := seg.Glyphs[:seg.Visible]
+		if len(glyphs) == 0 {
+			seen += countGaps(l.gaps, i)
+			continue
+		}
+
+		if _, err := seg.Style.Face.EncodeGlyphs(glyphIDs(glyphs)); err != nil {
+			return err
+		}
+		r, g, bl := seg.Style.Color.Components()
+		b.SetFillRGB(r, g, bl)
+		b.SetFont(seg.Style.Face.Resource(), seg.Style.Size)
+
+		ids := make([]uint16, len(glyphs))
+		for j, gl := range glyphs {
+			ids[j] = uint16(gl.ID)
+		}
+
+		if !justify {
+			b.ShowGlyphs(ids)
+			continue
+		}
+		items, used := l.adjust(i, ids, extra, seen)
+		b.ShowAdjusted(items)
+		seen += used
 	}
-	b.ShowAdjusted(items)
 	return nil
 }
 
-// justify splits the line at its spaces and distributes the slack between them.
+// share divides the slack over the line's gaps.
 //
 // The remainder of the division is spread over the first gaps rather than
 // dropped, so the line ends exactly at the measure. Dropping it leaves every
-// justified line short by up to one unit per gap, which down a column reads as a
-// wobbling right edge rather than as a straight one.
-func (l Line) justify(ids []uint16, slack object.Real) ([]content.Adjusted, error) {
+// justified line short by up to one unit per gap, which down a column reads as
+// a wobbling right edge rather than as a straight one.
+func (l Line) share(slack object.Real) ([]object.Real, error) {
 	if len(l.gaps) == 0 {
 		return nil, verr.NewCodedError(verr.VELLUM_INTERNAL_INVARIANT,
 			"a line with no inter-word gaps was asked to justify")
 	}
-	if l.size <= 0 {
-		return nil, verr.NewCodedError(verr.VELLUM_INTERNAL_INVARIANT,
-			"the line carries no font size, so no displacement could be computed")
-	}
-
 	per := int64(slack) / int64(len(l.gaps))
 	remainder := int64(slack) % int64(len(l.gaps))
 
-	items := make([]content.Adjusted, 0, len(l.gaps)+1)
-	from := 0
-	for n, at := range l.gaps {
-		extra := per
-		if int64(n) < remainder {
-			extra++
+	out := make([]object.Real, len(l.gaps))
+	for i := range out {
+		v := per
+		if int64(i) < remainder {
+			v++
+		}
+		out[i] = object.Real(v)
+	}
+	return out, nil
+}
+
+// adjust builds one segment's TJ array, and returns how many of the line's gaps
+// it consumed.
+//
+// The displacement is converted at the segment's own size, because a TJ number
+// is scaled by the font size in force — so the same amount of space needs a
+// different number in a segment set larger.
+func (l Line) adjust(segment int, ids []uint16, extra []object.Real, seen int) ([]content.Adjusted, int) {
+	var items []content.Adjusted
+	size := l.Segments[segment].Style.Size
+
+	from, used := 0, 0
+	for _, g := range l.gaps {
+		if g.segment != segment {
+			continue
+		}
+		if g.glyph+1 > len(ids) {
+			break
 		}
 		items = append(items, content.Adjusted{
-			Glyphs: ids[from : at+1],
-			Adjust: tjFor(object.Real(extra), l.size),
+			Glyphs: ids[from : g.glyph+1],
+			Adjust: tjFor(extra[seen+used], size),
 		})
-		from = at + 1
+		from = g.glyph + 1
+		used++
 	}
 	if from < len(ids) {
 		items = append(items, content.Adjusted{Glyphs: ids[from:]})
 	}
-	return items, nil
+	return items, used
+}
+
+// countGaps returns how many of the line's gaps fall in one segment.
+func countGaps(gaps []gap, segment int) int {
+	n := 0
+	for _, g := range gaps {
+		if g.segment == segment {
+			n++
+		}
+	}
+	return n
 }
 
 // glyphIDs projects shaped glyphs to the identifiers the face records.

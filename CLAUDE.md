@@ -174,11 +174,17 @@ The compressed statement; the full table is `.claude/reference/determinism.md`.
   instead — make the nondeterminism unrepresentable rather than tested-against.
 - No `x/text/collate`. Bytewise `sort.Strings` only.
 - EMU is `int64`. Measurements never round-trip through `float64`.
-- Text is measured in integer font units and converted to text space once per
-  line. A line's fit is decided by comparing `advance x size` against
-  `width x unitsPerEm` — two products, never a division — because converting
-  each glyph and summing rounds per glyph, and a paragraph measured one way
-  then re-measured the other breaks into different lines.
+- Text is measured in integer font units and converted to text space **once per
+  styled run per line**, never per glyph. The distinction that matters is
+  per-glyph against per-run: converting each glyph and summing rounds sixty
+  times down a line of prose and accumulates, and a paragraph measured one way
+  then re-measured the other breaks into different lines. Per run is one
+  rounding for ordinary prose and a handful for a line carrying a bold word,
+  bounded by the styling the author wrote rather than by the length of the text.
+  A line cannot be measured with one division across the whole of it, because a
+  styled run brings its own size and its own units per em and there is no single
+  denominator; per run is where exactness ends and it is where the author's own
+  structure puts the boundary.
 - Line breaking is greedy over UAX#14 opportunities. Not because greedy is
   better: because an optimal-fit shaper produces different breaks, and a
   document's pagination must not change when a later version gets cleverer
@@ -227,6 +233,14 @@ The compressed statement; the full table is `.claude/reference/determinism.md`.
   inherited form. `MediaBox`, `CropBox` and `Rotate` are hoisted; `Resources`
   is not. Pinned by `TestBuildPageTree_DoesNotHoistResources` so re-adding it
   fails in a second rather than in the conformance gate.
+- A PDF page's font and image resources are **derived from its items**, not
+  listed beside them. Listing them separately gives a caller two ways to say one
+  thing, and the interesting half of the failure — a stream selecting a font the
+  resource dictionary does not name — draws nothing and reports nothing.
+- Every page's content stream is built **before** any font is written. A subset
+  contains the glyphs the document draws, and a face learns which those are by
+  being drawn with, so writing fonts first embeds subsets of nothing. Enforced
+  by the font writer refusing an empty subset rather than by a comment.
 - PDF `/CreationDate`, `/ModDate` and the XMP dates are generated from one
   struct so they cannot disagree. ISO 19005 requires them to match; veraPDF's
   2b profile was observed *not* to check it, which is a reason to keep the

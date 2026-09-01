@@ -92,16 +92,29 @@ func TestJustifiable_ExcludesALineEndingAtAHardBreak(t *testing.T) {
 	}
 }
 
-// showLine draws one line and returns the content stream.
+// showLine draws one line and returns the content stream and the face the line
+// is set in.
+//
+// The face comes from the line rather than from the test, because a line now
+// carries its own: that is the arrangement that makes shaping with one face and
+// encoding with another unrepresentable.
 func showLine(t *testing.T, l text.Line, align text.Align, width object.Real) (string, *font.Face) {
 	t.Helper()
 
 	var b content.Builder
-	f := newFace(t)
-	if err := l.Show(&b, f, align, width); err != nil {
+	if err := l.Show(&b, align, width); err != nil {
 		t.Fatalf("Show: %v", err)
 	}
-	return string(b.Bytes()), f
+	return string(b.Bytes()), faceOf(t, l)
+}
+
+// faceOf returns the face a single-style line is set in.
+func faceOf(t *testing.T, l text.Line) *font.Face {
+	t.Helper()
+	if len(l.Segments) == 0 {
+		t.Fatal("the line has no segments")
+	}
+	return l.Segments[0].Style.Face
 }
 
 func TestShow_UnjustifiedUsesTj(t *testing.T) {
@@ -133,7 +146,7 @@ func TestShow_JustifiedUsesTJWithNegativeAdjustments(t *testing.T) {
 			break
 		}
 	}
-	if justified.Visible == 0 {
+	if justified.Visible() == 0 {
 		t.Fatal("no justifiable line in the sample")
 	}
 
@@ -217,12 +230,13 @@ func TestShow_IsDeterministic(t *testing.T) {
 func TestShow_RecordsGlyphsOnTheFace(t *testing.T) {
 	line := wrap(t, "hello world", object.Points(400))[0]
 
-	var b content.Builder
-	f := newFace(t)
+	f := faceOf(t, line)
 	if len(f.Used()) != 0 {
 		t.Fatal("a new face already has glyphs recorded")
 	}
-	if err := line.Show(&b, f, text.AlignLeft, object.Points(400)); err != nil {
+
+	var b content.Builder
+	if err := line.Show(&b, text.AlignLeft, object.Points(400)); err != nil {
 		t.Fatalf("Show: %v", err)
 	}
 	// "hello world" has eight distinct glyphs: h e l o space w r d.

@@ -53,6 +53,17 @@ func (r *resolver) resolveFonts() error {
 			// The theme said the licence forbids embedding and named what to
 			// use instead. Its own validation has already refused the case
 			// where it named nothing, so a substitute is present here.
+			//
+			// Whether a substitute is any use at all is the format's answer,
+			// not this function's: a target that carries no font programs
+			// resolves the family by name, and one that requires every font
+			// embedded has nothing to work with. The matrix is asked rather
+			// than a condition written here, so the two cannot drift.
+			if !formatAllowsUnembeddedFonts(r.opts.Format) {
+				return verr.NewCodedErrorWithDetails(verr.VELLUM_FONT_EMBED_UNSUPPORTED,
+					"the format requires every font embedded and the theme declared this face non-embeddable",
+					withValue(where, "substitute", f.Substitute))
+			}
 			face.Family = f.Substitute
 			face.Substituted = true
 			r.warn(verr.NewCodedErrorWithDetails(verr.VELLUM_FONT_SUBSTITUTED,
@@ -86,6 +97,17 @@ func (r *resolver) resolveFonts() error {
 		r.faces = append(r.faces, face)
 	}
 	return nil
+}
+
+// formatAllowsUnembeddedFonts asks the matrix whether a family may be
+// referenced by name.
+//
+// PDF/A-2b is the format that says no: an archival document depending on a font
+// installed where it is opened is not archival. Every OOXML target says yes,
+// which is what every face gets in v1.
+func formatAllowsUnembeddedFonts(format artifact.Format) bool {
+	e, ok := capability.Lookup(capability.FeatureFontEmbedNone, format)
+	return ok && e.Outcome != capability.Rejects
 }
 
 // formatCanEmbedFonts asks the matrix rather than deciding.

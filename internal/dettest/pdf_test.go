@@ -113,6 +113,25 @@ var pdfExpectations = map[string]pdfExpectation{
 			{Kind: "smask", Width: "8", Height: "8", Color: "gray", BPC: "8", Enc: "image"},
 		},
 	},
+	"pdf-compose": {
+		WantText: []string{
+			"Composed to PDF",
+			"A marked paragraph, whose mark the theme styles.",
+			"Section 1",
+			// The last section before the explicit break, and the text after
+			// it: together they establish that pagination did not stop early
+			// and that a page break starts a page rather than being ignored.
+			"Section 9",
+			"After the break",
+		},
+		WantInfo: [][2]string{
+			{"Title", "Composed to PDF"},
+			// Three pages from a specification that never mentions a page.
+			// This is the only golden whose page count Vellum decided.
+			{"Pages", "3"},
+			{"Metadata Stream", "yes"},
+		},
+	},
 	"pdf-prose": {
 		WantText: []string{
 			"Justified",

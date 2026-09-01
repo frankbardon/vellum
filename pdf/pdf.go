@@ -29,6 +29,7 @@ import (
 	"time"
 
 	verr "github.com/frankbardon/vellum/errors"
+	"github.com/frankbardon/vellum/pdf/content"
 	"github.com/frankbardon/vellum/pdf/font"
 	pdfimage "github.com/frankbardon/vellum/pdf/image"
 	"github.com/frankbardon/vellum/pdf/object"
@@ -36,23 +37,88 @@ import (
 	"github.com/frankbardon/vellum/pdf/xmp"
 )
 
-// Page is one page of a document.
+// Page is one laid-out page.
+//
+// The faces and images it uses are derived from its items rather than listed
+// beside them. Listing them separately gives a caller two ways to say one
+// thing, and the interesting half of the failure — a stream selecting a font
+// the resource dictionary does not name — draws nothing at all and reports
+// nothing anywhere.
 type Page struct {
 	// Width and Height are the media box, in points.
 	Width, Height object.Real
 
-	// Content is the page's content stream, as built by [content.Builder].
-	Content []byte
+	// Items are what the page draws, in order.
+	Items []Item
+}
 
-	// Fonts are the faces this page's content stream selects. A face shared
-	// between pages is embedded once.
-	Fonts []*font.Face
+// faces returns every face the page's items select, in order.
+func (p *Page) faces() []*font.Face {
+	var out []*font.Face
+	for _, it := range p.Items {
+		out = append(out, it.faces()...)
+	}
+	return out
+}
 
-	// Images are the image XObjects this page's content stream draws. As with
-	// fonts, one shared between pages is embedded once: the identity is the
-	// pointer, so a caller that resolved an asset once and placed it on five
-	// slides gets one copy of the bytes.
-	Images []*pdfimage.XObject
+// images returns every image the page's items draw, in order.
+func (p *Page) images() []*pdfimage.XObject {
+	var out []*pdfimage.XObject
+	for _, it := range p.Items {
+		out = append(out, it.images()...)
+	}
+	return out
+}
+
+// render builds the page's content stream from its items.
+func (p *Page) render() ([]byte, error) {
+	var c content.Builder
+	for _, it := range p.Items {
+		switch it.Kind {
+		case ItemText:
+			if err := renderText(&c, it.Text); err != nil {
+				return nil, err
+			}
+		case ItemImage:
+			im := it.Image
+			c.DrawImage(im.Image.Resource(), im.X, im.Y, im.Width, im.Height)
+		case ItemRule:
+			r := it.Rule
+			red, green, blue := r.Color.Components()
+			c.Save().SetFillRGB(red, green, blue).
+				Rect(r.X, r.Y, r.Width, r.Height).Fill().Restore()
+		case ItemRaw:
+			// Bracketed, so a stream that leaves the graphics state changed
+			// cannot alter what the page draws after it. A raw item is the one
+			// place this model cannot check what it was handed.
+			c.Save()
+			c.Append(it.Raw.Content)
+			c.Restore()
+		default:
+			return nil, verr.NewCodedErrorWithDetails(verr.VELLUM_INTERNAL_INVARIANT,
+				"a page item carries a kind this writer does not draw",
+				map[string]any{"kind": string(it.Kind)})
+		}
+	}
+	return c.Bytes(), nil
+}
+
+// renderText places a paragraph's lines.
+//
+// Each line is its own text object. The alternative — one BT with Td between
+// lines — is fewer operators and makes a justified line's displacement leak
+// into the next line's position, because Td is relative to the current line's
+// origin rather than to the paragraph's.
+func renderText(c *content.Builder, t *TextItem) error {
+	for i, l := range t.Lines {
+		y := t.Y - object.Real(i)*t.Leading
+		c.BeginText().MoveText(t.X+l.Offset(t.Align, t.Width), y)
+		if err := l.Show(c, t.Align, t.Width); err != nil {
+			return err
+		}
+		c.EndText()
+	}
+	return nil
 }
 
 // Document is a PDF/A-2b document ready to be written.
@@ -107,7 +173,21 @@ func (d *Document) WriteTo(w io.Writer, opts WriteOptions) error {
 	var doc object.Document
 	doc.Uncompressed = opts.Uncompressed
 
-	// Fonts first, so a face shared by several pages is embedded once and
+	// Every page's content stream is built before any font is written, and the
+	// order is not cosmetic. A subset contains the glyphs the document actually
+	// draws, and a face learns which those are by being drawn with — so writing
+	// the fonts first embeds subsets of nothing. This is the one ordering
+	// constraint in the writer and it is enforced by the font writer refusing
+	// an empty subset rather than by a comment.
+	streams := make([][]byte, len(d.Pages))
+	for i := range d.Pages {
+		var err error
+		if streams[i], err = d.Pages[i].render(); err != nil {
+			return err
+		}
+	}
+
+	// Fonts next, so a face shared by several pages is embedded once and
 	// carries a lower object number than the pages referring to it. Neither is
 	// required; both make the file readable in a hex dump.
 	fontRefs, err := d.writeFonts(&doc)
@@ -121,7 +201,7 @@ func (d *Document) WriteTo(w io.Writer, opts WriteOptions) error {
 
 	dicts := make([]object.Dict, len(d.Pages))
 	for i := range d.Pages {
-		dicts[i], err = d.pageDict(&doc, &d.Pages[i], fontRefs, imageRefs)
+		dicts[i], err = d.pageDict(&doc, &d.Pages[i], streams[i], fontRefs, imageRefs)
 		if err != nil {
 			return err
 		}
@@ -157,10 +237,17 @@ func (d *Document) WriteTo(w io.Writer, opts WriteOptions) error {
 // one embedding and a caller building two gets two. That is the honest reading
 // of what was asked for: two faces over the same program with different glyph
 // sets are two different subsets.
+//
+// Discovered by walking the pages' items in order, so the numbering is a
+// function of the document rather than of a map.
 func (d *Document) writeFonts(doc *object.Document) (map[*font.Face]object.Ref, error) {
 	refs := make(map[*font.Face]object.Ref)
 	for i := range d.Pages {
-		for _, f := range d.Pages[i].Fonts {
+		for _, f := range d.Pages[i].faces() {
+			if f == nil {
+				return nil, verr.NewCodedError(verr.VELLUM_PDF_OBJECT_UNRESOLVED,
+					"a page item names a font face that is nil")
+			}
 			if _, seen := refs[f]; seen {
 				continue
 			}
@@ -181,7 +268,11 @@ func (d *Document) writeFonts(doc *object.Document) (map[*font.Face]object.Ref, 
 func (d *Document) writeImages(doc *object.Document) (map[*pdfimage.XObject]object.Ref, error) {
 	refs := make(map[*pdfimage.XObject]object.Ref)
 	for i := range d.Pages {
-		for _, im := range d.Pages[i].Images {
+		for _, im := range d.Pages[i].images() {
+			if im == nil {
+				return nil, verr.NewCodedError(verr.VELLUM_PDF_OBJECT_UNRESOLVED,
+					"a page item names an image that is nil")
+			}
 			if _, seen := refs[im]; seen {
 				continue
 			}
@@ -201,18 +292,19 @@ func (d *Document) writeImages(doc *object.Document) (map[*pdfimage.XObject]obje
 // the parent and would otherwise be trusting this function to have agreed with
 // it. The media box is set here and may be lifted onto the tree's root if every
 // page shares it.
-func (d *Document) pageDict(doc *object.Document, p *Page,
+func (d *Document) pageDict(doc *object.Document, p *Page, stream []byte,
 	fontRefs map[*font.Face]object.Ref, imageRefs map[*pdfimage.XObject]object.Ref) (object.Dict, error) {
-	contents, err := doc.AddStream(object.Dict{}, p.Content)
+
+	contents, err := doc.AddStream(object.Dict{}, stream)
 	if err != nil {
 		return object.Dict{}, err
 	}
 
-	// Built by walking the page's own font slice rather than by ranging the
-	// reference map, so the resource dictionary's key order is the order the
-	// caller declared and not the order a Go map happened to iterate.
+	// Built by walking the page's own items rather than by ranging the
+	// reference maps, so the resource dictionaries' key order is the order the
+	// page draws in and not the order a Go map happened to iterate.
 	var fonts object.Dict
-	for _, f := range p.Fonts {
+	for _, f := range p.faces() {
 		ref, ok := fontRefs[f]
 		if !ok {
 			return object.Dict{}, verr.NewCodedErrorWithDetails(verr.VELLUM_PDF_OBJECT_UNRESOLVED,
@@ -222,10 +314,8 @@ func (d *Document) pageDict(doc *object.Document, p *Page,
 		fonts.Set(f.Resource(), ref)
 	}
 
-	// Built the same way and for the same reason: the page's own slice, not the
-	// reference map, so the key order is the caller's declaration order.
 	var xobjects object.Dict
-	for _, im := range p.Images {
+	for _, im := range p.images() {
 		ref, ok := imageRefs[im]
 		if !ok {
 			return object.Dict{}, verr.NewCodedErrorWithDetails(verr.VELLUM_PDF_OBJECT_UNRESOLVED,
@@ -271,11 +361,13 @@ func (d *Document) fileID(meta xmp.Metadata) [2][]byte {
 	h.Write([]byte(meta.Date.UTC().Format("20060102150405")))
 	for i := range d.Pages {
 		h.Write([]byte{0})
-		h.Write(d.Pages[i].Content)
+		if stream, err := d.Pages[i].render(); err == nil {
+			h.Write(stream)
+		}
 		// The content stream names an image by resource name, so without the
 		// image's own bytes two documents drawing different pictures under the
 		// same name would claim one identity.
-		for _, im := range d.Pages[i].Images {
+		for _, im := range d.Pages[i].images() {
 			h.Write([]byte{0})
 			h.Write(im.Fingerprint())
 		}

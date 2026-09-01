@@ -23,13 +23,23 @@ func newShaper(t *testing.T) *shape.Shaper {
 	return s
 }
 
+// style is the ordinary body style every wrapping test measures against.
+func style(t *testing.T, size object.Real) text.Style {
+	t.Helper()
+	return text.Style{Face: newFace(t), Shaper: newShaper(t), Size: size}
+}
+
+// span is one styled piece of text at the body size.
+func span(t *testing.T, s string) text.Span {
+	t.Helper()
+	return text.Span{Text: s, Style: style(t, object.Points(12))}
+}
+
 const sample = "The quick brown fox jumps over the lazy dog and keeps going for a while longer."
 
 func wrap(t *testing.T, s string, width object.Real) []text.Line {
 	t.Helper()
-	lines, err := text.Wrap(newShaper(t), s, text.WrapOptions{
-		Size: object.Points(12), Width: width,
-	})
+	lines, err := text.Wrap([]text.Span{span(t, s)}, text.WrapOptions{Width: width})
 	if err != nil {
 		t.Fatalf("Wrap: %v", err)
 	}
@@ -37,15 +47,44 @@ func wrap(t *testing.T, s string, width object.Real) []text.Line {
 }
 
 func TestWrap_RejectsDegenerateGeometry(t *testing.T) {
-	s := newShaper(t)
-	for _, opts := range []text.WrapOptions{
-		{Size: 0, Width: object.Points(200)},
-		{Size: object.Points(12), Width: 0},
-		{Size: object.Points(-1), Width: object.Points(200)},
+	for _, tc := range []struct {
+		name  string
+		size  object.Real
+		width object.Real
+	}{
+		{"no size", 0, object.Points(200)},
+		{"no measure", object.Points(12), 0},
+		{"negative size", object.Points(-1), object.Points(200)},
 	} {
-		if _, err := text.Wrap(s, "hello", opts); err == nil {
-			t.Errorf("Wrap accepted size=%s width=%s", opts.Size, opts.Width)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			spans := []text.Span{{Text: "hello", Style: style(t, tc.size)}}
+			if _, err := text.Wrap(spans, text.WrapOptions{Width: tc.width}); err == nil {
+				t.Errorf("Wrap accepted size=%s width=%s", tc.size, tc.width)
+			}
+		})
+	}
+}
+
+// TestWrap_RejectsASpanWithNoFace pins that a style is complete or refused.
+//
+// The face and the shaper have to describe the same font program: shaping with
+// one and encoding with another produces glyph identifiers addressing the wrong
+// outlines, which draws as plausible nonsense rather than as an error. A
+// missing one of the pair is the same failure, caught.
+func TestWrap_RejectsASpanWithNoFace(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		style text.Style
+	}{
+		{"no face", text.Style{Shaper: newShaper(t), Size: object.Points(12)}},
+		{"no shaper", text.Style{Face: newFace(t), Size: object.Points(12)}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			spans := []text.Span{{Text: "hello", Style: tc.style}}
+			if _, err := text.Wrap(spans, text.WrapOptions{Width: object.Points(200)}); err == nil {
+				t.Error("Wrap accepted an incomplete style")
+			}
+		})
 	}
 }
 
@@ -167,7 +206,7 @@ func TestWrap_KeepsBlankLines(t *testing.T) {
 	if len(lines) != 3 {
 		t.Fatalf("got %d lines, want 3 with the blank one kept", len(lines))
 	}
-	if lines[1].Visible != 0 {
+	if lines[1].Visible() != 0 {
 		t.Errorf("the middle line is not blank: %q", lineText(lines[1]))
 	}
 }
@@ -188,19 +227,19 @@ func TestWrap_TrailingSpaceHangsIntoTheMargin(t *testing.T) {
 		t.Errorf("a trailing space changed the measured width: %s against %s",
 			withSpace[0].Width, without[0].Width)
 	}
-	if withSpace[0].Visible != 4 {
-		t.Errorf("the trailing space was counted as visible: %d glyphs", withSpace[0].Visible)
+	if withSpace[0].Visible() != 4 {
+		t.Errorf("the trailing space was counted as visible: %d glyphs", withSpace[0].Visible())
 	}
-	if len(withSpace[0].Glyphs) != 5 {
-		t.Errorf("the trailing space was dropped from the line: %d glyphs", len(withSpace[0].Glyphs))
+	if len(withSpace[0].Glyphs()) != 5 {
+		t.Errorf("the trailing space was dropped from the line: %d glyphs", len(withSpace[0].Glyphs()))
 	}
 }
 
 // TestWrap_RefusesToBreakMidWord pins that an over-wide unbreakable piece is a
 // diagnosable failure rather than a break Unicode does not permit.
 func TestWrap_RefusesToBreakMidWord(t *testing.T) {
-	_, err := text.Wrap(newShaper(t), "Pneumonoultramicroscopicsilicovolcanoconiosis",
-		text.WrapOptions{Size: object.Points(12), Width: object.Points(20)})
+	_, err := text.Wrap([]text.Span{span(t, "Pneumonoultramicroscopicsilicovolcanoconiosis")},
+		text.WrapOptions{Width: object.Points(20)})
 
 	if !verr.HasCode(err, verr.VELLUM_PDF_TEXT_OVERFLOW) {
 		t.Fatalf("got %v, want VELLUM_PDF_TEXT_OVERFLOW", err)
@@ -216,8 +255,8 @@ func TestWrap_RefusesToBreakMidWord(t *testing.T) {
 // TestWrap_BreaksAtAHyphen pins that UAX#14 opportunities are honoured, not just
 // spaces.
 func TestWrap_BreaksAtAHyphen(t *testing.T) {
-	lines, err := text.Wrap(newShaper(t), "well-being",
-		text.WrapOptions{Size: object.Points(12), Width: object.Points(40)})
+	lines, err := text.Wrap([]text.Span{span(t, "well-being")},
+		text.WrapOptions{Width: object.Points(40)})
 	if err != nil {
 		t.Fatalf("Wrap: %v", err)
 	}
@@ -237,7 +276,7 @@ func TestWrap_IsDeterministic(t *testing.T) {
 			t.Fatal("two identical wraps produced different line counts")
 		}
 		for i := range got {
-			if got[i].Width != first[i].Width || got[i].Visible != first[i].Visible {
+			if got[i].Width != first[i].Width || got[i].Visible() != first[i].Visible() {
 				t.Fatalf("line %d differs between two identical wraps", i)
 			}
 		}
@@ -251,10 +290,11 @@ func TestWrap_IsDeterministic(t *testing.T) {
 // width would then differ from the same glyphs measured as one run, and a
 // paragraph would break differently depending on which code path measured it.
 func TestWrap_MeasuresWithoutFloatAccumulation(t *testing.T) {
-	s := newShaper(t)
 	const line = "The quick brown fox"
+	sp := span(t, line)
+	s := sp.Style.Shaper
 
-	whole, err := text.Wrap(s, line, text.WrapOptions{Size: object.Points(12), Width: object.Points(10000)})
+	whole, err := text.Wrap([]text.Span{sp}, text.WrapOptions{Width: object.Points(10000)})
 	if err != nil {
 		t.Fatalf("Wrap: %v", err)
 	}
@@ -279,6 +319,88 @@ func TestWrap_MeasuresWithoutFloatAccumulation(t *testing.T) {
 	}
 }
 
+// TestWrap_StyledRunsBreakAsOneParagraph is the property span support exists
+// for.
+//
+// A bold word inside a sentence is a styling boundary, not a paragraph
+// boundary. The opportunities have to be found over the whole text, so a line
+// may break inside a run, between two, or exactly at the seam — and the words
+// have to come out in order with none lost.
+func TestWrap_StyledRunsBreakAsOneParagraph(t *testing.T) {
+	body := style(t, object.Points(12))
+	big := style(t, object.Points(20))
+
+	spans := []text.Span{
+		{Text: "The quick brown ", Style: body},
+		{Text: "fox jumps", Style: big},
+		{Text: " over the lazy dog and keeps going for a while longer.", Style: body},
+	}
+	lines, err := text.Wrap(spans, text.WrapOptions{Width: object.Points(140)})
+	if err != nil {
+		t.Fatalf("Wrap: %v", err)
+	}
+	if len(lines) < 2 {
+		t.Fatalf("the paragraph wrapped into %d lines; the measure was meant to force several", len(lines))
+	}
+
+	var got strings.Builder
+	for _, l := range lines {
+		got.WriteString(l.Text())
+	}
+	want := spans[0].Text + spans[1].Text + spans[2].Text
+	if normaliseSpace(got.String()) != normaliseSpace(want) {
+		t.Errorf("text was lost or reordered across the style boundary.\n got %q\nwant %q", got.String(), want)
+	}
+
+	for i, l := range lines {
+		if l.Width > object.Points(140) {
+			t.Errorf("line %d is %s wide in a 140pt measure: %q", i, l.Width, l.Text())
+		}
+	}
+
+	// The line carrying the larger run must report the larger height, or the
+	// leading computed from it overlaps the line above.
+	var tall bool
+	for _, l := range lines {
+		if l.Height == object.Points(20) {
+			tall = true
+		}
+	}
+	if !tall {
+		t.Error("no line reports the height of the larger run it carries")
+	}
+}
+
+// TestWrap_ASpanBoundaryIsNotABreakOpportunity pins that styling does not
+// invent a break.
+//
+// Marking one letter of a word bold must not let the line break inside it. The
+// opportunities come from the text, and the text has none there.
+func TestWrap_ASpanBoundaryIsNotABreakOpportunity(t *testing.T) {
+	body := style(t, object.Points(12))
+	bold := style(t, object.Points(12))
+
+	spans := []text.Span{
+		{Text: "extra", Style: body},
+		{Text: "ordinary", Style: bold},
+		{Text: " word", Style: body},
+	}
+	lines, err := text.Wrap(spans, text.WrapOptions{Width: object.Points(90)})
+	if err != nil {
+		t.Fatalf("Wrap: %v", err)
+	}
+	if len(lines) != 2 {
+		t.Fatalf("got %d lines, want the split to fall at the space", len(lines))
+	}
+	if first := normaliseSpace(lines[0].Text()); first != "extraordinary" {
+		t.Errorf("the first line is %q; the word was broken at the styling boundary", first)
+	}
+}
+
+// normaliseSpace collapses whitespace, so a trailing break space does not make
+// two identical texts compare unequal.
+func normaliseSpace(s string) string { return strings.Join(strings.Fields(s), " ") }
+
 // lineText reassembles a line's text from its glyphs.
 //
 // Usable only because the test face maps one glyph per character and carries no
@@ -289,7 +411,7 @@ func lineText(l text.Line) string {
 	table := reverseCmap()
 
 	var b strings.Builder
-	for _, g := range l.Glyphs {
+	for _, g := range l.Glyphs() {
 		if r, ok := table[g.ID]; ok {
 			b.WriteRune(r)
 		}

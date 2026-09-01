@@ -23,6 +23,9 @@
         "asset.png.interlaced",
         "asset.jpeg.progressive",
         "asset.jpeg.cmyk",
+        "font.embed.none",
+        "text.bold",
+        "text.italic",
         "text.script.latin",
         "text.script.greek",
         "text.script.cyrillic",
@@ -40,6 +43,9 @@
         "table.hierarchical_headers",
         "table.margins",
         "table.cell_span",
+        "font.embed.none",
+        "text.bold",
+        "text.italic",
         "text.script.latin",
         "text.script.greek",
         "text.script.cyrillic",
@@ -69,6 +75,9 @@
         "asset.png.interlaced",
         "asset.jpeg.progressive",
         "asset.jpeg.cmyk",
+        "font.embed.none",
+        "text.bold",
+        "text.italic",
         "text.script.latin",
         "text.script.greek",
         "text.script.cyrillic",
@@ -251,6 +260,22 @@
       "note": "As above."
     },
     {
+      "feature": "text.bold",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "text.italic",
+      "format": "docx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "font.embed.none",
+      "format": "docx",
+      "outcome": "renders",
+      "note": "The family is referenced by name and the application resolves it, which is what every face gets in v1."
+    },
+    {
       "feature": "font.outlines.cff",
       "format": "docx",
       "outcome": "degrades",
@@ -423,6 +448,21 @@
       "note": "As above."
     },
     {
+      "feature": "text.bold",
+      "format": "xlsx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "text.italic",
+      "format": "xlsx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "font.embed.none",
+      "format": "xlsx",
+      "outcome": "renders"
+    },
+    {
       "feature": "font.outlines.cff",
       "format": "xlsx",
       "outcome": "degrades",
@@ -574,6 +614,21 @@
       "degrade": "the family referenced by name",
       "code": "VELLUM_CAPABILITY_DEGRADED",
       "note": "As above."
+    },
+    {
+      "feature": "text.bold",
+      "format": "pptx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "text.italic",
+      "format": "pptx",
+      "outcome": "renders"
+    },
+    {
+      "feature": "font.embed.none",
+      "format": "pptx",
+      "outcome": "renders"
     },
     {
       "feature": "font.outlines.cff",
@@ -728,6 +783,29 @@
       "format": "pdf",
       "outcome": "renders",
       "note": "The whole program is embedded, which is what the theme asked for. A licence forbidding subsetting is the usual reason to ask."
+    },
+    {
+      "feature": "text.bold",
+      "format": "pdf",
+      "outcome": "degrades",
+      "degrade": "the regular cut of the same face",
+      "code": "VELLUM_CAPABILITY_DEGRADED",
+      "note": "A PDF names one font program per face, and a theme in v1 declares one program per role — so there is no bold cut to select. An OOXML target sets a flag and lets the application find or synthesise one; Vellum will not synthesise here, because a stroked outline is a different shape from a designed bold and passing it off as one is a fidelity claim Vellum cannot make. Warned rather than dropped silently. Give the theme a face per weight, or compose to an OOXML target."
+    },
+    {
+      "feature": "text.italic",
+      "format": "pdf",
+      "outcome": "degrades",
+      "degrade": "the upright cut of the same face",
+      "code": "VELLUM_CAPABILITY_DEGRADED",
+      "note": "As text.bold, and for the same reason. A sheared upright is not an italic: a true italic redraws letterforms rather than slanting them, and the difference is exactly what a reader notices."
+    },
+    {
+      "feature": "font.embed.none",
+      "format": "pdf",
+      "outcome": "rejects",
+      "code": "VELLUM_FONT_EMBED_UNSUPPORTED",
+      "note": "PDF/A-2b requires every font embedded, so a face the theme declared non-embeddable cannot be used here at all — there is nothing to embed and referencing the family by name would produce a document whose appearance depends on what is installed where it is opened, which is the opposite of archival. This is the row that decides a theme is usable for PDF, and it is why the built-in theme is not: its three faces are all declared non-embeddable, because Vellum ships no font program. Supply a theme whose faces carry handles your asset resolver can serve."
     },
     {
       "feature": "font.outlines.cff",
@@ -917,4 +995,4 @@
   "error_codes_count": 46,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: 11d8c5ff60dbfdef62a6aed24f1cc38039d4375bbf3c44c9c95a4018c4bce91e
+// golden-hash: 516c08dae368afa07f9051e1c77b9f524361a11a6866db17b0beb1d0195c9d68

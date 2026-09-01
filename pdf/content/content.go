@@ -190,6 +190,20 @@ func (b *Builder) DrawImage(resource object.Name, x, y, w, h object.Real) *Build
 		Restore()
 }
 
+// Append copies prebuilt operators into the stream.
+//
+// The one door out of this builder, for a caller carrying operators it composed
+// elsewhere. Nothing here inspects them: the bytes go in as they are, and a
+// stream that leaves the graphics state changed changes what follows it. Bracket
+// it with Save and Restore unless you know it balances.
+func (b *Builder) Append(raw []byte) *Builder {
+	b.buf = append(b.buf, raw...)
+	if n := len(b.buf); n > 0 && b.buf[n-1] != '\n' {
+		b.buf = append(b.buf, '\n')
+	}
+	return b
+}
+
 // Save emits q, pushing the graphics state.
 func (b *Builder) Save() *Builder { return b.op("q") }
 

@@ -55,6 +55,11 @@ var matrix = Matrix{
 		Note: "As above.",
 	},
 
+	{Feature: FeatureTextBold, Format: artifact.FormatDOCX, Outcome: Renders},
+	{Feature: FeatureTextItalic, Format: artifact.FormatDOCX, Outcome: Renders},
+
+	{Feature: FeatureFontEmbedNone, Format: artifact.FormatDOCX, Outcome: Renders,
+		Note: "The family is referenced by name and the application resolves it, which is what every face gets in v1."},
 	{
 		Feature: FeatureFontOutlinesCFF, Format: artifact.FormatDOCX, Outcome: Degrades,
 		Degrade: "the family referenced by name", Code: verr.VELLUM_FONT_SUBSTITUTED,
@@ -132,6 +137,10 @@ var matrix = Matrix{
 		Note: "As above.",
 	},
 
+	{Feature: FeatureTextBold, Format: artifact.FormatXLSX, Outcome: Renders},
+	{Feature: FeatureTextItalic, Format: artifact.FormatXLSX, Outcome: Renders},
+
+	{Feature: FeatureFontEmbedNone, Format: artifact.FormatXLSX, Outcome: Renders},
 	{
 		Feature: FeatureFontOutlinesCFF, Format: artifact.FormatXLSX, Outcome: Degrades,
 		Degrade: "the family referenced by name", Code: verr.VELLUM_FONT_SUBSTITUTED,
@@ -190,6 +199,10 @@ var matrix = Matrix{
 		Note: "As above.",
 	},
 
+	{Feature: FeatureTextBold, Format: artifact.FormatPPTX, Outcome: Renders},
+	{Feature: FeatureTextItalic, Format: artifact.FormatPPTX, Outcome: Renders},
+
+	{Feature: FeatureFontEmbedNone, Format: artifact.FormatPPTX, Outcome: Renders},
 	{
 		Feature: FeatureFontOutlinesCFF, Format: artifact.FormatPPTX, Outcome: Degrades,
 		Degrade: "the family referenced by name", Code: verr.VELLUM_FONT_SUBSTITUTED,
@@ -256,6 +269,22 @@ var matrix = Matrix{
 		Note: "PDF/A-2b requires every font embedded, and TrueType outlines are subsetted. A face with CFF outlines cannot be subsetted; see font.outlines.cff, which is where that answer lives."},
 	{Feature: FeatureFontEmbedWhole, Format: artifact.FormatPDF, Outcome: Renders,
 		Note: "The whole program is embedded, which is what the theme asked for. A licence forbidding subsetting is the usual reason to ask."},
+	{
+		Feature: FeatureTextBold, Format: artifact.FormatPDF, Outcome: Degrades,
+		Degrade: "the regular cut of the same face", Code: verr.VELLUM_CAPABILITY_DEGRADED,
+		Note: "A PDF names one font program per face, and a theme in v1 declares one program per role — so there is no bold cut to select. An OOXML target sets a flag and lets the application find or synthesise one; Vellum will not synthesise here, because a stroked outline is a different shape from a designed bold and passing it off as one is a fidelity claim Vellum cannot make. Warned rather than dropped silently. Give the theme a face per weight, or compose to an OOXML target.",
+	},
+	{
+		Feature: FeatureTextItalic, Format: artifact.FormatPDF, Outcome: Degrades,
+		Degrade: "the upright cut of the same face", Code: verr.VELLUM_CAPABILITY_DEGRADED,
+		Note: "As text.bold, and for the same reason. A sheared upright is not an italic: a true italic redraws letterforms rather than slanting them, and the difference is exactly what a reader notices.",
+	},
+
+	{
+		Feature: FeatureFontEmbedNone, Format: artifact.FormatPDF, Outcome: Rejects,
+		Code: verr.VELLUM_FONT_EMBED_UNSUPPORTED,
+		Note: "PDF/A-2b requires every font embedded, so a face the theme declared non-embeddable cannot be used here at all — there is nothing to embed and referencing the family by name would produce a document whose appearance depends on what is installed where it is opened, which is the opposite of archival. This is the row that decides a theme is usable for PDF, and it is why the built-in theme is not: its three faces are all declared non-embeddable, because Vellum ships no font program. Supply a theme whose faces carry handles your asset resolver can serve.",
+	},
 	{
 		Feature: FeatureFontOutlinesCFF, Format: artifact.FormatPDF, Outcome: Degrades,
 		Degrade: "the whole font program embedded rather than a subset", Code: verr.VELLUM_CAPABILITY_DEGRADED,
