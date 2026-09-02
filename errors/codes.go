@@ -226,6 +226,52 @@ const (
 	VELLUM_DECK_BLOCK_UNSUPPORTED Code = "VELLUM_DECK_BLOCK_UNSUPPORTED"
 )
 
+// SHEET domain — SpreadsheetML.
+const (
+	// VELLUM_SHEET_INVALID indicates a workbook the SpreadsheetML writer
+	// cannot serialise: a sheet with no name, two sheets sharing one, a table
+	// referencing a cell style the styles part does not carry.
+	//
+	// Checked before anything is written rather than discovered part by part,
+	// because every one of these produces a package that opens and is
+	// silently wrong — a sheet Excel renames on load, a cell in the default
+	// style instead of the one the theme chose — which is the failure mode
+	// this library exists to prevent.
+	VELLUM_SHEET_INVALID Code = "VELLUM_SHEET_INVALID"
+
+	// VELLUM_SHEET_BLOCK_UNSUPPORTED indicates a block kind the XLSX writer
+	// does not render. A hard failure rather than a silent omission, for the
+	// reason VELLUM_DOC_BLOCK_UNSUPPORTED is.
+	VELLUM_SHEET_BLOCK_UNSUPPORTED Code = "VELLUM_SHEET_BLOCK_UNSUPPORTED"
+)
+
+// INGEST domain — Pulse envelope JSON to spec.Table, at the protocol boundary.
+const (
+	// VELLUM_INGEST_INVALID indicates JSON that does not decode as the
+	// documented matrix-payload shape, or decodes but is structurally
+	// inconsistent with itself: a cell grid whose dimensions disagree with its
+	// declared row and column keys, an axis header naming no fields, a margin
+	// slice whose length does not match its axis.
+	//
+	// Strict rather than lenient, for the same reason spec decoding is: a
+	// consumer authoring an integration against a payload shape that silently
+	// tolerated a mismatch would get a table missing rows nobody was told
+	// about, which is the failure mode this library exists to prevent.
+	VELLUM_INGEST_INVALID Code = "VELLUM_INGEST_INVALID"
+
+	// VELLUM_INGEST_VALUE_UNSUPPORTED indicates a cell whose value is present
+	// but is not one of the scalar kinds a [spec.Value] can carry — a rich
+	// aggregator payload (a per-label frequency map, a Welford triple) rather
+	// than a number, a string or a boolean.
+	//
+	// Refused rather than flattened to its string form: silently turning a
+	// structured result into text is exactly the kind of partial rendering
+	// that gives an LLM-authored pipeline no signal that something was
+	// dropped. A consumer needing that shape summarises it to a scalar before
+	// handing the payload to Vellum.
+	VELLUM_INGEST_VALUE_UNSUPPORTED Code = "VELLUM_INGEST_VALUE_UNSUPPORTED"
+)
+
 // FONT domain — font resolution and embedding.
 const (
 	// VELLUM_FONT_SUBSTITUTED is a WARNING, not an error. It reports that a
@@ -442,6 +488,14 @@ var allCodes = []Code{
 	// DECK
 	VELLUM_DECK_INVALID,
 	VELLUM_DECK_BLOCK_UNSUPPORTED,
+
+	// SHEET
+	VELLUM_SHEET_INVALID,
+	VELLUM_SHEET_BLOCK_UNSUPPORTED,
+
+	// INGEST
+	VELLUM_INGEST_INVALID,
+	VELLUM_INGEST_VALUE_UNSUPPORTED,
 
 	// ZIP
 	VELLUM_ZIP_MALFORMED,

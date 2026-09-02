@@ -969,6 +969,8 @@
     "DOC",
     "OVERFLOW",
     "DECK",
+    "SHEET",
+    "INGEST",
     "ZIP",
     "FONT",
     "PDF",
@@ -1007,6 +1009,10 @@
     "VELLUM_OVERFLOW_NO_CAPACITY",
     "VELLUM_DECK_INVALID",
     "VELLUM_DECK_BLOCK_UNSUPPORTED",
+    "VELLUM_SHEET_INVALID",
+    "VELLUM_SHEET_BLOCK_UNSUPPORTED",
+    "VELLUM_INGEST_INVALID",
+    "VELLUM_INGEST_VALUE_UNSUPPORTED",
     "VELLUM_ZIP_MALFORMED",
     "VELLUM_ZIP_TOO_LARGE",
     "VELLUM_ZIP_ENTRY_NAME_INVALID",
@@ -1027,7 +1033,7 @@
     "VELLUM_PDFA_NONCONFORMANT",
     "VELLUM_INTERNAL_INVARIANT"
   ],
-  "error_codes_count": 50,
+  "error_codes_count": 54,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: 34288c7399433397311454c3061979685caa88c62529295fb8e7daa34fdee9a7
+// golden-hash: 4e53635cca6655953a124a864997c8ca0ca07d0b3df8ab2f6c77f29c39974f7b

@@ -22,6 +22,21 @@ func serialOf(t time.Time) float64 {
 	return days
 }
 
+// Serial returns the 1900-system spreadsheet date serial for t.
+//
+// Exported for xlsx, which is the one target that writes a date as this number
+// rather than as formatted text: a cell holding a date is a live value with a
+// number-format code applied to it, not a string, and it is what keeps a
+// workbook's dates sortable and computable rather than merely legible. Every
+// other writer calls [Format.Apply] instead, because a document or a deck has
+// no live-cell concept for the number to stay behind.
+//
+// Carries the same 1900-leap-year bug [Format.Apply] does, deliberately: a
+// value written here and one rendered as text by the same format code must
+// name the same day, and the spreadsheet application on the other end assumes
+// the bug is present.
+func Serial(t time.Time) float64 { return serialOf(t) }
+
 // monthNames and dayNames are fixed English, deliberately.
 //
 // Locale-aware names would mean a locale database, and a value that renders

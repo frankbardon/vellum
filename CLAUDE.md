@@ -216,7 +216,32 @@ The compressed statement; the full table is `.claude/reference/determinism.md`.
 - Media part names are indexed by the sorted set of distinct content hashes.
 - xlsx `styles.xml` keeps the fixed preamble with builtin indices intact. Fill
   index 0 and 1 are reserved by the spec; getting it wrong makes Excel refuse to
-  open the file.
+  open the file. Pinned by `TestStylesXML_ReservedFillIndicesArePresentEvenWithNoCustomFills`
+  and `TestStylesXML_ElementOrderIsFixedByTheSchema`.
+- **A legacy xlsx cell comment is two parts, not one.** `xl/comments1.xml`
+  states the text; `xl/drawings/vmlDrawing1.vml` states the shape that draws
+  it, and the worksheet references the drawing with `<legacyDrawing r:id="…"/>`.
+  A comments part with no paired VML drawing is one Excel opens with the
+  indicator triangle and nothing behind it. Threaded comments, the newer
+  schema, need an author-identity part this library has no source for and are
+  not written; the legacy form is the one every reader back to Excel 2007
+  draws correctly. Pinned by `TestComments_PairsWithALegacyVMLDrawing`.
+- **A table cell's annotation becomes a whole extra column, not an inline
+  run.** `FeatureTableCellAnnotation` degrades to "text appended to the cell,
+  with the typed value preserved in a neighbouring column" because a cell
+  holds one typed value and appending text to a number would turn it into a
+  string, defeating the reason to export a workbook at all. The column is
+  added only when the table carries at least one annotation anywhere — an
+  unannotated table gets no extra columns — and then uniformly across every
+  data column, so the doubled structure is the same shape on every table that
+  has one. Pinned by `TestLower_AnAnnotationAppendsAColumnAndPreservesTheValue`
+  and `TestLower_NoAnnotationsMeansNoDoubling`.
+- **A row-header stub spanning several body rows is anchored to the top of its
+  merge, not left at Excel's own default.** Excel's default cell vertical
+  alignment is the bottom, so a ten-row group label left unstated renders at
+  the last row of the group it names — invisible until a reader has already
+  scrolled past every row under it. `CellFormat.VerticalTop` states
+  `vertical="top"` explicitly on a stub merge for exactly this reason.
 - pptx slide and master identifier spaces are disjoint and both are bounded. A
   `sldId` is at least 256 and below 2147483648; a `sldMasterId` and a
   `sldLayoutId` are at or above it. A deck that mixes them is one PowerPoint

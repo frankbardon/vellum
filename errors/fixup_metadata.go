@@ -464,6 +464,22 @@ var codeMetadata = map[Code]Metadata{
 		},
 	},
 
+	VELLUM_INGEST_INVALID: {
+		Message: "the payload does not decode as the documented matrix shape",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "Supply the matrix payload a Pulse crosstab result carries at data.matrix: row_header, column_header, row_keys, column_keys and cells, each row and column key tuple matching its axis header's field count, and the cell grid's dimensions matching the row and column key counts.",
+		}},
+	},
+
+	VELLUM_INGEST_VALUE_UNSUPPORTED: {
+		Message: "a cell carries a value ingest cannot represent as a table cell",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "A table cell is a number, a string or a boolean. A rich aggregator payload — a per-label frequency map, a Welford triple — has no scalar form Vellum will guess at; summarise it to one before handing the payload to ingest.",
+		}},
+	},
+
 	VELLUM_TABLE_INVALID: {
 		Message: "the table is structurally invalid",
 		Fixups: []Fixup{{
@@ -519,9 +535,9 @@ var codeMetadata = map[Code]Metadata{
 				Examples: []any{"one banner level instead of three"},
 			},
 			{
-				Action: FixupSetField,
-				Path:   []string{"Format"},
-				Hint:   "A flowing format has no fixed container height, so a table that cannot fit a slide fits a document page.",
+				Action:   FixupSetField,
+				Path:     []string{"Format"},
+				Hint:     "A flowing format has no fixed container height, so a table that cannot fit a slide fits a document page.",
 				Examples: []any{"docx", "pdf"},
 			},
 		},
@@ -540,6 +556,27 @@ var codeMetadata = map[Code]Metadata{
 
 	VELLUM_DECK_BLOCK_UNSUPPORTED: {
 		Message: "the PPTX writer does not render this block kind yet",
+		Fixups: []Fixup{{
+			Action: FixupRemoveField,
+			Path:   []string{"Sections", "*", "Blocks", "*"},
+			Hint:   "Remove the block, or target a format that supports it. The capability matrix reports which blocks render in which formats before a render is attempted, so this can be checked rather than discovered.",
+		}},
+	},
+
+	VELLUM_SHEET_INVALID: {
+		Message: "the workbook cannot be serialised as SpreadsheetML",
+		// No fixup on the specification, and deliberately so. Nothing a
+		// consumer can write in a spec produces one of these: the lowering
+		// assembles the sheets, the shared string table and the styles part
+		// itself, so two sheets sharing a name or a cell citing a style the
+		// styles part does not carry is Vellum having assembled a workbook
+		// wrong. A consumer driving the sheet model directly gets the detail
+		// keys, which name the sheet and the cell.
+		FixupNotApplicable: true,
+	},
+
+	VELLUM_SHEET_BLOCK_UNSUPPORTED: {
+		Message: "the XLSX writer does not render this block kind yet",
 		Fixups: []Fixup{{
 			Action: FixupRemoveField,
 			Path:   []string{"Sections", "*", "Blocks", "*"},
