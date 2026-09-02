@@ -424,6 +424,24 @@ const (
 	VELLUM_MARK_UNKNOWN Code = "VELLUM_MARK_UNKNOWN"
 )
 
+// TEMPLATE domain — fill mode's token-copy rewriter over a source OOXML part.
+const (
+	// VELLUM_TEMPLATE_XML_MALFORMED indicates a source part that does not
+	// parse as well-formed XML: a mismatched close tag, a truncated document,
+	// an unterminated attribute. Unlike a bad replacement span, this one can
+	// genuinely originate in an untrusted template rather than in Vellum's own
+	// code, so it carries a real fixup instead of being an internal invariant.
+	VELLUM_TEMPLATE_XML_MALFORMED Code = "VELLUM_TEMPLATE_XML_MALFORMED"
+
+	// VELLUM_TEMPLATE_XML_SPAN_INVALID indicates a replacement span
+	// xmlcopy.Apply was handed that overlaps another, arrives out of the
+	// ascending order Apply requires, or falls outside the bounds of the
+	// source it is being applied to. Nothing in an untrusted template's own
+	// bytes produces this — only a bug in the caller assembling replacements
+	// — so it is an internal-invariant class of error.
+	VELLUM_TEMPLATE_XML_SPAN_INVALID Code = "VELLUM_TEMPLATE_XML_SPAN_INVALID"
+)
+
 // INTERNAL domain — invariants that no author input can violate.
 const (
 	// VELLUM_INTERNAL_INVARIANT indicates a condition Vellum believed
@@ -522,6 +540,10 @@ var allCodes = []Code{
 
 	// PDFA
 	VELLUM_PDFA_NONCONFORMANT,
+
+	// TEMPLATE
+	VELLUM_TEMPLATE_XML_MALFORMED,
+	VELLUM_TEMPLATE_XML_SPAN_INVALID,
 
 	// INTERNAL
 	VELLUM_INTERNAL_INVARIANT,

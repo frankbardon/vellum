@@ -600,6 +600,25 @@ var codeMetadata = map[Code]Metadata{
 		},
 	},
 
+	VELLUM_TEMPLATE_XML_MALFORMED: {
+		Message: "the source part does not parse as well-formed XML",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "Re-save the template from Word, Excel or PowerPoint rather than editing the part's XML by hand. Fill mode rewrites a part by splicing bytes into it in place, which needs the part to parse to begin with.",
+		}},
+	},
+
+	VELLUM_TEMPLATE_XML_SPAN_INVALID: {
+		Message: "a replacement span is out of bounds, overlaps another, or arrives out of order",
+		// Always a bug in the caller assembling replacements — template,
+		// defrag or splice, in a later story — never something a template
+		// author's own document can trigger. Apply requires spans in
+		// ascending, non-overlapping order rather than sorting them, because
+		// silently reordering them would hide exactly the class of bug this
+		// check exists to catch.
+		FixupNotApplicable: true,
+	},
+
 	VELLUM_INTERNAL_INVARIANT: {
 		Message: "an internal invariant was violated",
 		// No input change resolves this. It is always a Vellum bug, and
