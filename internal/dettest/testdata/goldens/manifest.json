@@ -12,8 +12,8 @@
     },
     "pdf-compose": {
       "file": "pdf-compose/expected.pdf",
-      "sha256": "83958f55fca746754571e855e6eacc60425cf43a296767f1fbd24bfb29fb187f",
-      "bytes": 31154
+      "sha256": "f0754990f53b4d15742285b670643c346c91e536b253cea0e32e42ea3c0029d6",
+      "bytes": 37765
     },
     "pdf-image": {
       "file": "pdf-image/expected.pdf",
@@ -67,4 +67,4 @@
     }
   }
 }
-// golden-hash: c8c0a6ed2b45dcf8ee4dc596a6047e8690cf475879c8aa79951162bf78bd6a57
+// golden-hash: 04510e1fbf3d4af58069595fe522c145f0d8864296be7d862adbb587bf865d2a

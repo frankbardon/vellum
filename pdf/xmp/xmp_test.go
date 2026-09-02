@@ -143,3 +143,63 @@ func TestPacket_IsDeterministic(t *testing.T) {
 		}
 	}
 }
+
+// TestValueType_AcceptsRejectsGosBooleanSyntax pins the specific mistake that
+// reached a validator.
+//
+// XMP booleans are "True" and "False". strconv.FormatBool gives "true" and
+// "false", which every reader displays perfectly and ISO 19005-2 clause
+// 6.6.2.3.1 refuses. The constructor is the fix; this is the check for a schema
+// somebody else built.
+func TestValueType_AcceptsRejectsGosBooleanSyntax(t *testing.T) {
+	cases := []struct {
+		kind  xmp.ValueType
+		value string
+		want  bool
+	}{
+		{xmp.TypeBoolean, "True", true},
+		{xmp.TypeBoolean, "False", true},
+		{xmp.TypeBoolean, "true", false},
+		{xmp.TypeBoolean, "false", false},
+		{xmp.TypeBoolean, "1", false},
+		{xmp.TypeInteger, "-42", true},
+		{xmp.TypeInteger, "4.2", false},
+		{xmp.TypeDate, "1980-01-01T00:00:00+00:00", true},
+		{xmp.TypeDate, "1980-01-01", false},
+		// Text accepts anything, which is what makes it the type to reach for
+		// when a value has no syntax of its own.
+		{xmp.TypeText, "anything at all", true},
+		{xmp.ValueType("Rational"), "1/2", false},
+	}
+
+	for _, c := range cases {
+		if got := c.kind.Accepts(c.value); got != c.want {
+			t.Errorf("%s.Accepts(%q) = %v, want %v", c.kind, c.value, got, c.want)
+		}
+	}
+}
+
+// TestBool_IsXMPsSyntaxAndNotGos is the constructor half of the same pin.
+func TestBool_IsXMPsSyntaxAndNotGos(t *testing.T) {
+	if got := xmp.Bool(true); got != "True" {
+		t.Errorf("Bool(true) = %q, want %q", got, "True")
+	}
+	if got := xmp.Bool(false); got != "False" {
+		t.Errorf("Bool(false) = %q, want %q", got, "False")
+	}
+}
+
+// TestDate_IsTheSameFormatterThePacketUses keeps a packet from carrying two
+// date syntaxes.
+func TestDate_IsTheSameFormatterThePacketUses(t *testing.T) {
+	stamp := time.Date(1980, 1, 1, 0, 0, 0, 0, time.UTC)
+	rendered := xmp.Date(stamp)
+
+	packet := string(xmp.Metadata{Date: stamp}.Packet())
+	if !strings.Contains(packet, "<xmp:CreateDate>"+rendered+"</xmp:CreateDate>") {
+		t.Errorf("the packet's own date is not %q:\n%s", rendered, packet)
+	}
+	if got := xmp.Date(time.Time{}); got != "" {
+		t.Errorf("Date(zero) = %q, want the empty string", got)
+	}
+}

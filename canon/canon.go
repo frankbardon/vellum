@@ -79,6 +79,26 @@ func CanonicalHash(tag string, v any) string {
 	return hex.EncodeToString(sum[:HashLength/2])
 }
 
+// Canonical returns v's canonical JSON form: the exact bytes [CanonicalHash]
+// digests.
+//
+// Exported so a record can be *carried* as well as hashed. An artifact
+// embedding its own provenance and a hash of it needs the two to be the same
+// bytes; produced separately, a marshalling difference between them would make
+// the hash describe a record nobody has, which is worse than carrying no hash
+// at all.
+//
+// It returns an error where [CanonicalHash] returns the empty string, because a
+// caller embedding the bytes has somewhere to put a failure and a caller
+// hashing at several hundred sites does not.
+func Canonical(v any) ([]byte, error) {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	return canonicalize(raw)
+}
+
 // canonicalize rewrites JSON into its canonical form.
 func canonicalize(raw []byte) ([]byte, error) {
 	dec := json.NewDecoder(bytes.NewReader(raw))

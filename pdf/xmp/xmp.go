@@ -57,6 +57,15 @@ type Metadata struct {
 	// be describing an event that did not happen. It comes from
 	// SourceDateEpoch, never from the clock.
 	Date time.Time
+
+	// Extensions are vocabularies XMP does not define, each carrying its own
+	// description. See [Schema]: a property written without one is a
+	// conformance failure nothing but a validator reports.
+	//
+	// An ordered slice rather than a map, as everywhere on this path. It is
+	// read while bytes are being written, and a map ranged there is a
+	// nondeterminism source sitting directly upstream of the output.
+	Extensions []Schema
 }
 
 // InfoEntries returns the information dictionary.
@@ -142,6 +151,8 @@ func (m Metadata) Packet() []byte {
 		b.WriteString("    </rdf:Description>\n")
 	}
 
+	writeExtensions(&b, m.Extensions)
+
 	b.WriteString("  </rdf:RDF>\n")
 	b.WriteString("</x:xmpmeta>\n")
 
@@ -163,9 +174,10 @@ func pdfDate(t time.Time) string {
 }
 
 // iso8601 renders the XMP date syntax for the same instant.
-func iso8601(t time.Time) string {
-	return t.UTC().Format("2006-01-02T15:04:05") + "+00:00"
-}
+//
+// The same formatter an extension schema's dates go through, so a packet cannot
+// carry two date syntaxes. See [Date].
+func iso8601(t time.Time) string { return Date(t) }
 
 // setIfSet adds a string entry when it is non-empty.
 func setIfSet(d *object.Dict, key object.Name, value string) {

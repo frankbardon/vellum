@@ -11,6 +11,7 @@ import (
 	"github.com/frankbardon/vellum/asset"
 	"github.com/frankbardon/vellum/deck"
 	"github.com/frankbardon/vellum/doc"
+	"github.com/frankbardon/vellum/fragment"
 	"github.com/frankbardon/vellum/internal/imagetest"
 	"github.com/frankbardon/vellum/opc"
 	"github.com/frankbardon/vellum/opc/zipdet"
@@ -139,8 +140,41 @@ func writePDFCompose(w io.Writer, epoch time.Time) error {
 	d.Metadata.Creator = "Vellum determinism fixture"
 	d.Metadata.Producer = "Vellum 0.0.0-golden"
 	d.Metadata.Date = epoch
+	d.Metadata.Extensions = []xmp.Schema{composeProvenance(res.Doc, epoch).XMPSchema()}
 
 	return d.WriteTo(w, pdf.WriteOptions{SourceDateEpoch: epoch})
+}
+
+// composeProvenance is the record this golden carries.
+//
+// It rides on the case that already goes through the consumer's door rather
+// than on a seventh golden, because what needs an artifact is the *shape* of
+// the embedding: a vocabulary XMP does not define, written into a packet that
+// claims PDF/A-2b. A property written there without a PDF/A extension schema
+// describing it produces a file that opens, reads correctly in every tool, and
+// makes a false claim about itself — reported by nothing but a validator, which
+// is exactly what runs over this corpus.
+func composeProvenance(doc *fragment.Doc, epoch time.Time) *provenance.Record {
+	rec := &provenance.Record{
+		VellumVersion:   "0.0.0-golden",
+		SourceDateEpoch: epoch,
+		ThemeHash:       doc.ThemeID,
+	}
+	for i := range doc.Assets {
+		a := &doc.Assets[i]
+		rec.Assets = append(rec.Assets, provenance.AssetRef{
+			Handle: a.Handle, Media: a.MediaType, Hash: a.Hash,
+		})
+	}
+	for i := range doc.Fonts {
+		f := &doc.Fonts[i]
+		rec.Fonts = append(rec.Fonts, provenance.FontRef{
+			Family:        f.Family,
+			Embedded:      f.Embed != fragment.EmbedNone,
+			SubsetProfile: string(f.Embed),
+		})
+	}
+	return rec
 }
 
 // composeBlocks is enough prose to paginate, with a marked run in it so the

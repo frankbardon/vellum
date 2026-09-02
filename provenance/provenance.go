@@ -5,12 +5,17 @@
 // not changed?" has an answer. For regulated work that question is the whole
 // reason a document pipeline is auditable rather than merely repeatable.
 //
-// # Status
+// # Embedding
 //
-// The record and its hashing land here. Embedding it into OOXML document
-// properties and into PDF XMP metadata arrives with the format epics, because
-// each format carries it differently and there is nothing useful to share
-// between them beyond this type.
+// Each format carries the record differently and there is nothing useful to
+// share between them beyond this type, so the embedding lives beside the record
+// rather than inside the writers. [Record.XMPSchema] renders it as a described
+// XMP schema, which is what a PDF/A file may carry — described being the
+// operative word: a property written into a PDF/A packet without a PDF/A
+// extension schema describing it is a conformance failure that nothing except a
+// validator reports.
+//
+// OOXML document properties arrive with the remaining format epics.
 package provenance
 
 import (

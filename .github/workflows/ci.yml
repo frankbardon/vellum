@@ -75,28 +75,26 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: "1.26"
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "21"
 
-      # Pinned by version rather than tracking latest, so a validator release
-      # cannot turn the build red without a commit saying so.
-      - name: Install veraPDF
-        env:
-          VERAPDF_VERSION: "1.28.1"
-        run: |
-          set -euo pipefail
-          curl -fsSL -o verapdf-installer.zip \
-            "https://software.verapdf.org/rel/${VERAPDF_VERSION%.*}/verapdf-greenfield-${VERAPDF_VERSION}-installer.zip"
-          unzip -q verapdf-installer.zip -d verapdf-installer
-          printf '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<AutomatedInstallation langpack="eng">\n<com.izforge.izpack.panels.htmlhello.HTMLHelloPanel id="welcome"/>\n<com.izforge.izpack.panels.target.TargetPanel id="install_dir"><installpath>%s/verapdf</installpath></com.izforge.izpack.panels.target.TargetPanel>\n<com.izforge.izpack.panels.packs.PacksPanel id="sdk_pack_select"><pack index="0" name="veraPDF GUI" selected="true"/><pack index="1" name="veraPDF Mac and *nix Scripts" selected="true"/></com.izforge.izpack.panels.packs.PacksPanel>\n<com.izforge.izpack.panels.install.InstallPanel id="install"/>\n<com.izforge.izpack.panels.finish.FinishPanel id="finish"/>\n</AutomatedInstallation>\n' "$HOME" > auto-install.xml
-          java -jar verapdf-installer/verapdf-greenfield-*/verapdf-izpack-installer-*.jar auto-install.xml
+      # The validator runs from a container pinned by digest rather than an
+      # installer pinned by version. A version is a name the publisher may
+      # rebuild under; a digest is the bytes. That matters more here than
+      # anywhere else in this workflow, because the thing being checked is a
+      # claim the artifact makes about itself: a gate whose verdict can change
+      # without a commit is a gate that will one day go red for a reason nobody
+      # can find, and — worse — could go green the same way.
+      #
+      # The digest is not written here. TestNoUnpinnedValidatorImage reads it
+      # out of internal/pdfvalidate/pin.go, so it is stated once and a drift
+      # between the two fails in the ordinary suite rather than in this job.
+      - name: Read the pinned validator
+        id: validator
+        run: echo "ref=$(go run ./internal/cmd/validatorpin)" >> "$GITHUB_OUTPUT"
 
       - name: PDF/A conformance
         run: go test -tags verapdf -run 'TestPDFAConformance' -v ./internal/dettest/
         env:
-          VELLUM_VERAPDF: ${{ github.workspace }}/../verapdf/verapdf
+          VELLUM_VERAPDF: ${{ steps.validator.outputs.ref }}
           VELLUM_REQUIRE_OPTIONAL_GATES: "1"
 
   fuzz:
