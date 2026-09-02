@@ -25,6 +25,7 @@ import (
 	"github.com/frankbardon/vellum/pdf/xmp"
 	"github.com/frankbardon/vellum/provenance"
 	"github.com/frankbardon/vellum/resolve"
+	"github.com/frankbardon/vellum/sheet"
 	"github.com/frankbardon/vellum/spec"
 	"github.com/frankbardon/vellum/theme"
 	"golang.org/x/image/font/gofont/goregular"
@@ -50,6 +51,7 @@ func Cases() []Case {
 		pdfImageCase(),
 		pdfComposeCase(),
 		pdfTableCase(),
+		xlsxComposeCase(),
 	}
 }
 
@@ -1262,4 +1264,99 @@ func writePDFTable(w io.Writer, epoch time.Time) error {
 	d.Metadata.Date = epoch
 
 	return d.WriteTo(w, pdf.WriteOptions{SourceDateEpoch: epoch})
+}
+
+// xlsxComposeCase is the block model reaching a workbook: spec in, .xlsx out.
+//
+// It carries every block kind this writer renders — heading, text, a table
+// with a two-level banner, an annotated cell and a total row, a spacer, a
+// notes block, and an explicit page break — so the golden is one artifact
+// proving every declared degradation at once rather than one artifact per
+// degradation. The page break is deliberate: it proves a second sheet is a
+// real, independently usable sheet rather than a copy of the first, which is
+// the one thing a byte-for-byte comparison against the first sheet's own
+// bytes could not tell apart from a bug that duplicated it.
+func xlsxComposeCase() Case {
+	return Case{
+		Name:  "xlsx-compose",
+		Ext:   "xlsx",
+		Write: writeXLSXCompose,
+	}
+}
+
+// writeXLSXCompose composes the block-model document.
+//
+// No caller-supplied theme: XLSX embeds no font program — FeatureFontEmbedSubset
+// degrades to "the family referenced by name" here exactly as it does for
+// docx and pptx — so the built-in theme, which composes fine for every format
+// that only ever references a family by name, is enough.
+func writeXLSXCompose(w io.Writer, epoch time.Time) error {
+	bands := make(spec.HeaderTree, 0, 6)
+	body := make([][]spec.Cell, 0, 6)
+	for i := 0; i < 6; i++ {
+		bands = append(bands, spec.HeaderNode{Label: "Band " + strconv.Itoa(i+1), Span: 1})
+		row := []spec.Cell{
+			{Text: strconv.Itoa(40 + i)},
+			{Text: strconv.Itoa(60 - i)},
+			{Text: "100"},
+		}
+		if i == 0 {
+			row[0].Annotations = []spec.Annotation{{Text: "a"}}
+		}
+		if i == 5 {
+			for j := range row {
+				row[j].Class = spec.CellTotal
+			}
+		}
+		body = append(body, row)
+	}
+
+	s := &spec.Spec{
+		FormatVersion: spec.FormatVersion,
+		Title:         "Composed to a Workbook",
+		Sections: []spec.Section{{
+			ID: "prose",
+			Blocks: []spec.Block{
+				{Kind: spec.BlockHeading, Heading: &spec.Heading{Level: 1, Content: "Composed to a Workbook"}},
+				{Kind: spec.BlockText, Text: &spec.Text{
+					Content: "This workbook was not assembled by hand. A specification was decoded, " +
+						"resolved against a theme, lowered into sheets, and written — the same path a " +
+						"consumer takes.",
+				}},
+				{Kind: spec.BlockTable, Table: &spec.Table{
+					ColumnHeaders: spec.HeaderTree{
+						{Label: "Region", Span: 2, Children: spec.HeaderTree{
+							{Label: "North", Span: 1}, {Label: "South", Span: 1},
+						}},
+						{Label: "Total", Span: 1},
+					},
+					RowHeaders: spec.HeaderTree{{Label: "Age", Span: 6, Children: bands}},
+					Body:       body,
+					Caption:    "Percentages. Base: all adults.",
+				}},
+				{Kind: spec.BlockSpacer, Spacer: &spec.Spacer{Height: spec.Points(12)}},
+				{Kind: spec.BlockNotes, Notes: &spec.Notes{
+					Content: "Base: every respondent. This note is a comment, which is what the " +
+						"capability matrix says a notes block becomes here.",
+				}},
+				{Kind: spec.BlockPageBreak, PageBreak: &spec.PageBreak{}},
+				{Kind: spec.BlockHeading, Heading: &spec.Heading{Level: 1, Content: "After the break"}},
+				{Kind: spec.BlockText, Text: &spec.Text{
+					Content: "An explicit page break starts a new sheet even when the one before it had room.",
+				}},
+			},
+		}},
+	}
+
+	res, err := resolve.Resolve(context.Background(), s, resolve.Options{Format: artifact.FormatXLSX})
+	if err != nil {
+		return err
+	}
+
+	wb, err := sheet.Lower(res.Doc)
+	if err != nil {
+		return err
+	}
+
+	return wb.WriteTo(w, sheet.WriteOptions{SourceDateEpoch: epoch})
 }

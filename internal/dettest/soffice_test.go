@@ -119,6 +119,31 @@ var officeExpectations = map[string]officeExpectation{
 			"The vector rides in an extension on the blip beside the raster.",
 		},
 	},
+	"xlsx-compose": {
+		TextFilter: "fods:OpenDocument Spreadsheet Flat XML",
+		TextExt:    "fods",
+		WantText: []string{
+			"Composed to a Workbook",
+			"This workbook was not assembled by hand.",
+			// The banner, the stub and an annotated cell — proof the table
+			// path rendered rather than only the prose around it.
+			"Region", "North", "South", "Age", "Band 1",
+			// The caption, which follows the table as an ordinary row rather
+			// than occupying a sheet of its own.
+			"Percentages. Base: all adults.",
+			// The comment. It carries the notes block's whole text, which is
+			// what the capability matrix says a notes block becomes here —
+			// checked in the flat export because a comment's text is not in
+			// the cell it is attached to at all.
+			"Base: every respondent.",
+			// The content of the second sheet, which an explicit page break
+			// produced. Seeing it proves the break started a real,
+			// independently readable sheet rather than a copy of the first.
+			"After the break",
+			"An explicit page break starts a new sheet",
+		},
+	},
+
 	"docx-profile": {
 		TextFilter: "txt:Text",
 		TextExt:    "txt",

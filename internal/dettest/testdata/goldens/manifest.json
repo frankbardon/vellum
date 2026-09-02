@@ -64,7 +64,12 @@
       "file": "substrate-package/expected.zip",
       "sha256": "a76180b3bf30f2f81e28a85d733527b11e0534c84e8111fe871f87d3b36f1946",
       "bytes": 1527
+    },
+    "xlsx-compose": {
+      "file": "xlsx-compose/expected.xlsx",
+      "sha256": "66db8d4daf95c1333cfe7f201f0ceafe14fc760fab7fdda980754f664dc64d8a",
+      "bytes": 6072
     }
   }
 }
-// golden-hash: 04510e1fbf3d4af58069595fe522c145f0d8864296be7d862adbb587bf865d2a
+// golden-hash: d7b9a3b60e487e6caa72c36bda9316e7da0f1f94829b5cb19d6635d0685edb30
