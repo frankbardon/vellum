@@ -13,6 +13,7 @@ import (
 	"github.com/frankbardon/vellum/capability"
 	"github.com/frankbardon/vellum/descriptor"
 	verr "github.com/frankbardon/vellum/errors"
+	"github.com/frankbardon/vellum/mcp/toolmeta"
 	"github.com/frankbardon/vellum/spec"
 )
 
@@ -152,6 +153,22 @@ func TestManifestErrorCodesComplete(t *testing.T) {
 	}
 }
 
+func TestManifestMCPToolsComplete(t *testing.T) {
+	m := descriptor.BuildManifest()
+	tools := toolmeta.AllTools()
+	if len(m.MCPTools) != len(tools) {
+		t.Fatalf("manifest lists %d mcp tools, the registry has %d", len(m.MCPTools), len(tools))
+	}
+	for i, tool := range tools {
+		if m.MCPTools[i].Name != tool.Name {
+			t.Errorf("mcp tool %d = %q, want %q", i, m.MCPTools[i].Name, tool.Name)
+		}
+		if m.MCPTools[i].Description != tool.Description {
+			t.Errorf("mcp tool %q description = %q, want %q", tool.Name, m.MCPTools[i].Description, tool.Description)
+		}
+	}
+}
+
 func TestManifestCapabilitiesComplete(t *testing.T) {
 	m := descriptor.BuildManifest()
 	want := len(capability.AllFeatures()) * len(artifact.AllFormats())
@@ -172,6 +189,109 @@ func TestPayloadSchemaVersionMatchesEnvelope(t *testing.T) {
 	if !strings.Contains(spec.SchemaID, descriptor.FormatVersion) {
 		t.Errorf("the specification schema id %q and the envelope version %q have drifted apart", spec.SchemaID, descriptor.FormatVersion)
 	}
+}
+
+// TestPayloadSchemaGolden pins the payload schema by name, matching the gate
+// CLAUDE.md advertises. TestGoldensNotHandEdited already proves this same
+// byte-for-byte equality generically across every golden; this one exists so
+// the specific promised name resolves to a real test rather than only to a
+// subtest string.
+func TestPayloadSchemaGolden(t *testing.T) {
+	rendered, err := descriptor.RenderGolden(descriptor.BuildPayloadSchema())
+	if err != nil {
+		t.Fatalf("rendering: %v", err)
+	}
+	committed, err := os.ReadFile(filepath.Join(goldenDir, "payload-schema.json"))
+	if err != nil {
+		t.Fatalf("%v\nRegenerate with: go test ./descriptor -update", err)
+	}
+	body, err := descriptor.SplitGolden(committed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantBody, err := descriptor.SplitGolden(rendered)
+	if err != nil {
+		t.Fatalf("rendering produced an invalid golden: %v", err)
+	}
+	if string(body) != string(wantBody) {
+		t.Errorf("payload-schema.json is out of date.\nRegenerate with: go test ./descriptor -update\nfirst difference at byte %d",
+			firstDiff(body, wantBody))
+	}
+}
+
+// TestPayloadSchemaEnumsMatchRegistry walks the decoded payload schema for
+// every literal JSON Schema "enum" array it declares and checks it against
+// the live registry it is drawn from. Only the enums the schema actually
+// states are checked here: capability.AllOutcomes() is reported as a free
+// "type": "string" on capabilityFault.outcome rather than as an enum, so it
+// is deliberately not asserted against — there is no enum array to compare.
+func TestPayloadSchemaEnumsMatchRegistry(t *testing.T) {
+	var doc map[string]any
+	if err := json.Unmarshal(descriptor.BuildPayloadSchema(), &doc); err != nil {
+		t.Fatal(err)
+	}
+
+	lookup := func(path ...string) []any {
+		var cur any = doc
+		for _, p := range path {
+			m, ok := cur.(map[string]any)
+			if !ok {
+				t.Fatalf("path %v: %q is not an object (stopped at %q)", path, p, p)
+			}
+			cur, ok = m[p]
+			if !ok {
+				t.Fatalf("path %v: missing %q", path, p)
+			}
+		}
+		arr, ok := cur.([]any)
+		if !ok {
+			t.Fatalf("path %v: not an array: %T", path, cur)
+		}
+		return arr
+	}
+
+	cases := []struct {
+		name string
+		path []string
+		want []any
+	}{
+		{"format", []string{"$defs", "format", "enum"}, enumStrings(artifact.AllFormats())},
+		{"block.kind", []string{"$defs", "block", "properties", "kind", "enum"}, enumStrings(spec.AllBlockKinds())},
+		{"length.unit", []string{"$defs", "length", "properties", "unit", "enum"}, enumStrings(spec.AllUnits())},
+		{"cell.class", []string{"$defs", "cell", "properties", "class", "enum"}, enumStrings(spec.AllCellClasses())},
+		{"value.kind", []string{"$defs", "value", "properties", "kind", "enum"}, enumStrings(spec.AllValueKinds())},
+		{"annotation.position", []string{"$defs", "annotation", "properties", "position", "enum"}, enumStrings(spec.AllAnnotationPositions())},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := lookup(c.path...)
+			if len(got) != len(c.want) {
+				t.Fatalf("enum has %d values, registry has %d: got %v, want %v", len(got), len(c.want), got, c.want)
+			}
+			gotSet := map[string]bool{}
+			for _, v := range got {
+				s, ok := v.(string)
+				if !ok {
+					t.Fatalf("enum value %v is not a string", v)
+				}
+				gotSet[s] = true
+			}
+			for _, w := range c.want {
+				if !gotSet[w.(string)] {
+					t.Errorf("enum is missing registry value %q", w)
+				}
+			}
+		})
+	}
+}
+
+func enumStrings[T ~string](values []T) []any {
+	out := make([]any, len(values))
+	for i, v := range values {
+		out[i] = string(v)
+	}
+	return out
 }
 
 // TestPayloadSchemaEmbedsSpecDefinitions checks that embedding the

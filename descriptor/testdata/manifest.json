@@ -1067,6 +1067,48 @@
       "needs_render": true
     }
   ],
+  "mcp_tools": [
+    {
+      "name": "vellum_compose",
+      "description": "Render a specification to an artifact (DOCX, XLSX, PPTX or PDF/A-2b)."
+    },
+    {
+      "name": "vellum_validate",
+      "description": "Check a specification against a format's capability matrix, without rendering."
+    },
+    {
+      "name": "vellum_inspect",
+      "description": "Report an OOXML template's anchor inventory and font requirements, without modifying it."
+    },
+    {
+      "name": "vellum_fill",
+      "description": "Bind data into an OOXML template, leaving every part it did not touch byte-identical."
+    },
+    {
+      "name": "vellum_capabilities",
+      "description": "Return the declared (feature, format) outcome matrix: renders, degrades, or rejects."
+    },
+    {
+      "name": "vellum_boxes",
+      "description": "Return the asset slots a theme offers a format, answerable before any specification exists."
+    },
+    {
+      "name": "vellum_schema",
+      "description": "Return the published JSON Schema for a specification."
+    },
+    {
+      "name": "vellum_manifest",
+      "description": "Return the manifest describing what Vellum can do: formats, block kinds, capabilities and error codes."
+    },
+    {
+      "name": "vellum_skills",
+      "description": "Read a skill document from the embedded skill pack. Not yet available: lands in E13."
+    },
+    {
+      "name": "vellum_examples",
+      "description": "Read an example specification from the embedded example pack. Not yet available: lands in E13."
+    }
+  ],
   "error_domains": [
     "OPC",
     "SPEC",
@@ -1193,4 +1235,4 @@
   "error_codes_count": 94,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: 747b64ab978a32fc6bc99f3a443469149b0199e21a3d4c3f5c545146447922b7
+// golden-hash: 425b02822e1474f7f80178ea9abb0bab52e73bf96e415f30290a7fe1a30e152d

@@ -4,6 +4,7 @@ import (
 	"github.com/frankbardon/vellum/artifact"
 	"github.com/frankbardon/vellum/capability"
 	verr "github.com/frankbardon/vellum/errors"
+	"github.com/frankbardon/vellum/mcp/toolmeta"
 	"github.com/frankbardon/vellum/spec"
 )
 
@@ -38,6 +39,9 @@ type Manifest struct {
 	// Operations are the things a caller can ask for.
 	Operations []OperationInfo `json:"operations"`
 
+	// MCPTools are the tools the MCP surface registers.
+	MCPTools []MCPToolInfo `json:"mcp_tools"`
+
 	// ErrorDomains and ErrorCodes describe the failure surface. Only names
 	// here: the prose for a code is fetched on demand, so the manifest an
 	// agent loads at the start of a session stays small.
@@ -71,6 +75,12 @@ type Vocabularies struct {
 	AnnotationPositions []spec.AnnotationPosition `json:"annotation_positions"`
 	Units               []spec.Unit               `json:"units"`
 	Outcomes            []capability.Outcome      `json:"capability_outcomes"`
+}
+
+// MCPToolInfo describes one registered MCP tool.
+type MCPToolInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 // OperationInfo describes one thing a caller can ask Vellum to do.
@@ -123,6 +133,10 @@ func BuildManifest() *Manifest {
 		m.ErrorCodes = append(m.ErrorCodes, string(c))
 	}
 	m.ErrorCodesCount = len(m.ErrorCodes)
+
+	for _, t := range toolmeta.AllTools() {
+		m.MCPTools = append(m.MCPTools, MCPToolInfo{Name: t.Name, Description: t.Description})
+	}
 
 	return m
 }
