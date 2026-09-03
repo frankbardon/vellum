@@ -19,11 +19,37 @@ import (
 // applying the Replacement to a's part (xmlcopy.Apply) and writing the result
 // back with pkg.Put, across every anchor a binding fills, is E10's
 // orchestration, not this call's job.
+//
+// Splice is SpliceInto with the same package read from a's bytes and written
+// to for any new asset. See [SpliceInto]'s doc for why a caller might want
+// those to be two different packages.
 func Splice(pkg *opc.Package, a anchor.Anchor, seq fragment.Sequence) (xmlcopy.Replacement, error) {
-	if pkg == nil {
+	return SpliceInto(pkg, pkg, a, seq)
+}
+
+// SpliceInto is [Splice] with the byte source and the asset destination
+// named separately: srcPkg supplies a.Part's own bytes to splice against,
+// and assetPkg is where an Asset block's new media part and relationship
+// land.
+//
+// The split exists for E10-S3's repeat execution: a repeated table row or
+// native content control is filled once per item against an *extracted*,
+// relocated copy of the row/control's own source bytes — wrapped in a
+// throwaway package that is discarded the moment that one iteration's bytes
+// are captured, because the same region in the real document exists only
+// once and has not been mutated yet. An Asset block's media part and
+// relationship must not land in that throwaway package: they would vanish
+// with it. srcPkg is the throwaway view in that case; assetPkg is always the
+// real output package, so a picture embedded by the third iteration of a
+// repeated row is still present in the file a caller actually writes.
+// Splice's own single-package form is the degenerate case where the two
+// happen to be the same package, which is every splice outside a repeat's
+// own body.
+func SpliceInto(srcPkg, assetPkg *opc.Package, a anchor.Anchor, seq fragment.Sequence) (xmlcopy.Replacement, error) {
+	if srcPkg == nil || assetPkg == nil {
 		return xmlcopy.Replacement{}, verr.NewCodedError(verr.VELLUM_INTERNAL_INVARIANT, "nil package")
 	}
-	part, ok := pkg.Get(a.Part)
+	part, ok := srcPkg.Get(a.Part)
 	if !ok {
 		return xmlcopy.Replacement{}, verr.NewCodedErrorWithDetails(verr.VELLUM_INTERNAL_INVARIANT,
 			"splice was given an anchor whose part the package does not contain",
@@ -36,7 +62,7 @@ func Splice(pkg *opc.Package, a anchor.Anchor, seq fragment.Sequence) (xmlcopy.R
 
 	switch a.Kind {
 	case anchor.KindNative:
-		return spliceNative(pkg, a, src, seq)
+		return spliceNative(assetPkg, a, src, seq)
 	case anchor.KindMarker:
 		return spliceMarker(a, src, seq)
 	default:

@@ -15,19 +15,25 @@
 //
 // # Scope of this package
 //
-// This package is model, decode and hash — plus, as of E10-S2, single-
-// expression FEEL evaluation and the nondeterminism firewall in front of it.
-// It still does not execute control flow: repeat does not iterate, if does
-// not branch, with does not narrow a scope across a whole tree. That
-// orchestration — threading a [Scope] through nested repeat/if/with as
-// [Walk] visits them — is E10-S3's job, layered on top of what is here.
+// This package is model, decode, hash, single-expression FEEL evaluation
+// (E10-S2) and, as of E10-S3, execution: [Execute] threads a [Scope]
+// through a whole statement tree exactly as repeat/if/with/skip's own doc
+// comments describe, evaluating every [Bind] leaf and producing the
+// [xmlcopy.Replacement] each one needs against a [Frame] — the anchor
+// lookup and byte source execution runs against, which is either the whole
+// opened template at the top of a fill or, inside a [Repeat]'s own body, a
+// throwaway view built from one iteration's extracted, relocated container
+// (see repeat.go). Execute has no opinion about how its output reaches a
+// package on disk; composing that against one opened template and one data
+// set is [template.Fill]'s job, one layer up.
 //
-// What this package guarantees structurally is that the tree it hands to
-// that later layer is well-formed: every statement's kind matches the one
-// arm it carries, every required field is present, and every FEEL-bearing
-// string is reachable through [Walk] and [WalkExprs]. [Validate] uses the
-// latter to reject a nondeterministic builtin without needing to know
-// anything about statement shape beyond "here is an expression".
+// What this package guarantees structurally is that the tree [Execute] runs
+// is well-formed: every statement's kind matches the one arm it carries,
+// every required field is present, and every FEEL-bearing string is
+// reachable through [Walk] and [WalkExprs]. [Validate] uses the latter to
+// reject a nondeterministic builtin without needing to know anything about
+// statement shape beyond "here is an expression" — and [Execute] assumes a
+// binding has already been [Validate]d, re-checking neither.
 //
 // What this package guarantees about a single expression, once it has data
 // to run against, is the [Evaluator] seam: [FEELEvaluator], the default,

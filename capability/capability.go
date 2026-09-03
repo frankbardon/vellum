@@ -168,6 +168,27 @@ const (
 	FeatureFill             Feature = "fill"
 )
 
+// Fill's control-layer statement kinds, executable as of E10-S3.
+//
+// FeatureFill itself is "can this format be opened as a fill-mode template
+// and have an anchor found in it at all". These four are one row per
+// [bind.StatementKind] repeat/if/with and per the Skip modifier every
+// statement carries: whether that specific piece of binding logic actually
+// runs against the format. They are declared separately from FeatureFill
+// rather than folded into it because a format could in principle discover
+// anchors (FeatureFill renders) without every control-layer kind being
+// wired for it yet — which is exactly XLSX and PPTX's situation today:
+// anchor.Discover has no discoverer for either format wired (E11's job), so
+// no binding statement of any kind executes against them, and that is a
+// fact a consumer needs before scheduling a fill against a workbook or a
+// deck, not just against a document.
+const (
+	FeatureFillBindRepeat Feature = "fill.bind.repeat"
+	FeatureFillBindIf     Feature = "fill.bind.if"
+	FeatureFillBindWith   Feature = "fill.bind.with"
+	FeatureFillBindSkip   Feature = "fill.bind.skip"
+)
+
 // allFeatures is the registry, in declaration order.
 var allFeatures = []Feature{
 	FeatureBlockHeading,
@@ -208,6 +229,10 @@ var allFeatures = []Feature{
 
 	FeatureOverflowContinue,
 	FeatureFill,
+	FeatureFillBindRepeat,
+	FeatureFillBindIf,
+	FeatureFillBindWith,
+	FeatureFillBindSkip,
 }
 
 // AllFeatures returns a copy of the feature registry.

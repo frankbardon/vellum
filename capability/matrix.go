@@ -80,6 +80,11 @@ var matrix = Matrix{
 		Note: "A flowing format paginates itself. Vellum does not lay out OOXML, and a split it computed would disagree with the one Word performs.",
 	},
 	{Feature: FeatureFill, Format: artifact.FormatDOCX, Outcome: Renders},
+	{Feature: FeatureFillBindRepeat, Format: artifact.FormatDOCX, Outcome: Renders,
+		Note: "Realized two ways depending on RepeatTarget: splicing rows into a table, or splicing copies of a native content control's content. See bind.Repeat."},
+	{Feature: FeatureFillBindIf, Format: artifact.FormatDOCX, Outcome: Renders},
+	{Feature: FeatureFillBindWith, Format: artifact.FormatDOCX, Outcome: Renders},
+	{Feature: FeatureFillBindSkip, Format: artifact.FormatDOCX, Outcome: Renders},
 
 	// ---- XLSX: presentation tables. Not a spreadsheet. ----
 	{
@@ -162,6 +167,26 @@ var matrix = Matrix{
 		Note: "A sheet has no page, so a long table simply continues.",
 	},
 	{Feature: FeatureFill, Format: artifact.FormatXLSX, Outcome: Renders},
+	{
+		Feature: FeatureFillBindRepeat, Format: artifact.FormatXLSX, Outcome: Rejects,
+		Code: verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
+		Note: "anchor.Discover has no XLSX discoverer wired yet (E11's job — a ListObject range or a defined name, not a w:sdt or a {{marker}}), so no binding statement of any kind executes against a workbook template today, whatever FeatureFill above optimistically claims.",
+	},
+	{
+		Feature: FeatureFillBindIf, Format: artifact.FormatXLSX, Outcome: Rejects,
+		Code: verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
+		Note: "As fill.bind.repeat: no anchor kind is discovered for this format yet.",
+	},
+	{
+		Feature: FeatureFillBindWith, Format: artifact.FormatXLSX, Outcome: Rejects,
+		Code: verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
+		Note: "As fill.bind.repeat: no anchor kind is discovered for this format yet.",
+	},
+	{
+		Feature: FeatureFillBindSkip, Format: artifact.FormatXLSX, Outcome: Rejects,
+		Code: verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
+		Note: "As fill.bind.repeat: no anchor kind is discovered for this format yet.",
+	},
 
 	// ---- PPTX: a deck. Notes are native here and nowhere else. ----
 	{Feature: FeatureBlockHeading, Format: artifact.FormatPPTX, Outcome: Renders},
@@ -223,6 +248,26 @@ var matrix = Matrix{
 	{Feature: FeatureOverflowContinue, Format: artifact.FormatPPTX, Outcome: Renders,
 		Note: "A table longer than a slide continues onto the next with its headers repeated. Capacity is theme-derived rather than measured, so the split is reproducible."},
 	{Feature: FeatureFill, Format: artifact.FormatPPTX, Outcome: Renders},
+	{
+		Feature: FeatureFillBindRepeat, Format: artifact.FormatPPTX, Outcome: Rejects,
+		Code: verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
+		Note: "anchor.Discover has no PPTX discoverer wired yet (E11's job — a shape name, not a w:sdt or a {{marker}}), so no binding statement of any kind executes against a deck template today, whatever FeatureFill above optimistically claims.",
+	},
+	{
+		Feature: FeatureFillBindIf, Format: artifact.FormatPPTX, Outcome: Rejects,
+		Code: verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
+		Note: "As fill.bind.repeat: no anchor kind is discovered for this format yet.",
+	},
+	{
+		Feature: FeatureFillBindWith, Format: artifact.FormatPPTX, Outcome: Rejects,
+		Code: verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
+		Note: "As fill.bind.repeat: no anchor kind is discovered for this format yet.",
+	},
+	{
+		Feature: FeatureFillBindSkip, Format: artifact.FormatPPTX, Outcome: Rejects,
+		Code: verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
+		Note: "As fill.bind.repeat: no anchor kind is discovered for this format yet.",
+	},
 
 	// ---- PDF: archival output, emitted directly. ----
 	{Feature: FeatureBlockHeading, Format: artifact.FormatPDF, Outcome: Renders},
@@ -316,5 +361,25 @@ var matrix = Matrix{
 		Feature: FeatureFill, Format: artifact.FormatPDF, Outcome: Rejects,
 		Code: verr.VELLUM_CAPABILITY_REJECTED,
 		Note: "Fill mode edits an OPC package surgically. A PDF is not one, and editing PDF in place is a different problem with none of the same guarantees.",
+	},
+	{
+		Feature: FeatureFillBindRepeat, Format: artifact.FormatPDF, Outcome: Rejects,
+		Code: verr.VELLUM_CAPABILITY_REJECTED,
+		Note: "As fill above: there is no template to splice a repeated row or block into.",
+	},
+	{
+		Feature: FeatureFillBindIf, Format: artifact.FormatPDF, Outcome: Rejects,
+		Code: verr.VELLUM_CAPABILITY_REJECTED,
+		Note: "As fill above.",
+	},
+	{
+		Feature: FeatureFillBindWith, Format: artifact.FormatPDF, Outcome: Rejects,
+		Code: verr.VELLUM_CAPABILITY_REJECTED,
+		Note: "As fill above.",
+	},
+	{
+		Feature: FeatureFillBindSkip, Format: artifact.FormatPDF, Outcome: Rejects,
+		Code: verr.VELLUM_CAPABILITY_REJECTED,
+		Note: "As fill above.",
 	},
 }

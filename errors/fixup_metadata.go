@@ -669,6 +669,14 @@ var codeMetadata = map[Code]Metadata{
 		}},
 	},
 
+	VELLUM_TEMPLATE_REPEAT_CONTAINER_INVALID: {
+		Message: "a repeat statement's body anchors cannot be reconciled to one splice container",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "The error's details name the repeat's declared target and every anchor it reached. For target \"row\", every one of those anchors must sit inside the same single <w:tr> in the template; for target \"block\", inside the same single <w:sdt>. Move the anchors in the template so they share one container, or split the repeat into two if it is really describing two different regions, or point Over at a non-empty list if the body simply names no anchor at all.",
+		}},
+	},
+
 	VELLUM_ANCHOR_DUPLICATE: {
 		Message: "two anchors in the same part share one name",
 		Fixups: []Fixup{{
@@ -776,6 +784,14 @@ var codeMetadata = map[Code]Metadata{
 		Fixups: []Fixup{{
 			Action: FixupRepairInput,
 			Hint:   "numfmt.Value carries number, text, bool and date only. A FEEL duration has no representation there; convert it to text inside the expression first, for example with FEEL's own string() builtin, before it fills an anchor.",
+		}},
+	},
+
+	VELLUM_BIND_ANCHOR_UNKNOWN: {
+		Message: "a binding statement names an anchor the template does not discover",
+		Fixups: []Fixup{{
+			Action: FixupReplaceValue,
+			Hint:   "Rename the anchor to match a content-control tag or {{marker}} that actually exists in the template, or run inspect against the same template to see the anchors it discovers.",
 		}},
 	},
 

@@ -493,6 +493,17 @@ const (
 	// declares, enforced again here because fill mode has no separate
 	// validate-time capability check in front of a splice.
 	VELLUM_TEMPLATE_ASSET_MEDIA_UNSUPPORTED Code = "VELLUM_TEMPLATE_ASSET_MEDIA_UNSUPPORTED"
+
+	// VELLUM_TEMPLATE_REPEAT_CONTAINER_INVALID indicates a repeat
+	// statement's body cannot be reconciled to the single structural
+	// container its declared Target names: no anchor anywhere in the body
+	// names a splice site at all, the referenced anchors sit in more than
+	// one part, or no single <w:tr> (Target "row") or <w:sdt> (Target
+	// "block") in the template contains every one of them. A repeat splices
+	// N independent copies of exactly one region the template carries once;
+	// a binding whose declared shape does not match where its own anchors
+	// actually sit in the document has no such region to copy.
+	VELLUM_TEMPLATE_REPEAT_CONTAINER_INVALID Code = "VELLUM_TEMPLATE_REPEAT_CONTAINER_INVALID"
 )
 
 // ANCHOR domain — fill-mode anchor discovery: locating the native content
@@ -591,6 +602,17 @@ const (
 	// (for example with FEEL's own string() builtin) before it can fill an
 	// anchor.
 	VELLUM_BIND_VALUE_UNSUPPORTED_TYPE Code = "VELLUM_BIND_VALUE_UNSUPPORTED_TYPE"
+
+	// VELLUM_BIND_ANCHOR_UNKNOWN indicates a binding statement — a Bind's own
+	// Anchor, or an anchor name a Repeat's body reaches while reconciling its
+	// anchors to one splice container — names an anchor the template's
+	// discovered [anchor.Inventory] does not contain. Raised at execution
+	// time (there is no anchor list at binding-authoring time to check
+	// against), and distinct from VELLUM_ANCHOR_DUPLICATE and
+	// VELLUM_ANCHOR_MARKER_MALFORMED, which are about the template's own
+	// anchors being ill-formed rather than about a binding naming one that
+	// is not there at all.
+	VELLUM_BIND_ANCHOR_UNKNOWN Code = "VELLUM_BIND_ANCHOR_UNKNOWN"
 )
 
 // DEFRAG domain — fill-mode run defragmentation: flattening a container's
@@ -723,6 +745,7 @@ var allCodes = []Code{
 	VELLUM_TEMPLATE_BLOCK_UNSUPPORTED,
 	VELLUM_TEMPLATE_MARKER_BLOCK_UNSUPPORTED,
 	VELLUM_TEMPLATE_ASSET_MEDIA_UNSUPPORTED,
+	VELLUM_TEMPLATE_REPEAT_CONTAINER_INVALID,
 
 	// ANCHOR
 	VELLUM_ANCHOR_DUPLICATE,
@@ -742,6 +765,7 @@ var allCodes = []Code{
 	VELLUM_BIND_VALUE_NOT_SCALAR,
 	VELLUM_BIND_VALUE_NOT_LIST,
 	VELLUM_BIND_VALUE_UNSUPPORTED_TYPE,
+	VELLUM_BIND_ANCHOR_UNKNOWN,
 
 	// INTERNAL
 	VELLUM_INTERNAL_INVARIANT,
