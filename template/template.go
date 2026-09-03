@@ -161,7 +161,7 @@ func detectFormat(pkg *opc.Package) (artifact.Format, string, error) {
 	// a package that (incorrectly) declares more than one.
 	rel := matches[0]
 
-	target := resolveRootTarget(rel.Target)
+	target := resolveTarget("/", rel.Target)
 	part, ok := pkg.Get(target)
 	if !ok {
 		return "", "", invalidTemplate(
@@ -183,17 +183,31 @@ func detectFormat(pkg *opc.Package) (artifact.Format, string, error) {
 	}
 }
 
-// resolveRootTarget resolves a relationship target declared by the package
-// root against the package root — the one case template.Open needs, since
-// the officeDocument relationship is always root-owned. An absolute target
-// (a leading slash) is used as-is; a relative one has "/" prefixed, and any
-// "./" or "../" segment is normalised away exactly as [opc.Package.Validate]
-// would for a root-owned relationship.
-func resolveRootTarget(target string) string {
+// resolveTarget resolves a relationship target against owner's directory —
+// owner "/" for a root-owned relationship (what detectFormat needs, since the
+// officeDocument relationship is always root-owned), or a part name such as
+// mainPart for a relationship declared by that part (what discoverStylesPart
+// needs to find the styles part a document part references). An absolute
+// target (a leading slash) is used as-is; a relative one is resolved against
+// the owner's own directory, and any "./" or "../" segment is normalised away
+// — mirroring [opc.Package.Validate]'s own (unexported) resolution exactly,
+// since this package cannot reach that one from outside opc.
+func resolveTarget(owner, target string) string {
 	if strings.HasPrefix(target, "/") {
 		return target
 	}
-	var segments []string
+
+	base := "/"
+	if owner != "/" && owner != "" {
+		if i := strings.LastIndexByte(owner, '/'); i >= 0 {
+			base = owner[:i+1]
+		}
+	}
+
+	segments := strings.Split(strings.TrimPrefix(base, "/"), "/")
+	if len(segments) > 0 && segments[len(segments)-1] == "" {
+		segments = segments[:len(segments)-1]
+	}
 	for _, seg := range strings.Split(target, "/") {
 		switch seg {
 		case "", ".":
@@ -216,17 +230,29 @@ func invalidTemplate(message string, details map[string]any) error {
 	return verr.NewCodedErrorWithDetails(verr.VELLUM_TEMPLATE_INVALID, message, details)
 }
 
-// Inspect discovers every fillable anchor in t and returns them as an
-// [anchor.Inventory]. It is FR-F7's entry point: the same call a human-facing
-// CLI table and an agent-facing JSON envelope both build on (that formatting
-// is CLI work, epic E12, not here).
+// Inspect discovers every fillable anchor in t, together with the font
+// families its own XML references, and returns both as an [InspectReport].
+// It is FR-F7's entry point: the same call a human-facing CLI table and an
+// agent-facing JSON envelope both build on (that formatting is CLI work,
+// epic E12, not here — this package hands E12 a JSON-tagged struct plus
+// [InspectReport.AnchorsTable] and [InspectReport.FontsTable] to build either
+// from).
 //
-// Font-requirement reporting, also part of FR-F7, is a deliberately deferred
-// gap: no story on the board calls it out yet and no anchor kind built so far
-// needs it, so it is not stubbed.
-func Inspect(t *Template) (*anchor.Inventory, error) {
+// Font requirements are discovered only once anchor discovery has already
+// succeeded, so a format anchor.Discover does not yet support (XLSX, PPTX —
+// E11's job) fails the same way it always has, before font scanning ever
+// runs, rather than reporting a partial answer.
+func Inspect(t *Template) (*InspectReport, error) {
 	if t == nil {
 		return nil, verr.NewCodedError(verr.VELLUM_INTERNAL_INVARIANT, "nil template")
 	}
-	return anchor.Discover(t.pkg, t.format, t.mainPart)
+	inv, err := anchor.Discover(t.pkg, t.format, t.mainPart)
+	if err != nil {
+		return nil, err
+	}
+	fonts, err := discoverFonts(t.pkg, t.mainPart)
+	if err != nil {
+		return nil, err
+	}
+	return &InspectReport{Anchors: inv.Anchors, Fonts: fonts}, nil
 }
