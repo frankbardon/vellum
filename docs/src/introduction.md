@@ -9,4 +9,8 @@ This site documents the CLI, library embedding, the spec format and the
 internals, for human readers. LLM-facing guidance lives in the embedded skill
 pack under `skills/` and is loaded via MCP at runtime.
 
-> **Status: early construction.** Pages are written as their epics land.
+The library, the CLI (`vellum compose`/`validate`/`fill`/`inspect`/`boxes`/
+`capabilities`/`schema`/`provenance`/`mcp`/`doctor`), the MCP server and its
+ten tools, the embedded skill pack, and a runnable example pack all exist and
+are tested today — start at [Installation](getting-started/installation.md)
+or [Quickstart](getting-started/quickstart.md).
