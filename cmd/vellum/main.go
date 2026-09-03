@@ -1,29 +1,24 @@
 // Command vellum is the CLI shell over the Vellum library.
 //
-// It is deliberately thin: it parses flags and calls the library facade, and
-// contains no business logic of its own. The full verb set — compose, fill,
-// inspect, validate, boxes, capabilities, schema, provenance, mcp, doctor —
-// lands with the surfaces epic; until then this binary reports its version so
-// the build, the version stamp and the release path are exercised from the
-// first commit rather than wired up at the end.
+// It is deliberately thin: every flag definition, every facade call and
+// every --json/human-output decision lives in internal/cli, one file per
+// verb group. This file only builds that command tree, runs it, and turns
+// its own returned error into the process's exit code — see
+// internal/cli.CodeOf for the exact convention.
 package main
 
 import (
-	"fmt"
+	"context"
 	"os"
+
+	"github.com/frankbardon/vellum/internal/cli"
 )
 
 // version is set by the build system via -X main.version.
 var version = "dev"
 
 func main() {
-	if len(os.Args) > 1 {
-		switch os.Args[1] {
-		case "--version", "-v", "version":
-			fmt.Fprintln(os.Stdout, version)
-			return
-		}
-	}
-	fmt.Fprintf(os.Stderr, "vellum %s\n\nThe CLI is not yet implemented; see CLAUDE.md for the build order.\n", version)
-	os.Exit(2)
+	app := cli.New(version)
+	err := app.Run(context.Background(), os.Args)
+	os.Exit(cli.CodeOf(err))
 }

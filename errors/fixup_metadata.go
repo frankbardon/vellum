@@ -876,6 +876,47 @@ var codeMetadata = map[Code]Metadata{
 		FixupNotApplicable: true,
 	},
 
+	VELLUM_PROVENANCE_MALFORMED: {
+		Message: "an embedded provenance record does not parse",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "The artifact carries something that looks like a Vellum provenance property but is not well-formed — a malformed timestamp, or a vellum:record property that is not valid JSON. Re-render the artifact rather than hand-editing its properties or its XMP packet.",
+		}},
+	},
+
+	VELLUM_CLI_USAGE: {
+		Message: "the command was invoked with a flag or argument combination it cannot act on",
+		Fixups: []Fixup{{
+			Action: FixupReplaceValue,
+			Hint:   "Run the command with --help to see its accepted flags and their valid values, and correct the invocation.",
+		}},
+	},
+
+	VELLUM_CLI_INPUT_NOT_FOUND: {
+		Message: "a file path named on the command line could not be opened",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "Check the path for a typo and that the process has permission to read it.",
+		}},
+	},
+
+	VELLUM_CLI_OUTPUT_CONFLICT: {
+		Message: "the command was asked to write a binary artifact and a --json envelope to the same stdout stream",
+		Fixups: []Fixup{{
+			Action: FixupSetField,
+			Path:   []string{"Options", "Output"},
+			Hint:   "Pass -o/--output to name a file for the artifact, so --json's envelope can go to stdout on its own.",
+		}},
+	},
+
+	VELLUM_CLI_NOT_IMPLEMENTED: {
+		Message: "this verb is registered but does not run yet",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "This command lands in a later story (see the command's --help text for which one). Use an already-implemented verb, or wait for that story to merge.",
+		}},
+	},
+
 	VELLUM_INTERNAL_INVARIANT: {
 		Message: "an internal invariant was violated",
 		// No input change resolves this. It is always a Vellum bug, and

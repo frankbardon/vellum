@@ -743,6 +743,58 @@ const (
 	VELLUM_ARTIFACT_MODEL_UNSUPPORTED Code = "VELLUM_ARTIFACT_MODEL_UNSUPPORTED"
 )
 
+// PROVENANCE domain — reading an artifact's own embedded provenance record
+// back out, the inverse of the OOXML custom-properties and PDF XMP embedding
+// [provenance.Record] writes.
+const (
+	// VELLUM_PROVENANCE_MALFORMED indicates an artifact carries something that
+	// is recognisably an attempt at an embedded provenance record — a
+	// docProps/custom.xml property under the Vellum prefix, or a vellum:*
+	// property inside an XMP packet — that does not parse as the shape
+	// [provenance.Extract] or [provenance.ExtractPDF] expects: a malformed
+	// timestamp, a vellum:record property whose value is not the JSON
+	// [provenance.Record.Hash] digests, or custom-properties XML that does
+	// not parse at all. Distinct from an artifact carrying no provenance at
+	// all, which both functions report honestly as an absent record rather
+	// than as an error — a file most callers hand them, since automatic
+	// embedding during Compose is not wired in yet.
+	VELLUM_PROVENANCE_MALFORMED Code = "VELLUM_PROVENANCE_MALFORMED"
+)
+
+// CLI domain — the command-line shell over the library facade. Every failure
+// here is about how the CLI itself was invoked, not about the content the
+// facade was asked to act on; the facade's own coded errors (VELLUM_SPEC_*,
+// VELLUM_TEMPLATE_*, and so on) pass through the CLI unchanged rather than
+// being wrapped in one of these.
+const (
+	// VELLUM_CLI_USAGE indicates a flag or argument combination the CLI
+	// cannot act on: an unrecognised --format value, a required flag or
+	// positional argument left unset, or two flags whose combination is
+	// meaningless together. Raised before the facade is ever called.
+	VELLUM_CLI_USAGE Code = "VELLUM_CLI_USAGE"
+
+	// VELLUM_CLI_INPUT_NOT_FOUND indicates a file path a flag or positional
+	// argument named could not be opened — it does not exist, or the process
+	// lacks permission to read it. Distinct from VELLUM_CLI_USAGE because the
+	// flag itself was well-formed; what it pointed at was not there.
+	VELLUM_CLI_INPUT_NOT_FOUND Code = "VELLUM_CLI_INPUT_NOT_FOUND"
+
+	// VELLUM_CLI_OUTPUT_CONFLICT indicates a command was asked to write both
+	// a binary artifact and a --json envelope to the same stdout stream with
+	// no -o/--output file named. The two cannot share one stream: a reader
+	// expecting one JSON document would receive JSON with an artifact's raw
+	// bytes spliced into the middle of it. Raised before either is written,
+	// rather than corrupting stdout and reporting nothing.
+	VELLUM_CLI_OUTPUT_CONFLICT Code = "VELLUM_CLI_OUTPUT_CONFLICT"
+
+	// VELLUM_CLI_NOT_IMPLEMENTED indicates a verb the CLI registers — so it
+	// appears in --help and in shell completion — but does not yet run: mcp
+	// and doctor, which land with E12-S2 and E12-S4. A stub registration
+	// rather than an absent command, so those stories extend a working
+	// framework instead of each wiring CLI plumbing from scratch.
+	VELLUM_CLI_NOT_IMPLEMENTED Code = "VELLUM_CLI_NOT_IMPLEMENTED"
+)
+
 // INTERNAL domain — invariants that no author input can violate.
 const (
 	// VELLUM_INTERNAL_INVARIANT indicates a condition Vellum believed
@@ -883,6 +935,15 @@ var allCodes = []Code{
 
 	// ARTIFACT
 	VELLUM_ARTIFACT_MODEL_UNSUPPORTED,
+
+	// PROVENANCE
+	VELLUM_PROVENANCE_MALFORMED,
+
+	// CLI
+	VELLUM_CLI_USAGE,
+	VELLUM_CLI_INPUT_NOT_FOUND,
+	VELLUM_CLI_OUTPUT_CONFLICT,
+	VELLUM_CLI_NOT_IMPLEMENTED,
 
 	// INTERNAL
 	VELLUM_INTERNAL_INVARIANT,

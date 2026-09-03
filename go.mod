@@ -6,6 +6,7 @@ require (
 	github.com/go-text/typesetting v0.3.4
 	github.com/pbinitiative/feel v1.0.6
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
+	github.com/urfave/cli/v3 v3.11.0
 	golang.org/x/image v0.45.0
 	golang.org/x/text v0.41.0
 	sigs.k8s.io/yaml v1.6.0
