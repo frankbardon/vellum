@@ -866,6 +866,16 @@ var codeMetadata = map[Code]Metadata{
 		}},
 	},
 
+	VELLUM_ARTIFACT_MODEL_UNSUPPORTED: {
+		Message: "the value is not one of the four resolved format models a Vellum writer accepts",
+		// Always a bug in the caller: Write dispatches on the value's own Go
+		// type, and a caller who built a *doc.Document, *sheet.Workbook,
+		// *deck.Deck or *pdf.Document directly already knows which one it
+		// built. A caller composing from spec.Spec blocks wants Compose
+		// instead, which never rejects on this code.
+		FixupNotApplicable: true,
+	},
+
 	VELLUM_INTERNAL_INVARIANT: {
 		Message: "an internal invariant was violated",
 		// No input change resolves this. It is always a Vellum bug, and

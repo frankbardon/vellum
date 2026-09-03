@@ -730,6 +730,19 @@ const (
 	VELLUM_DEFRAG_RANGE_INVALID Code = "VELLUM_DEFRAG_RANGE_INVALID"
 )
 
+// ARTIFACT domain — the public facade's dispatch between a resolved format
+// model and the writer that emits it.
+const (
+	// VELLUM_ARTIFACT_MODEL_UNSUPPORTED indicates the public facade's Write
+	// method was given a value that is not one of the four resolved format
+	// models a Vellum writer accepts: *doc.Document, *sheet.Workbook,
+	// *deck.Deck or *pdf.Document. Always a bug in the caller assembling the
+	// value — never something a specification's own content can trigger,
+	// since this path never runs resolve.Resolve at all. A caller composing
+	// from spec.Spec blocks wants Compose, not Write.
+	VELLUM_ARTIFACT_MODEL_UNSUPPORTED Code = "VELLUM_ARTIFACT_MODEL_UNSUPPORTED"
+)
+
 // INTERNAL domain — invariants that no author input can violate.
 const (
 	// VELLUM_INTERNAL_INVARIANT indicates a condition Vellum believed
@@ -867,6 +880,9 @@ var allCodes = []Code{
 	VELLUM_BIND_VALUE_UNSUPPORTED_TYPE,
 	VELLUM_BIND_ANCHOR_UNKNOWN,
 	VELLUM_BIND_ANCHOR_UNRECONCILED,
+
+	// ARTIFACT
+	VELLUM_ARTIFACT_MODEL_UNSUPPORTED,
 
 	// INTERNAL
 	VELLUM_INTERNAL_INVARIANT,

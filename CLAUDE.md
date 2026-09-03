@@ -110,7 +110,7 @@ Fill
 | Package | Role |
 |---|---|
 | `vellum.go`, `aliases.go` | Public facade: `Options`, `New`, `Compose`, `Validate`, `Fill`, `Inspect`, `Boxes`, `Capabilities`, `ArtifactName`, `Write`. Root aliases so embedders write `vellum.Spec`. |
-| `artifact/` | `Format` enum, `AllFormats()`, the `Writer` interface, `WriteOptions`, `Report`. |
+| `artifact/` | `Format` enum, `AllFormats()`, `Report`. No unifying `Writer`/`WriteOptions`: each format's `WriteOptions` carries genuinely different fields (PDF's `PageTree`/`Uncompressed` have no OOXML counterpart, the OOXML formats' `Producer` has no PDF one), so `vellum.go`'s `Compose`/`Write` dispatch on `artifact.Format` and on the model's own concrete type directly rather than through a common interface that would need to erase that difference. |
 | `errors/` | `VELLUM_*` code registry, `CodedError`, `Fixup`/`Metadata` table. |
 | `canon/` | `CanonicalHash(tag, v)` and the JSON canonicaliser. Sole owner of the algorithm. |
 | `fs/` | `afero.Fs` configuration. |
@@ -148,7 +148,7 @@ Fill
 
 ### Naming
 
-- Error codes: `VELLUM_<AREA>_<CATEGORY>`, SCREAMING_SNAKE. Areas: `SPEC`, `THEME`, `FONT`, `ASSET`, `TABLE`, `MARK`, `OVERFLOW`, `CAPABILITY`, `OPC`, `ZIP`, `DOC`, `SHEET`, `DECK`, `PDF`, `PDFA`, `TEMPLATE`, `ANCHOR`, `DEFRAG`, `BIND`, `INGEST`, `PROVENANCE`, `CLI`, `MCP`.
+- Error codes: `VELLUM_<AREA>_<CATEGORY>`, SCREAMING_SNAKE. Areas: `SPEC`, `THEME`, `FONT`, `ASSET`, `TABLE`, `MARK`, `OVERFLOW`, `CAPABILITY`, `OPC`, `ZIP`, `DOC`, `SHEET`, `DECK`, `PDF`, `PDFA`, `TEMPLATE`, `ANCHOR`, `DEFRAG`, `BIND`, `INGEST`, `PROVENANCE`, `CLI`, `MCP`, `ARTIFACT`.
 - Block kinds and formats are lowercase wire strings (`"heading"`, `"page_break"`, `"pptx"`).
 - Constructors: `New<Thing>` exported, `new<thing>` unexported factories.
 - Registries: `<thing>Registry` unexported package var; `All<Thing>s()` exported, copy-returning.

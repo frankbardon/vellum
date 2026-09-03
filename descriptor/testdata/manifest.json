@@ -1088,6 +1088,7 @@
     "ANCHOR",
     "DEFRAG",
     "BIND",
+    "ARTIFACT",
     "INTERNAL"
   ],
   "error_codes": [
@@ -1175,9 +1176,10 @@
     "VELLUM_BIND_VALUE_UNSUPPORTED_TYPE",
     "VELLUM_BIND_ANCHOR_UNKNOWN",
     "VELLUM_BIND_ANCHOR_UNRECONCILED",
+    "VELLUM_ARTIFACT_MODEL_UNSUPPORTED",
     "VELLUM_INTERNAL_INVARIANT"
   ],
-  "error_codes_count": 85,
+  "error_codes_count": 86,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: fafb8ebe5975f6b061157a0f73666117e62113e52ed0e0bf7ea26f1d720edf4b
+// golden-hash: a91ce94350e53b8280b1c696d589aacb2904924f3cdec36099f87ec922acbf6d
