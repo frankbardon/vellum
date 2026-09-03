@@ -481,6 +481,84 @@ func TestResolve_ConsumerTextWinsOverTheFormattedValue(t *testing.T) {
 	}
 }
 
+// TestResolve_HeaderSpanIsDerivedWhenZero pins the bug fix: a header node
+// whose Span is left at zero — the documented "derive it" default from the
+// children's own widths — must reach the fragment tree with the derived
+// value, not the raw zero. Copying Span verbatim would leave every writer's
+// own "if span < 1 { span = 1 }" fallback silently clamping a wide parent
+// banner down to a single column.
+func TestResolve_HeaderSpanIsDerivedWhenZero(t *testing.T) {
+	table := &spec.Table{
+		ColumnHeaders: spec.HeaderTree{
+			{
+				// Span left at zero: must derive to 3, the sum of its
+				// children, not clamp to 1.
+				Label: "Group",
+				Children: []spec.HeaderNode{
+					{Label: "A", Span: 1},
+					{Label: "B", Span: 1},
+					{Label: "C", Span: 1},
+				},
+			},
+		},
+		Body: [][]spec.Cell{{{}, {}, {}}},
+	}
+	res := resolveDoc(t, doc(spec.Block{Kind: spec.BlockTable, Table: table}),
+		resolve.Options{Format: artifact.FormatDOCX})
+
+	headers := res.Doc.Sections[0].Blocks[0].Table.ColumnHeaders
+	if len(headers) != 1 {
+		t.Fatalf("got %d top-level headers, want 1", len(headers))
+	}
+	if headers[0].Span != 3 {
+		t.Errorf("Span = %d, want 3 (derived from the three children), not clamped to 1", headers[0].Span)
+	}
+	if len(headers[0].Children) != 3 {
+		t.Fatalf("got %d children, want 3", len(headers[0].Children))
+	}
+	for i, want := range []int{1, 1, 1} {
+		if headers[0].Children[i].Span != want {
+			t.Errorf("child %d Span = %d, want %d", i, headers[0].Children[i].Span, want)
+		}
+	}
+}
+
+// TestResolve_HeaderSpanDerivesRecursivelyThroughMultipleLevels pins the
+// multi-level case: a parent's own derived width depends on its children's
+// derived widths, which may themselves be left at zero.
+func TestResolve_HeaderSpanDerivesRecursivelyThroughMultipleLevels(t *testing.T) {
+	table := &spec.Table{
+		ColumnHeaders: spec.HeaderTree{
+			{
+				Label: "Top",
+				Children: []spec.HeaderNode{
+					{
+						// Also left at zero: must derive to 2 from its own
+						// two leaf children before "Top" sums it.
+						Label: "Mid",
+						Children: []spec.HeaderNode{
+							{Label: "X", Span: 1},
+							{Label: "Y", Span: 1},
+						},
+					},
+					{Label: "Z", Span: 1},
+				},
+			},
+		},
+		Body: [][]spec.Cell{{{}, {}, {}}},
+	}
+	res := resolveDoc(t, doc(spec.Block{Kind: spec.BlockTable, Table: table}),
+		resolve.Options{Format: artifact.FormatDOCX})
+
+	top := res.Doc.Sections[0].Blocks[0].Table.ColumnHeaders[0]
+	if top.Span != 3 {
+		t.Errorf("Top.Span = %d, want 3", top.Span)
+	}
+	if top.Children[0].Span != 2 {
+		t.Errorf("Mid.Span = %d, want 2 (derived from its own two children)", top.Children[0].Span)
+	}
+}
+
 func TestResolve_BadFormatCodeIsLocated(t *testing.T) {
 	table := &spec.Table{
 		ColumnHeaders: spec.HeaderTree{{Label: "x", Span: 1}},

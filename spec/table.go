@@ -232,6 +232,17 @@ func (t HeaderTree) Width() (int, error) {
 	return total, nil
 }
 
+// Width returns this node's own effective span: its declared Span when
+// non-zero (checked against its children, for a parent), or the derived
+// value when Span is left at zero — one for a leaf, the sum of the
+// children's own derived widths for a parent. It is the same derivation
+// [HeaderTree.Width] applies across a forest, exposed per node so a caller
+// building a downstream tree can carry the derived value forward rather than
+// a zero a reader would otherwise clamp.
+func (n *HeaderNode) Width() (int, error) {
+	return n.width(nil)
+}
+
 func (n *HeaderNode) width(path []string) (int, error) {
 	path = append(path, n.Label)
 

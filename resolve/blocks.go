@@ -239,10 +239,19 @@ func (r *resolver) resolveTable(t *spec.Table, base fragment.TextStyle, sectionI
 	headerStyle.Color = r.color(theme.ColorTableHeaderText, headerStyle.Color)
 	headerStyle.Background = r.color(theme.ColorTableHeaderBackground, "")
 
+	columnHeaders, err := r.resolveHeaders(t.ColumnHeaders, headerStyle, sectionIndex, blockIndex)
+	if err != nil {
+		return nil, err
+	}
+	rowHeaders, err := r.resolveHeaders(t.RowHeaders, headerStyle, sectionIndex, blockIndex)
+	if err != nil {
+		return nil, err
+	}
+
 	out := &fragment.Table{
 		Width:         width,
-		ColumnHeaders: r.resolveHeaders(t.ColumnHeaders, headerStyle, sectionIndex, blockIndex),
-		RowHeaders:    r.resolveHeaders(t.RowHeaders, headerStyle, sectionIndex, blockIndex),
+		ColumnHeaders: columnHeaders,
+		RowHeaders:    rowHeaders,
 	}
 	if t.Caption != "" {
 		captionStyle := r.baseStyle(theme.FontBody, r.theme.Type.Caption)
@@ -267,21 +276,42 @@ func (r *resolver) resolveTable(t *spec.Table, base fragment.TextStyle, sectionI
 	return out, nil
 }
 
-func (r *resolver) resolveHeaders(tree spec.HeaderTree, style fragment.TextStyle, sectionIndex, blockIndex int) fragment.HeaderTree {
+// resolveHeaders builds the fragment header tree that every writer renders
+// from, deriving each node's own effective span the same way
+// [spec.HeaderNode.Width] does — rather than copying a possibly-zero Span
+// verbatim, which every writer's own "if span < 1 { span = 1 }" fallback
+// would then silently clamp to one regardless of how many children the
+// header actually has.
+func (r *resolver) resolveHeaders(tree spec.HeaderTree, style fragment.TextStyle, sectionIndex, blockIndex int) (fragment.HeaderTree, error) {
 	if len(tree) == 0 {
-		return nil
+		return nil, nil
 	}
 	out := make(fragment.HeaderTree, 0, len(tree))
 	for i := range tree {
 		n := &tree[i]
+		span, err := n.Width()
+		if err != nil {
+			// Unreachable in practice: capability.Validate runs
+			// spec.Table.Validate before resolve.Resolve is ever called, and
+			// Validate derives this same width across the whole tree — a
+			// specification that fails to derive cleanly here would already
+			// have been rejected there.
+			return nil, verr.WrapCodedErrorWithDetails(err, verr.VELLUM_INTERNAL_INVARIANT,
+				"a header node's span failed to derive after validation already accepted the table",
+				map[string]any{"section_index": sectionIndex, "block_index": blockIndex, "header_label": n.Label})
+		}
+		children, err := r.resolveHeaders(n.Children, style, sectionIndex, blockIndex)
+		if err != nil {
+			return nil, err
+		}
 		out = append(out, fragment.HeaderNode{
 			Label:    n.Label,
-			Span:     n.Span,
-			Children: r.resolveHeaders(n.Children, style, sectionIndex, blockIndex),
+			Span:     span,
+			Children: children,
 			Style:    r.applyMarks(style, n.Marks, sectionIndex, blockIndex),
 		})
 	}
-	return out
+	return out, nil
 }
 
 func (r *resolver) resolveCell(c *spec.Cell, base fragment.TextStyle, sectionIndex, blockIndex, row, col int) (fragment.Cell, error) {
