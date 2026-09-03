@@ -71,22 +71,17 @@ The determinism harness (1000x-per-golden repeat, cross-process, multiple
    same fragmentation strategies, but a real corpus is the stronger proof
    and remains outstanding.
 
-## QA findings tracked through the epics, status at release
+## QA findings tracked through the epics, final status
 
 Per standing instruction, every QA issue identified during the build was to
-be closed before final merge. Status of each, honestly:
+be closed before final merge. Final status of each:
 
 1. **`resolve.resolveHeaders` never derives `HeaderNode.Span`.** Found
-   during E6-S4. `spec.HeaderNode.Span`'s own doc comment promises "zero
-   means derive it," and `spec.Table.Validate()` honours that, but
-   `resolve/blocks.go` copies `Span` verbatim without deriving it — a parent
-   header's banner width silently mis-renders if `Span` isn't stated by
-   hand. **Unfixed.** No golden fixture in the corpus currently exercises
-   this (every hand-authored fixture states `Span` explicitly by
-   convention), so it has not caused an observed failure, but it is a real
-   latent bug. Recommended: fix in `resolve/blocks.go` before v0.1.0, or
-   explicitly accept as a known limitation and document the "always state
-   `Span` explicitly" requirement in `skills/block-table.md`.
+   during E6-S4. **Fixed.** `spec.HeaderNode` gained an exported `Width()`
+   wrapping its existing private derivation; `resolveHeaders` now derives
+   each node's span bottom-up instead of copying `Span` verbatim. Two new
+   tests (`resolve/resolve_test.go`) prove single- and multi-level
+   recursive derivation. No golden touched.
 2. **`go.mod`: `go-text/typesetting` indirect→direct.** **Fixed**,
    incidentally, during E10-S2.
 3. **`template/defrag`'s `Piece`/`RenderRun` don't clone a run's own
@@ -95,43 +90,47 @@ be closed before final merge. Status of each, honestly:
    own internal revision-bookkeeping with no visible formatting or semantic
    effect, and nothing in CLAUDE.md's conformance requirements depends on
    them surviving a fill. Not a release blocker; revisit only if the real
-   defrag corpus (item above) or a future acceptance criterion needs rsid
+   defrag corpus (item below) or a future acceptance criterion needs rsid
    fidelity.
 4. **No directory-backed `theme.Provider`/`asset.Resolver`;
-   `VELLUM_THEME_DIR`/`VELLUM_ASSET_DIR`/`VELLUM_SOURCE_DATE_EPOCH`
-   documented in CLAUDE.md's Build/Env section but not read from the
-   environment by any code path.** Found while scoping E12-S4 (`doctor`).
-   There is also no `fs/` package despite CLAUDE.md's own package-map row
-   naming one; `afero` is a declared dependency but appears in no import
-   graph. `vellum doctor` diagnoses whether a configured directory *looks*
-   usable without implementing the provider that would consume it — by
-   design, out of that story's scope. **Unfixed.** This is a real gap
-   between CLAUDE.md's documented behaviour and actual code: either build a
-   small `fs`-backed provider pair before release, or correct CLAUDE.md's
-   Build/Env section to state plainly that these three variables are
-   reserved for a future release rather than implemented today.
-5. **`vellum_skills`/`vellum_examples` MCP tools are registered and
-   discoverable via `tools/list` but their handlers unconditionally return
-   `VELLUM_MCP_NOT_IMPLEMENTED`.** Found during E13-S4. Both `skills/`
-   (E13-S1) and `examples/` (E13-S2) now exist with working `All()`/`Get()`
-   loaders — the stubs in `mcp/handlers.go` predate both packs and were
-   never revisited once the content they were meant to serve landed. This
-   is the freshest and most clear-cut of the five: a client sees a tool
-   advertised and gets an error calling it. **Recommended: fix before
-   v0.1.0** — this is a small, well-scoped wiring change (`handleSkills` →
-   `skills.Get`/`skills.All`, `handleExamples` → `examples.Get`/
-   `examples.All`), not a design question, unlike items 1 and 4 above.
+   `VELLUM_THEME_DIR`/`VELLUM_ASSET_DIR` documented but not read from the
+   environment by any code path; no `fs/` package despite CLAUDE.md's own
+   package-map row.** Found while scoping E12-S4 (`doctor`). **Fixed.** A
+   new `fs/` package (`fs.Default()`, `fs.SafeJoin` — the shared
+   path-traversal guard, since a directory-backed resolver's handle comes
+   from a specification this library did not author) backs new
+   `theme.DirProvider` and `asset.DirResolver` types, both hermetically
+   tested against `afero.NewMemMapFs()`. `internal/cli/facade.go`'s
+   `newFacade()` wires both from `VELLUM_THEME_DIR`/`VELLUM_ASSET_DIR` when
+   set (unchanged zero-value behaviour otherwise) and validates
+   `VELLUM_MAX_ASSET_BYTES` loudly (`VELLUM_CLI_USAGE`) rather than
+   silently ignoring a malformed value. `afero` is now a real `go.mod`
+   dependency, matching what CLAUDE.md's Dependencies table already
+   claimed. `VELLUM_SOURCE_DATE_EPOCH` was explicitly left out of this fix
+   — it is a separate question (facade-construction timing vs. CLI flag
+   precedence) and remains genuinely unread from the environment by any
+   code path today; `doctor`'s own honest note about that stands.
+5. **`vellum_skills`/`vellum_examples` MCP tools registered but their
+   handlers unconditionally returned `VELLUM_MCP_NOT_IMPLEMENTED`.** Found
+   during E13-S4. **Fixed.** Both handlers now call the real `skills.Get`/
+   `skills.All` and `examples.Get`/`examples.All`. `SkillsOut`/`ExamplesOut`
+   gained a `Names []string` field for the empty-name listing case,
+   mutually exclusive with `Content` on the wire. Not-found reuses the
+   existing `VELLUM_MCP_INVALID_INPUT` code. Verified end-to-end against
+   the real built binary as an MCP stdio server.
 
 ## Recommendation
 
-Items 2 is closed. Items 1, 3, 4 and 5 are open. Item 3 is a deliberate,
-documented non-issue. Items 1, 4 and 5 are real gaps a maintainer should
-decide on explicitly rather than let a v0.1.0 tag imply they were reviewed
-and accepted silently — item 5 in particular is cheap to close outright.
-The two manual items (Word/Excel-on-Windows, defrag corpus) cannot be closed
-in this environment and are recorded here as the accepted, open state of a
-v0.1.0 release rather than blockers to it, consistent with `interview.md`'s
-own original decision to defer the real corpus.
+**All five QA findings are closed** — one deliberately as a documented
+non-issue (item 3), four fixed with tests and, where practical, real
+end-to-end verification against the built binary. `make test && make lint`
+are green with all fixes applied. Nothing tracked through the epics remains
+open.
+
+The two manual items below cannot be closed in this environment and remain
+the accepted, open state of a v0.1.0 release rather than blockers to it,
+consistent with `interview.md`'s own original decision to defer the real
+corpus.
 
 No git tag has been created as part of this document. Tagging and pushing a
 release remain actions for the maintainer to take explicitly.
