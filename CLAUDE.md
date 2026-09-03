@@ -547,8 +547,8 @@ Determinism:
 - `TestNoCgoImports` — nothing imports `"C"`; paired with the `CGO_ENABLED=0` build step.
 
 Non-destructiveness and fill:
-- `TestNonDestructiveCorpus` — after a fill, every part not in `Result.Touched` is byte-identical to the source. The fixture carries tracked changes, comments, a custom XML part, footnotes and an embedded OLE object.
-- `TestDefragCorpusComplete` — a case directory under `testdata/corpus/defrag/` without its `expect.json` fails the build. Live from day one, including while the corpus is empty.
+- `TestNonDestructiveCorpus` — after a fill, every part outside the anchors' own part is byte-identical to the source, checked with `bytes.Equal` part for part (there is no `Result.Touched` receipt yet — that lands with E10's `Fill` orchestrator; this story drives discovery, defrag and splice directly). The fixture carries tracked changes, a comment, a custom XML part, footnotes and an embedded OLE object.
+- `TestDefragCorpusComplete` — a case directory under `testdata/corpus/defrag/` missing its `expect.json` fails the build, and so does an `expect.json` with no matching fixture. Live from day one, including while the corpus is empty.
 - `TestBindBannedBuiltinsComplete` — the nondeterministic-builtin registry covers everything `bind.Validate` rejects.
 
 Fuzz (bounded smoke run per PR; the job is to keep the targets compiling and re-exercise the committed corpus, not to run a campaign):
