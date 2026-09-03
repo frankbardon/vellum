@@ -917,6 +917,14 @@ var codeMetadata = map[Code]Metadata{
 		}},
 	},
 
+	VELLUM_CLI_DOCTOR_FAILED: {
+		Message: "one or more `vellum doctor` checks reported a problem",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "Run `vellum doctor --json` and inspect data.checks for the failing entries — each names what is wrong (a broken built-in theme, an unreadable VELLUM_THEME_DIR/VELLUM_ASSET_DIR, a malformed VELLUM_MAX_ASSET_BYTES/VELLUM_SOURCE_DATE_EPOCH, or an unwritable target directory) and its own detail string.",
+		}},
+	},
+
 	VELLUM_MCP_INVALID_INPUT: {
 		Message: "the tool call's arguments do not satisfy its declared input contract",
 		Fixups: []Fixup{{

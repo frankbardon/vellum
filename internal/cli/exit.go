@@ -121,16 +121,6 @@ func outputConflictErr() error {
 		map[string]any{"hint": "pass -o/--output to name a file for the artifact"}))
 }
 
-// notImplementedErr constructs the VELLUM_CLI_NOT_IMPLEMENTED failure a stub
-// verb (mcp, doctor) returns when actually invoked. Exit code 1 rather than
-// 2: the invocation itself was fine — the verb exists and was spelled
-// correctly — it is running it that does not yet work.
-func notImplementedErr(verb, landsIn string) error {
-	return failErr(verr.NewCodedErrorWithDetails(verr.VELLUM_CLI_NOT_IMPLEMENTED,
-		"this verb is registered but does not run yet",
-		map[string]any{"verb": verb, "lands_in": landsIn}))
-}
-
 // failErr wraps err as an operation failure (exit code 1): the command was
 // well-formed and the facade call it made returned this error.
 func failErr(err error) error {

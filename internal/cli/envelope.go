@@ -23,6 +23,25 @@ func writeEnvelope(w io.Writer, data any) error {
 	return enc.Encode(descriptor.NewEnvelope(data))
 }
 
+// writeEnvelopeWithError writes an envelope carrying both data and, when err
+// is non-nil, err added through [descriptor.Envelope.AddCodedError].
+//
+// This is for the one shape reportError/writeEnvelope's either/or split does
+// not cover: a command (doctor) that always has a full, inspectable result to
+// report and only sometimes also failed. Every other verb's result either
+// succeeds with data or fails with no data, so this stays here rather than
+// becoming a third general-purpose helper other verbs reach for.
+func writeEnvelopeWithError(w io.Writer, data any, err error) error {
+	env := descriptor.NewEnvelope(data)
+	if err != nil {
+		env.AddCodedError(err)
+	}
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	return enc.Encode(env)
+}
+
 // writeEnvelopeError writes an envelope whose only content is err, added
 // through [descriptor.Envelope.AddCodedError] so a *errors.CodedError keeps
 // its code and structured details rather than being flattened to a string.

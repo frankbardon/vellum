@@ -1227,12 +1227,13 @@
     "VELLUM_CLI_INPUT_NOT_FOUND",
     "VELLUM_CLI_OUTPUT_CONFLICT",
     "VELLUM_CLI_NOT_IMPLEMENTED",
+    "VELLUM_CLI_DOCTOR_FAILED",
     "VELLUM_MCP_INVALID_INPUT",
     "VELLUM_MCP_UNKNOWN_TOOL",
     "VELLUM_MCP_NOT_IMPLEMENTED",
     "VELLUM_INTERNAL_INVARIANT"
   ],
-  "error_codes_count": 94,
+  "error_codes_count": 95,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: 425b02822e1474f7f80178ea9abb0bab52e73bf96e415f30290a7fe1a30e152d
+// golden-hash: 3cfa349d189ab5874fbe29aaa181434274ca1ad989b30226d68116e6393ebe44

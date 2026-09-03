@@ -788,11 +788,26 @@ const (
 	VELLUM_CLI_OUTPUT_CONFLICT Code = "VELLUM_CLI_OUTPUT_CONFLICT"
 
 	// VELLUM_CLI_NOT_IMPLEMENTED indicates a verb the CLI registers — so it
-	// appears in --help and in shell completion — but does not yet run: mcp
-	// and doctor, which land with E12-S2 and E12-S4. A stub registration
-	// rather than an absent command, so those stories extend a working
-	// framework instead of each wiring CLI plumbing from scratch.
+	// appears in --help and in shell completion — but does not yet run. Used
+	// by mcp and doctor while they were stubs (through E12-S2 and E12-S4
+	// respectively; both now run for real), and reserved for the same
+	// pattern the next time a verb is registered ahead of its own story: a
+	// stub registration rather than an absent command, so that later story
+	// extends a working framework instead of wiring CLI plumbing from
+	// scratch.
 	VELLUM_CLI_NOT_IMPLEMENTED Code = "VELLUM_CLI_NOT_IMPLEMENTED"
+
+	// VELLUM_CLI_DOCTOR_FAILED indicates `vellum doctor` ran every diagnostic
+	// check it knows and at least one reported a problem: a broken built-in
+	// theme, a VELLUM_THEME_DIR or VELLUM_ASSET_DIR naming a path that is not
+	// a readable directory, a malformed VELLUM_MAX_ASSET_BYTES or
+	// VELLUM_SOURCE_DATE_EPOCH, an ICC profile that failed to build, or an
+	// unwritable target directory. doctor always runs every check regardless
+	// of earlier failures and reports all of them in Data; this code only
+	// signals, for a script gating on exit status, that Data.ok is false —
+	// the check-by-check detail lives in the error's own details and in the
+	// envelope's data, never only in this code's message.
+	VELLUM_CLI_DOCTOR_FAILED Code = "VELLUM_CLI_DOCTOR_FAILED"
 )
 
 // MCP domain — the Model Context Protocol surface: typed tool contracts over
@@ -972,6 +987,7 @@ var allCodes = []Code{
 	VELLUM_CLI_INPUT_NOT_FOUND,
 	VELLUM_CLI_OUTPUT_CONFLICT,
 	VELLUM_CLI_NOT_IMPLEMENTED,
+	VELLUM_CLI_DOCTOR_FAILED,
 
 	// MCP
 	VELLUM_MCP_INVALID_INPUT,
