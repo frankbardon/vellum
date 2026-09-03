@@ -140,9 +140,9 @@ func runDoctorChecks(dir string) *DoctorReport {
 	checks = append(checks, checkThemeFonts(th)...)
 
 	checks = append(checks, checkDirEnv("VELLUM_THEME_DIR",
-		"unset means the built-in theme only — no directory-backed theme.Provider reads this path today"))
+		"unset means the built-in theme only; set, newFacade wires a theme.DirProvider over this directory"))
 	checks = append(checks, checkDirEnv("VELLUM_ASSET_DIR",
-		"unset means inline assets only — no directory-backed asset.Resolver reads this path today"))
+		"unset means inline assets only; set, newFacade wires an asset.DirResolver over this directory"))
 
 	checks = append(checks, checkMaxAssetBytesEnv())
 	checks = append(checks, checkSourceDateEpochEnv())
@@ -214,12 +214,12 @@ func checkThemeFonts(th *theme.Theme) []DoctorCheck {
 // checkDirEnv reports whether the directory named by the environment
 // variable name looks usable: it exists, is a directory, and is readable.
 //
-// It deliberately stops there. No directory-backed [theme.Provider] or
-// [asset.Resolver] exists anywhere in this codebase today that would
-// actually read this path — this check reports on the directory a future
-// consumer might point one at, the same way a diagnostic tool reports on an
-// optional dependency without implementing the feature that would consume
-// it.
+// It deliberately stops there rather than attempting a theme decode or an
+// asset resolve against the directory: [newFacade] wires a
+// [theme.DirProvider] or an [asset.DirResolver] over this same path when the
+// variable is set, and doctor's job is to report on the directory itself —
+// existence, type, readability — not to duplicate what a render against it
+// would already surface.
 func checkDirEnv(name, unsetDetail string) DoctorCheck {
 	checkName := "env." + strings.ToLower(name)
 	val := os.Getenv(name)
@@ -241,9 +241,10 @@ func checkDirEnv(name, unsetDetail string) DoctorCheck {
 
 // checkMaxAssetBytesEnv reports whether VELLUM_MAX_ASSET_BYTES, when set,
 // parses as a positive int64 — the type [asset.Options.MaxBytes] itself
-// carries. Nothing in this codebase reads this variable from the
-// environment today; this check is syntactic only, the same honest limit
-// [checkSourceDateEpochEnv] states for its own variable.
+// carries, and the exact parse [newFacade] performs when it constructs the
+// facade every verb uses. A value this check rejects is one newFacade
+// rejects too, with VELLUM_CLI_USAGE, so a malformed variable is caught here
+// before it is caught by whichever command happens to run first.
 func checkMaxAssetBytesEnv() DoctorCheck {
 	const name = "VELLUM_MAX_ASSET_BYTES"
 	checkName := "env." + strings.ToLower(name)
