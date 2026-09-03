@@ -52,6 +52,9 @@ func Cases() []Case {
 		pdfComposeCase(),
 		pdfTableCase(),
 		xlsxComposeCase(),
+		fillDOCXCase(),
+		fillXLSXCase(),
+		fillPPTXCase(),
 	}
 }
 

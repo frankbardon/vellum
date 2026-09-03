@@ -158,6 +158,64 @@ var officeExpectations = map[string]officeExpectation{
 			"Figure",
 		},
 	},
+
+	// The three fill-mode cases below are the first fill-mode goldens this
+	// harness carries (E11-S3). Filling is a different code path from
+	// composing — it never runs doc/sheet/deck.Lower, it rewrites an existing
+	// package's own parts through xmlcopy.Apply — so a reader opening one of
+	// these proves something none of the compose-mode rows above do: that a
+	// *filled* template, not merely a Vellum-authored document, is a file a
+	// real reader accepts.
+	"fill-docx": {
+		TextFilter: "txt:Text",
+		TextExt:    "txt",
+		WantText: []string{
+			// Untouched surrounding content, carried straight through from
+			// the template.
+			"Statement of account",
+			"Thank you for your business.",
+			// The plain bind and the if-driven bind, spliced into running
+			// text.
+			"Dear Acme & Co.,",
+			"VIP customer",
+			// The row repeat's own three rows, proving the repeat's output
+			// shape reached the file rather than only the golden's bytes.
+			"Widget", "Gadget", "Sprocket",
+		},
+	},
+	"fill-xlsx": {
+		TextFilter: "fods:OpenDocument Spreadsheet Flat XML",
+		TextExt:    "fods",
+		WantText: []string{
+			// Untouched surrounding content: the header row the table_row
+			// repeat did not need to touch.
+			"Customer", "Item", "Qty",
+			// The defined-name bind. The flat export is XML, so the
+			// ampersand the data carries is entity-escaped in the bytes this
+			// check reads (unlike fill-docx's own "txt:Text" filter, which
+			// produces plain text with a literal "&").
+			"Acme &amp; Co.",
+			// The table_row repeat's own three rows.
+			"Widget", "Gadget", "Sprocket",
+		},
+	},
+	"fill-pptx": {
+		// Flat ODP rather than a text filter, for the same reason
+		// pptx-master's own row states: Impress has no text export that
+		// accepts a file destination, and the slide-clone repeat's output is
+		// spread across several distinct slide parts, all reached through
+		// the flat export.
+		TextFilter: "fodp:OpenDocument Presentation Flat XML",
+		TextExt:    "fodp",
+		WantText: []string{
+			// The plain shape bind, entity-escaped for the same reason
+			// fill-xlsx's own row is.
+			"Acme &amp; Co.",
+			// The slide-clone repeat's own three clones, each carrying one
+			// item's own name.
+			"Widget", "Gadget", "Sprocket",
+		},
+	},
 }
 
 // officeExts are the extensions an office reader is expected to open. A golden
