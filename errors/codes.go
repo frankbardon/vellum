@@ -613,6 +613,22 @@ const (
 	// anchors being ill-formed rather than about a binding naming one that
 	// is not there at all.
 	VELLUM_BIND_ANCHOR_UNKNOWN Code = "VELLUM_BIND_ANCHOR_UNKNOWN"
+
+	// VELLUM_BIND_ANCHOR_UNRECONCILED indicates a pre-flight mismatch
+	// between a template's discovered anchor.Inventory and a binding's
+	// statement tree, found by [bind.Reconcile] before [bind.Execute] runs
+	// anything — FR-F6's "error on anchors present in the template but
+	// absent from the binding, and the reverse, unless explicitly marked
+	// optional". Unlike VELLUM_BIND_ANCHOR_UNKNOWN, which is raised by
+	// execution the first time it trips over one mismatch, this is raised
+	// once, structurally, and its details carry every mismatch found in one
+	// pass rather than only the first: a "problems" list, each entry naming
+	// the anchor and which direction it failed in — the binding references
+	// an anchor the template does not have and the reference is not marked
+	// [bind.Bind.Optional], or the template has an anchor the binding's
+	// statement tree never references and the anchor's name is not listed
+	// in [bind.Binding.OptionalAnchors].
+	VELLUM_BIND_ANCHOR_UNRECONCILED Code = "VELLUM_BIND_ANCHOR_UNRECONCILED"
 )
 
 // DEFRAG domain — fill-mode run defragmentation: flattening a container's
@@ -766,6 +782,7 @@ var allCodes = []Code{
 	VELLUM_BIND_VALUE_NOT_LIST,
 	VELLUM_BIND_VALUE_UNSUPPORTED_TYPE,
 	VELLUM_BIND_ANCHOR_UNKNOWN,
+	VELLUM_BIND_ANCHOR_UNRECONCILED,
 
 	// INTERNAL
 	VELLUM_INTERNAL_INVARIANT,

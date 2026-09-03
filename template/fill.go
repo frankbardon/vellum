@@ -75,19 +75,22 @@ func WithEvaluator(ev bind.Evaluator) FillOption {
 //  5. The clone and the sorted list of touched part names are returned as
 //     a *Result.
 //
+// Before any execution happens, bind.Reconcile checks the discovered
+// inventory against the whole of b's statement tree and returns every
+// mismatch it finds in one pass — FR-F6's "error on anchors present in the
+// template but absent from the binding, and the reverse, unless explicitly
+// marked optional" — so a binding author learns about every problem at
+// once rather than one at a time as execution happens to trip over them. A
+// reconciliation failure returns immediately: no clone is mutated, no
+// statement is executed, and the returned *Result is nil.
+//
 // A binding statement naming an anchor t's inventory does not discover, or
 // a repeat whose body's own anchors do not reconcile to one splice
-// container, fails loudly with a coded error rather than silently
-// splicing nothing — see bind.Execute's own errors,
-// verr.VELLUM_BIND_ANCHOR_UNKNOWN and
-// verr.VELLUM_TEMPLATE_REPEAT_CONTAINER_INVALID.
-//
-// Reconciling anchor presence against a binding before execution — every
-// non-optional anchor bound, every non-Optional binding's anchor present —
-// is E10-S4's job, layered in front of this call. Fill does not perform
-// that pre-flight check; it fails as soon as execution itself hits a
-// mismatch, which E10-S4 will make earlier and more complete rather than
-// inventing from nothing.
+// container, still fails loudly with a coded error rather than silently
+// splicing nothing if it somehow reaches execution regardless — see
+// bind.Execute's own errors, verr.VELLUM_BIND_ANCHOR_UNKNOWN and
+// verr.VELLUM_TEMPLATE_REPEAT_CONTAINER_INVALID — but bind.Reconcile is
+// expected to catch every VELLUM_BIND_ANCHOR_UNKNOWN case first.
 func Fill(t *Template, b *bind.Binding, data bind.Scope, opts ...FillOption) (*Result, error) {
 	if t == nil {
 		return nil, verr.NewCodedError(verr.VELLUM_INTERNAL_INVARIANT, "nil template")
@@ -105,6 +108,10 @@ func Fill(t *Template, b *bind.Binding, data bind.Scope, opts ...FillOption) (*R
 	if err != nil {
 		return nil, err
 	}
+	if err := bind.Reconcile(inv, b); err != nil {
+		return nil, err
+	}
+
 	anchors := make(map[string]anchor.Anchor, len(inv.Anchors))
 	for _, a := range inv.Anchors {
 		anchors[a.Name] = a

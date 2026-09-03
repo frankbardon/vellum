@@ -96,6 +96,34 @@ func TestHash_NilElseEqualsEmptyElse(t *testing.T) {
 	}
 }
 
+// TestHash_OptionalAnchorsIsASetNotASequence proves OptionalAnchors' own doc
+// comment: order and duplicate entries do not participate in the hash,
+// because two bindings differing only in how they spelled the same set of
+// deliberately-unbound anchor names mean the same thing.
+func TestHash_OptionalAnchorsIsASetNotASequence(t *testing.T) {
+	a := hashFixture()
+	a.OptionalAnchors = []string{"footer_note", "legal_disclaimer"}
+	b := hashFixture()
+	b.OptionalAnchors = []string{"legal_disclaimer", "footer_note"}
+	if a.Hash() != b.Hash() {
+		t.Error("OptionalAnchors order moved the hash")
+	}
+
+	c := hashFixture()
+	c.OptionalAnchors = []string{"footer_note", "footer_note", "legal_disclaimer"}
+	if a.Hash() != c.Hash() {
+		t.Error("a duplicate OptionalAnchors entry moved the hash")
+	}
+
+	d := hashFixture()
+	d.OptionalAnchors = nil
+	e := hashFixture()
+	e.OptionalAnchors = []string{}
+	if d.Hash() != e.Hash() {
+		t.Error("a nil OptionalAnchors hashed differently from an empty one")
+	}
+}
+
 func TestHash_ContentChangesMoveIt(t *testing.T) {
 	base := hashFixture().Hash()
 
@@ -124,6 +152,9 @@ func TestHash_ContentChangesMoveIt(t *testing.T) {
 		{"statement order", func(b *bind.Binding) {
 			s := b.Statements
 			s[0], s[2] = s[2], s[0]
+		}},
+		{"optional anchors content", func(b *bind.Binding) {
+			b.OptionalAnchors = []string{"footer_note"}
 		}},
 	}
 	for _, tt := range tests {

@@ -795,6 +795,14 @@ var codeMetadata = map[Code]Metadata{
 		}},
 	},
 
+	VELLUM_BIND_ANCHOR_UNRECONCILED: {
+		Message: "the template's discovered anchors and the binding's statements do not reconcile",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "The error's details list every mismatch found, each naming an anchor and a direction: \"missing_in_binding\" means the binding references an anchor the template does not have — rename it or mark the Bind statement optional: true if that is deliberate. \"missing_in_template\" means the template has an anchor the binding never references — add a bind statement for it, or list its name in the binding's optional_anchors if leaving it unbound is deliberate.",
+		}},
+	},
+
 	VELLUM_INTERNAL_INVARIANT: {
 		Message: "an internal invariant was violated",
 		// No input change resolves this. It is always a Vellum bug, and

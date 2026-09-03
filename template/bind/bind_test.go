@@ -296,6 +296,33 @@ func TestValidate_DeeplyNestedControlFlow(t *testing.T) {
 	}
 }
 
+// TestValidate_OptionalAnchorsRejectsEmptyEntry checks that an empty entry
+// in OptionalAnchors is caught the same way an empty Bind.Anchor is, rather
+// than silently doing nothing.
+func TestValidate_OptionalAnchorsRejectsEmptyEntry(t *testing.T) {
+	b := &bind.Binding{
+		Statements:      []bind.Statement{okBind("name")},
+		OptionalAnchors: []string{"unbound_note", ""},
+	}
+	err := b.Validate()
+	if !verr.HasCode(err, verr.VELLUM_BIND_INVALID) {
+		t.Fatalf("error = %v, want VELLUM_BIND_INVALID", err)
+	}
+}
+
+// TestValidate_OptionalAnchorsAcceptsAWellFormedList checks that a
+// well-formed OptionalAnchors list does not itself cause a validation
+// failure, independent of whatever [Reconcile] later does with it.
+func TestValidate_OptionalAnchorsAcceptsAWellFormedList(t *testing.T) {
+	b := &bind.Binding{
+		Statements:      []bind.Statement{okBind("name")},
+		OptionalAnchors: []string{"unbound_note", "unbound_footer"},
+	}
+	if err := b.Validate(); err != nil {
+		t.Fatalf("a well-formed OptionalAnchors list failed validation: %v", err)
+	}
+}
+
 // TestSkip_IsAnAnyStatementModifier checks that Skip is decodable and
 // carried on every statement kind, not only bind.
 func TestSkip_IsAnAnyStatementModifier(t *testing.T) {

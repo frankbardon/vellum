@@ -122,6 +122,29 @@ type Binding struct {
 
 	// Statements are the top-level bindings, evaluated in order.
 	Statements []Statement `json:"statements"`
+
+	// OptionalAnchors names template anchors this binding's author knows
+	// about and deliberately leaves unbound — the template-side half of
+	// FR-F6's "unless explicitly marked optional".
+	//
+	// [Bind.Optional] is the other half, and the two are not the same
+	// declaration read from two directions: Bind.Optional lives on a
+	// statement that *does* name an anchor, and says "this anchor may not
+	// exist in the template". OptionalAnchors is the opposite shape — it
+	// says something about an anchor the binding's statement tree never
+	// mentions at all, so it cannot live inside a Bind (there is no
+	// statement to attach it to) and lives here instead, flat on the
+	// binding itself.
+	//
+	// A name listed here that the binding's statement tree *does* also
+	// reference via a Bind.Anchor is not an error — it is simply never
+	// consulted, since [Reconcile]'s "anchor never referenced" check only
+	// looks at this list for anchors it did not already find bound.
+	//
+	// Order carries no meaning: it is a set of anchor names, not a
+	// sequence. [Reconcile] and [Hash] both treat two lists differing only
+	// in order or in duplicate entries as identical.
+	OptionalAnchors []string `json:"optional_anchors,omitempty"`
 }
 
 // Statement is a tagged union of the four control-layer kinds. Exactly one
@@ -253,7 +276,26 @@ func (b *Binding) Validate() error {
 	if len(b.Statements) == 0 {
 		return verr.NewCodedError(verr.VELLUM_BIND_INVALID, "binding has no statements")
 	}
-	return validateStatements(b.Statements, nil)
+	if err := validateStatements(b.Statements, nil); err != nil {
+		return err
+	}
+	return validateOptionalAnchors(b.OptionalAnchors)
+}
+
+// validateOptionalAnchors rejects an empty entry, the same construction
+// mistake an empty Bind.Anchor is rejected for and for the same reason: an
+// empty string would silently mean nothing while looking like a declared
+// anchor name.
+func validateOptionalAnchors(names []string) error {
+	for i, name := range names {
+		if name == "" {
+			return verr.NewCodedErrorWithDetails(verr.VELLUM_BIND_INVALID,
+				"optional_anchors contains an empty entry", map[string]any{
+					"path": pathString([]string{"OptionalAnchors", indexSegment(i)}),
+				})
+		}
+	}
+	return nil
 }
 
 func validateStatements(stmts []Statement, path []string) error {

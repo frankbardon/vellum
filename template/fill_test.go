@@ -219,6 +219,12 @@ func TestFill_SameTemplateFilledTwiceWithDifferentDataDoesNotInterfere(t *testin
 	}
 }
 
+// TestFill_UnknownAnchorIsCodedError proves a binding statement naming an
+// anchor the template does not discover fails Fill's own call, and that
+// this now happens through E10-S4's pre-flight bind.Reconcile — before
+// bind.Execute ever runs — rather than through execBind's own defensive
+// VELLUM_BIND_ANCHOR_UNKNOWN check that this story's Reconcile supersedes as
+// the earlier, complete check.
 func TestFill_UnknownAnchorIsCodedError(t *testing.T) {
 	raw := buildFillFixture(t)
 	tpl, err := template.Open(bytes.NewReader(raw), int64(len(raw)))
@@ -229,8 +235,53 @@ func TestFill_UnknownAnchorIsCodedError(t *testing.T) {
 		{Kind: bind.StatementBind, Bind: &bind.Bind{Anchor: "does_not_exist", Expr: `"x"`}},
 	}}
 	_, err = template.Fill(tpl, b, nil)
-	if !verr.HasCode(err, verr.VELLUM_BIND_ANCHOR_UNKNOWN) {
-		t.Fatalf("err = %v, want VELLUM_BIND_ANCHOR_UNKNOWN", err)
+	if !verr.HasCode(err, verr.VELLUM_BIND_ANCHOR_UNRECONCILED) {
+		t.Fatalf("err = %v, want VELLUM_BIND_ANCHOR_UNRECONCILED", err)
+	}
+}
+
+// TestFill_ReconciliationFailsBeforeAnyExecution proves E10-S4's pre-flight
+// bind.Reconcile runs before bind.Execute does any work: a binding whose
+// first statement is a genuine, correctly-wired bind (which, if executed,
+// would splice detectable text into document.xml) is paired with a second
+// statement naming an anchor the template does not have. Fill must fail on
+// reconciliation before the first statement ever executes — proved by
+// asserting the returned *Result is nil, not merely that an error came
+// back, since a nil Result with an error is the only way to know no partial
+// splice was silently produced and discarded.
+func TestFill_ReconciliationFailsBeforeAnyExecution(t *testing.T) {
+	raw := buildFillFixture(t)
+	tpl, err := template.Open(bytes.NewReader(raw), int64(len(raw)))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	b := &bind.Binding{FormatVersion: bind.FormatVersion, Statements: []bind.Statement{
+		// A genuine, correctly-wired bind: if execution ever reached this,
+		// it would splice "Acme & Co." into document.xml.
+		{Kind: bind.StatementBind, Bind: &bind.Bind{Anchor: "customer_name", Expr: "customer.name"}},
+		// The reconciliation problem: no such anchor in the fixture, and
+		// this Bind is not marked Optional.
+		{Kind: bind.StatementBind, Bind: &bind.Bind{Anchor: "does_not_exist", Expr: `"x"`}},
+	}}
+	data := bind.Scope{"customer": map[string]any{"name": "Acme & Co."}}
+
+	res, err := template.Fill(tpl, b, data)
+	if !verr.HasCode(err, verr.VELLUM_BIND_ANCHOR_UNRECONCILED) {
+		t.Fatalf("err = %v, want VELLUM_BIND_ANCHOR_UNRECONCILED", err)
+	}
+	if res != nil {
+		t.Fatalf("Result = %+v, want nil — a reconciliation failure must not report any partial splice work", res)
+	}
+
+	// The template's own package is untouched, confirming nothing was
+	// spliced anywhere before the failure was returned.
+	origDoc := mustPartBytes(t, tpl.Package(), "/word/document.xml")
+	if !bytes.Contains(origDoc, []byte("{{customer_name}}")) {
+		t.Error("Fill mutated the *Template it was called against even though reconciliation failed before execution")
+	}
+	if bytes.Contains(origDoc, []byte("Acme")) {
+		t.Error("the genuinely well-formed first bind statement's value appears in the source template — execution ran despite the reconciliation failure")
 	}
 }
 

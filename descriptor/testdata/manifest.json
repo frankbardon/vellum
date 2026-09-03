@@ -1167,9 +1167,10 @@
     "VELLUM_BIND_VALUE_NOT_LIST",
     "VELLUM_BIND_VALUE_UNSUPPORTED_TYPE",
     "VELLUM_BIND_ANCHOR_UNKNOWN",
+    "VELLUM_BIND_ANCHOR_UNRECONCILED",
     "VELLUM_INTERNAL_INVARIANT"
   ],
-  "error_codes_count": 77,
+  "error_codes_count": 78,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: 76bf30df20f0bb76c38a99534a7c3cb34e499aa70a17828f403749acbd578efb
+// golden-hash: 01e193ce2bb1cee8f9aa498ecd4ecf0102be269ccf0bdab27e1a18f37e4d25d7

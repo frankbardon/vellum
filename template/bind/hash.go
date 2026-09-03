@@ -1,6 +1,10 @@
 package bind
 
-import "github.com/frankbardon/vellum/canon"
+import (
+	"sort"
+
+	"github.com/frankbardon/vellum/canon"
+)
 
 // hashTag namespaces a binding hash. See [canon.CanonicalHash].
 //
@@ -37,6 +41,28 @@ func (b *Binding) normalizedForHash() *Binding {
 		out.FormatVersion = FormatVersion
 	}
 	out.Statements = normalizeStatements(b.Statements)
+	out.OptionalAnchors = normalizeOptionalAnchors(b.OptionalAnchors)
+	return out
+}
+
+// normalizeOptionalAnchors dedupes and sorts, so two bindings whose
+// OptionalAnchors differ only in order or in a repeated entry hash
+// identically — the list is a set of anchor names, not a sequence, per its
+// own doc comment. A nil slice and an empty one collapse to the same
+// representation, matching normalizeStatements' own treatment of Statements.
+func normalizeOptionalAnchors(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool, len(in))
+	out := make([]string, 0, len(in))
+	for _, name := range in {
+		if !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
 	return out
 }
 

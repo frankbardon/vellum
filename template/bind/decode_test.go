@@ -202,6 +202,23 @@ func TestDecode_StructurallyInvalidIsRejected(t *testing.T) {
 	}
 }
 
+// TestDecode_OptionalAnchorsDecodes checks the field's own wire shape: a
+// flat array of anchor names alongside statements, not nested under any
+// statement.
+func TestDecode_OptionalAnchorsDecodes(t *testing.T) {
+	input := `{
+	  "statements": [{"kind": "bind", "bind": {"anchor": "customer_name", "expr": "data.customer.name"}}],
+	  "optional_anchors": ["footer_note", "legal_disclaimer"]
+	}`
+	b, err := bind.Decode([]byte(input))
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	if len(b.OptionalAnchors) != 2 || b.OptionalAnchors[0] != "footer_note" || b.OptionalAnchors[1] != "legal_disclaimer" {
+		t.Errorf("OptionalAnchors = %v, want [footer_note legal_disclaimer]", b.OptionalAnchors)
+	}
+}
+
 func TestDecode_MissingRequiredBindField(t *testing.T) {
 	_, err := bind.Decode([]byte(`{"statements": [{"kind": "bind", "bind": {"expr": "x"}}]}`))
 	if !verr.HasCode(err, verr.VELLUM_BIND_INVALID) {
