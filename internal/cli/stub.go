@@ -6,20 +6,9 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// newMCPCommand registers the mcp verb's shape — so it appears in --help and
-// in shell completion — without any protocol handling. E12-S2 replaces
-// [runNotImplemented] here with the actual MCP server wiring; this story's
-// job is only to leave a working command framework for that story to extend.
-func newMCPCommand() *cli.Command {
-	return &cli.Command{
-		Name:   "mcp",
-		Usage:  "run the MCP server (not yet implemented — lands in E12-S2)",
-		Flags:  []cli.Flag{jsonFlag},
-		Action: notImplementedAction("mcp", "E12-S2"),
-	}
-}
-
-// newDoctorCommand is doctor's counterpart, landing in E12-S4.
+// newDoctorCommand is the mcp verb's remaining sibling stub: mcp itself
+// moved to mcp.go once E12-S2 wired it for real, the same move every other
+// verb already made out of this file when it stopped being a stub.
 func newDoctorCommand() *cli.Command {
 	return &cli.Command{
 		Name:   "doctor",

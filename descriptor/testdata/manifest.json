@@ -1091,6 +1091,7 @@
     "ARTIFACT",
     "PROVENANCE",
     "CLI",
+    "MCP",
     "INTERNAL"
   ],
   "error_codes": [
@@ -1184,9 +1185,12 @@
     "VELLUM_CLI_INPUT_NOT_FOUND",
     "VELLUM_CLI_OUTPUT_CONFLICT",
     "VELLUM_CLI_NOT_IMPLEMENTED",
+    "VELLUM_MCP_INVALID_INPUT",
+    "VELLUM_MCP_UNKNOWN_TOOL",
+    "VELLUM_MCP_NOT_IMPLEMENTED",
     "VELLUM_INTERNAL_INVARIANT"
   ],
-  "error_codes_count": 91,
+  "error_codes_count": 94,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: 75167294007870a645adbcb8623c16f5ae65470a7e297744bc78fa48c4cfcccd
+// golden-hash: 747b64ab978a32fc6bc99f3a443469149b0199e21a3d4c3f5c545146447922b7

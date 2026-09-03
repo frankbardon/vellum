@@ -795,6 +795,34 @@ const (
 	VELLUM_CLI_NOT_IMPLEMENTED Code = "VELLUM_CLI_NOT_IMPLEMENTED"
 )
 
+// MCP domain — the Model Context Protocol surface: typed tool contracts over
+// the same facade the CLI wraps, translated to and from JSON at one seam.
+// Every facade failure a tool's handler surfaces (VELLUM_SPEC_*,
+// VELLUM_TEMPLATE_*, and so on) passes through unchanged rather than being
+// wrapped in one of these — these three are specifically about the MCP
+// transport's own contract: whether a call named a real tool and supplied
+// arguments that tool's schema accepts.
+const (
+	// VELLUM_MCP_INVALID_INPUT indicates a tool call's arguments do not
+	// decode against its declared input contract, or name a value — an
+	// unrecognised --format, for instance — the contract's own semantic
+	// checks reject. Raised before the facade is ever called, the MCP
+	// counterpart to VELLUM_CLI_USAGE.
+	VELLUM_MCP_INVALID_INPUT Code = "VELLUM_MCP_INVALID_INPUT"
+
+	// VELLUM_MCP_UNKNOWN_TOOL indicates a call named a tool the catalog does
+	// not register.
+	VELLUM_MCP_UNKNOWN_TOOL Code = "VELLUM_MCP_UNKNOWN_TOOL"
+
+	// VELLUM_MCP_NOT_IMPLEMENTED indicates a tool the catalog registers — so
+	// a client discovers it via tools/list — but whose content is not yet
+	// available: skills and examples serve go:embed packs E13 builds, not
+	// this story. A stub registration rather than an absent tool, the same
+	// discipline VELLUM_CLI_NOT_IMPLEMENTED already established for the
+	// CLI's own mcp and doctor stubs.
+	VELLUM_MCP_NOT_IMPLEMENTED Code = "VELLUM_MCP_NOT_IMPLEMENTED"
+)
+
 // INTERNAL domain — invariants that no author input can violate.
 const (
 	// VELLUM_INTERNAL_INVARIANT indicates a condition Vellum believed
@@ -944,6 +972,11 @@ var allCodes = []Code{
 	VELLUM_CLI_INPUT_NOT_FOUND,
 	VELLUM_CLI_OUTPUT_CONFLICT,
 	VELLUM_CLI_NOT_IMPLEMENTED,
+
+	// MCP
+	VELLUM_MCP_INVALID_INPUT,
+	VELLUM_MCP_UNKNOWN_TOOL,
+	VELLUM_MCP_NOT_IMPLEMENTED,
 
 	// INTERNAL
 	VELLUM_INTERNAL_INVARIANT,

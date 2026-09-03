@@ -917,6 +917,30 @@ var codeMetadata = map[Code]Metadata{
 		}},
 	},
 
+	VELLUM_MCP_INVALID_INPUT: {
+		Message: "the tool call's arguments do not satisfy its declared input contract",
+		Fixups: []Fixup{{
+			Action: FixupReplaceValue,
+			Hint:   "Check the tool's inputSchema (returned by tools/list) and correct the arguments — a field of the wrong shape, or a value such as format outside the accepted set.",
+		}},
+	},
+
+	VELLUM_MCP_UNKNOWN_TOOL: {
+		Message: "the named tool is not in the registered catalog",
+		Fixups: []Fixup{{
+			Action: FixupReplaceValue,
+			Hint:   "Call tools/list to see the registered tool names, which always carry the vellum_ prefix.",
+		}},
+	},
+
+	VELLUM_MCP_NOT_IMPLEMENTED: {
+		Message: "this tool is registered but its content is not yet available",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "skills and examples serve content a later story embeds. Call an already-implemented tool, or wait for that story to merge.",
+		}},
+	},
+
 	VELLUM_INTERNAL_INVARIANT: {
 		Message: "an internal invariant was violated",
 		// No input change resolves this. It is always a Vellum bug, and
