@@ -652,6 +652,24 @@ var codeMetadata = map[Code]Metadata{
 		}},
 	},
 
+	VELLUM_DEFRAG_CONTAINER_NOT_FOUND: {
+		Message: "the container span does not match any element found while walking the source",
+		// Always a bug in the caller assembling the span — passing one from a
+		// different part's bytes, or a stale span from before an earlier edit
+		// — never something an untrusted template's own document can trigger.
+		// A caller re-walks the same part Discover already read.
+		FixupNotApplicable: true,
+	},
+
+	VELLUM_DEFRAG_RANGE_INVALID: {
+		Message: "a match range falls outside the flattened text's bounds, or starts after it ends",
+		// Always a bug in the caller: matchStart and matchEnd are derived
+		// from the same Flat.Text being queried, so a range outside its own
+		// bounds is an arithmetic mistake in the caller, not something a
+		// template's own bytes can produce.
+		FixupNotApplicable: true,
+	},
+
 	VELLUM_INTERNAL_INVARIANT: {
 		Message: "an internal invariant was violated",
 		// No input change resolves this. It is always a Vellum bug, and

@@ -977,6 +977,7 @@
     "PDFA",
     "TEMPLATE",
     "ANCHOR",
+    "DEFRAG",
     "INTERNAL"
   ],
   "error_codes": [
@@ -1039,9 +1040,11 @@
     "VELLUM_TEMPLATE_FORMAT_UNSUPPORTED",
     "VELLUM_ANCHOR_DUPLICATE",
     "VELLUM_ANCHOR_MARKER_MALFORMED",
+    "VELLUM_DEFRAG_CONTAINER_NOT_FOUND",
+    "VELLUM_DEFRAG_RANGE_INVALID",
     "VELLUM_INTERNAL_INVARIANT"
   ],
-  "error_codes_count": 60,
+  "error_codes_count": 62,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: 9072610e28ca76b073ef59decbf7dc18d377fad352f7f20ebafcd395598998a9
+// golden-hash: 496a821faca24c65b59f4f247342092729f192184dab5593e10217077c38dfa5

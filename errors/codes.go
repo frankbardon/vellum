@@ -485,6 +485,28 @@ const (
 	VELLUM_ANCHOR_MARKER_MALFORMED Code = "VELLUM_ANCHOR_MARKER_MALFORMED"
 )
 
+// DEFRAG domain — fill-mode run defragmentation: flattening a container's
+// w:r runs into matchable text and computing the resplice site around a
+// match.
+const (
+	// VELLUM_DEFRAG_CONTAINER_NOT_FOUND indicates [Flatten] was given a
+	// container span that does not match the span of any element found while
+	// walking the source. A caller assembles the span from a Walk over the
+	// same bytes — typically an anchor.Anchor.Span from anchor.Discover
+	// re-walking the same part — so nothing an untrusted template's own bytes
+	// can do produces this; only a caller passing a span from a different
+	// source, or a stale one, does.
+	VELLUM_DEFRAG_CONTAINER_NOT_FOUND Code = "VELLUM_DEFRAG_CONTAINER_NOT_FOUND"
+
+	// VELLUM_DEFRAG_RANGE_INVALID indicates a [Flat.Locate] call whose
+	// matchStart or matchEnd falls outside the flattened text's own rune
+	// bounds, or where matchStart is greater than matchEnd. A caller derives
+	// both from the same Flat.Text it is calling Locate on, so this is always
+	// a bug in the caller assembling the match, never something a template
+	// author's own document can trigger.
+	VELLUM_DEFRAG_RANGE_INVALID Code = "VELLUM_DEFRAG_RANGE_INVALID"
+)
+
 // INTERNAL domain — invariants that no author input can violate.
 const (
 	// VELLUM_INTERNAL_INVARIANT indicates a condition Vellum believed
@@ -593,6 +615,10 @@ var allCodes = []Code{
 	// ANCHOR
 	VELLUM_ANCHOR_DUPLICATE,
 	VELLUM_ANCHOR_MARKER_MALFORMED,
+
+	// DEFRAG
+	VELLUM_DEFRAG_CONTAINER_NOT_FOUND,
+	VELLUM_DEFRAG_RANGE_INVALID,
 
 	// INTERNAL
 	VELLUM_INTERNAL_INVARIANT,
