@@ -1050,9 +1050,15 @@
     "VELLUM_BIND_INVALID",
     "VELLUM_BIND_STATEMENT_KIND_UNKNOWN",
     "VELLUM_BIND_REPEAT_TARGET_UNKNOWN",
+    "VELLUM_BIND_EXPR_MALFORMED",
+    "VELLUM_BIND_NONDETERMINISTIC_EXPR",
+    "VELLUM_BIND_EVAL_FAILED",
+    "VELLUM_BIND_VALUE_NOT_SCALAR",
+    "VELLUM_BIND_VALUE_NOT_LIST",
+    "VELLUM_BIND_VALUE_UNSUPPORTED_TYPE",
     "VELLUM_INTERNAL_INVARIANT"
   ],
-  "error_codes_count": 69,
+  "error_codes_count": 75,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: 28a70683950c13fee7b4f920420fcf6b0f3a588dbb16355325e5846d0781a93a
+// golden-hash: c369ab661e97bd291ed42fe0db39aae5ca74828ca6a0cca39050e570becd00ce

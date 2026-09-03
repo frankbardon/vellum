@@ -731,6 +731,54 @@ var codeMetadata = map[Code]Metadata{
 		}},
 	},
 
+	VELLUM_BIND_EXPR_MALFORMED: {
+		Message: "a FEEL expression in the binding does not parse",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "The error's details name the offending expression and the underlying parser message. Fix the FEEL syntax — a missing closing bracket, an unterminated string, a keyword out of place — and re-validate before filling.",
+		}},
+	},
+
+	VELLUM_BIND_NONDETERMINISTIC_EXPR: {
+		Message: "a FEEL expression calls a builtin that is not deterministic",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "The error's details name the expression and the banned builtin. Put the reference instant in the binding data instead — an as_of field the caller supplies — and compare against it, so the same binding and the same data always evaluate to the same document.",
+		}},
+	},
+
+	VELLUM_BIND_EVAL_FAILED: {
+		Message: "a FEEL expression parsed but failed to evaluate against its scope",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "The error's details name the expression and the underlying evaluation fault. A dotted path referencing a field the binding data does not carry, a builtin called with the wrong argument count or type, and arithmetic FEEL itself refuses (division by zero) all land here — check the binding data actually has the shape the expression assumes.",
+		}},
+	},
+
+	VELLUM_BIND_VALUE_NOT_SCALAR: {
+		Message: "a bind expression evaluated to a list or a context, not a single value",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "A bind statement fills exactly one anchor with exactly one value. If several values are intended, use a repeat statement instead, or narrow the expression to select a single field or element.",
+		}},
+	},
+
+	VELLUM_BIND_VALUE_NOT_LIST: {
+		Message: "a repeat's over expression did not evaluate to a list",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "Repeat.Over must evaluate to a FEEL list — the number of copies is the list's length. Wrap a single item in [ ] if only one is intended, or point the expression at the list-valued field the binding data actually carries.",
+		}},
+	},
+
+	VELLUM_BIND_VALUE_UNSUPPORTED_TYPE: {
+		Message: "a bind expression evaluated to a scalar type Vellum's value model has no variant for",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "numfmt.Value carries number, text, bool and date only. A FEEL duration has no representation there; convert it to text inside the expression first, for example with FEEL's own string() builtin, before it fills an anchor.",
+		}},
+	},
+
 	VELLUM_INTERNAL_INVARIANT: {
 		Message: "an internal invariant was violated",
 		// No input change resolves this. It is always a Vellum bug, and

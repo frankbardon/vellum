@@ -15,15 +15,25 @@
 //
 // # Scope of this package
 //
-// This package is model, decode and hash only. It does not evaluate FEEL —
-// every expr, when, value and over field is stored as an opaque string — and
-// it does not execute control flow: repeat does not iterate, if does not
-// branch, with does not narrow a scope. Those are later stories layered on
-// top of the tree this package builds and validates structurally. What this
-// package guarantees is that the tree it hands to those later stories is
-// well-formed: every statement's kind matches the one arm it carries, every
-// required field is present, and every FEEL-bearing string is reachable
-// through [Walk] and [WalkExprs] — which is what lets a later validator walk
-// the whole tree once, in one place, to reject a nondeterministic builtin
-// without this package having to know what FEEL is.
+// This package is model, decode and hash — plus, as of E10-S2, single-
+// expression FEEL evaluation and the nondeterminism firewall in front of it.
+// It still does not execute control flow: repeat does not iterate, if does
+// not branch, with does not narrow a scope across a whole tree. That
+// orchestration — threading a [Scope] through nested repeat/if/with as
+// [Walk] visits them — is E10-S3's job, layered on top of what is here.
+//
+// What this package guarantees structurally is that the tree it hands to
+// that later layer is well-formed: every statement's kind matches the one
+// arm it carries, every required field is present, and every FEEL-bearing
+// string is reachable through [Walk] and [WalkExprs]. [Validate] uses the
+// latter to reject a nondeterministic builtin without needing to know
+// anything about statement shape beyond "here is an expression".
+//
+// What this package guarantees about a single expression, once it has data
+// to run against, is the [Evaluator] seam: [FEELEvaluator], the default,
+// calls pbinitiative/feel directly — no suite wrapper reimplementing FEEL's
+// own semantics — and the "value modes" documented on [EvaluateScalar],
+// [EvaluateList] and [Evaluator.EvaluateBool] say precisely what shape each
+// statement kind's expression is expected to produce and what happens when
+// it produces something else.
 package bind

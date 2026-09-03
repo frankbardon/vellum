@@ -543,6 +543,54 @@ const (
 	// control's content — and guessing between them from the document
 	// rather than the binding is exactly what this field exists to avoid.
 	VELLUM_BIND_REPEAT_TARGET_UNKNOWN Code = "VELLUM_BIND_REPEAT_TARGET_UNKNOWN"
+
+	// VELLUM_BIND_EXPR_MALFORMED indicates a FEEL expression string — a
+	// Bind.Expr, a Repeat.Over, an If.When, a With.Value or a Skip — that
+	// does not parse as FEEL. Raised by [Validate] before any binding data
+	// exists, and again by the default [Evaluator] if an unvalidated
+	// binding reaches evaluation, so a caller who skips Validate still gets
+	// a coded error rather than an opaque one from pbinitiative/feel.
+	VELLUM_BIND_EXPR_MALFORMED Code = "VELLUM_BIND_EXPR_MALFORMED"
+
+	// VELLUM_BIND_NONDETERMINISTIC_EXPR indicates a FEEL expression calls a
+	// builtin from the banned registry — see [AllBannedBuiltins] — whose
+	// result depends on wall-clock time. Raised by [Validate], which parses
+	// every expression and walks its AST rather than evaluating it, because
+	// evaluating an expression to decide whether it is safe to evaluate
+	// would call the very builtin it exists to forbid.
+	VELLUM_BIND_NONDETERMINISTIC_EXPR Code = "VELLUM_BIND_NONDETERMINISTIC_EXPR"
+
+	// VELLUM_BIND_EVAL_FAILED indicates a FEEL expression parsed
+	// successfully but failed while being evaluated against a scope: an
+	// undefined dotted path, a wrong argument count, a type a builtin
+	// rejects, or a panic recovered from pbinitiative/feel itself (its
+	// arbitrary-precision arithmetic panics rather than erroring on a
+	// division by zero, and Vellum recovers that panic at the evaluator
+	// boundary rather than letting it escape into a caller's fill). Distinct
+	// from VELLUM_BIND_EXPR_MALFORMED, which is a syntax fault caught before
+	// any data is involved.
+	VELLUM_BIND_EVAL_FAILED Code = "VELLUM_BIND_EVAL_FAILED"
+
+	// VELLUM_BIND_VALUE_NOT_SCALAR indicates a Bind.Expr evaluated to a FEEL
+	// list or context (map) where a single value was required — a bind
+	// statement fills exactly one anchor with exactly one value, and a
+	// caller wanting several values out of one expression is describing a
+	// Repeat, not a Bind.
+	VELLUM_BIND_VALUE_NOT_SCALAR Code = "VELLUM_BIND_VALUE_NOT_SCALAR"
+
+	// VELLUM_BIND_VALUE_NOT_LIST indicates a Repeat.Over evaluated to
+	// something other than a FEEL list — a scalar or a context has no
+	// well-defined number of copies to produce.
+	VELLUM_BIND_VALUE_NOT_LIST Code = "VELLUM_BIND_VALUE_NOT_LIST"
+
+	// VELLUM_BIND_VALUE_UNSUPPORTED_TYPE indicates a scalar FEEL result
+	// whose type has no corresponding [numfmt.Value] variant — a duration,
+	// a function value, or a range. numfmt.Value's vocabulary is number,
+	// text, bool and date; a duration in particular has no honest date-like
+	// reading and must be turned into text inside the FEEL expression itself
+	// (for example with FEEL's own string() builtin) before it can fill an
+	// anchor.
+	VELLUM_BIND_VALUE_UNSUPPORTED_TYPE Code = "VELLUM_BIND_VALUE_UNSUPPORTED_TYPE"
 )
 
 // DEFRAG domain — fill-mode run defragmentation: flattening a container's
@@ -688,6 +736,12 @@ var allCodes = []Code{
 	VELLUM_BIND_INVALID,
 	VELLUM_BIND_STATEMENT_KIND_UNKNOWN,
 	VELLUM_BIND_REPEAT_TARGET_UNKNOWN,
+	VELLUM_BIND_EXPR_MALFORMED,
+	VELLUM_BIND_NONDETERMINISTIC_EXPR,
+	VELLUM_BIND_EVAL_FAILED,
+	VELLUM_BIND_VALUE_NOT_SCALAR,
+	VELLUM_BIND_VALUE_NOT_LIST,
+	VELLUM_BIND_VALUE_UNSUPPORTED_TYPE,
 
 	// INTERNAL
 	VELLUM_INTERNAL_INVARIANT,
