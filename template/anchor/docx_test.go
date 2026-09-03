@@ -242,14 +242,13 @@ func TestDiscover_AnchorsAreInDocumentOrder(t *testing.T) {
 	}
 }
 
+// TestDiscover_UnsupportedFormatIsRejectedLoudly proves a format with no
+// discoverer wired — PPTX, as of E11-S1, since XLSX now has one — fails
+// loudly rather than returning an empty inventory. See
+// template/anchor/xlsx_test.go for XLSX's own discovery coverage.
 func TestDiscover_UnsupportedFormatIsRejectedLoudly(t *testing.T) {
 	pkg, mainPart := buildDOCX(t, `<w:p><w:r><w:t>hello</w:t></w:r></w:p>`)
-	_, err := anchor.Discover(pkg, artifact.FormatXLSX, mainPart)
-	if !verr.HasCode(err, verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED) {
-		t.Fatalf("err = %v, want VELLUM_TEMPLATE_FORMAT_UNSUPPORTED", err)
-	}
-
-	_, err = anchor.Discover(pkg, artifact.FormatPPTX, mainPart)
+	_, err := anchor.Discover(pkg, artifact.FormatPPTX, mainPart)
 	if !verr.HasCode(err, verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED) {
 		t.Fatalf("err = %v, want VELLUM_TEMPLATE_FORMAT_UNSUPPORTED", err)
 	}

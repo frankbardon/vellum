@@ -504,6 +504,17 @@ const (
 	// a binding whose declared shape does not match where its own anchors
 	// actually sit in the document has no such region to copy.
 	VELLUM_TEMPLATE_REPEAT_CONTAINER_INVALID Code = "VELLUM_TEMPLATE_REPEAT_CONTAINER_INVALID"
+
+	// VELLUM_TEMPLATE_TABLE_NOT_AT_SHEET_BOTTOM indicates a "table_row" repeat
+	// targets an Excel Table whose sample data row is not the last content in
+	// the worksheet: [xmlcopy.Walk] found a <row> with a higher r than the
+	// table's own data row. Row-insert repetition splices N rows in where the
+	// template carried one, which shifts every absolute cell reference below
+	// the insertion point — a formula, a second table, a chart source range —
+	// silently out from under whatever it pointed at. Checked before any
+	// splicing happens, not after, so a caller never receives output that
+	// looks correct and corrupts references invisibly.
+	VELLUM_TEMPLATE_TABLE_NOT_AT_SHEET_BOTTOM Code = "VELLUM_TEMPLATE_TABLE_NOT_AT_SHEET_BOTTOM"
 )
 
 // ANCHOR domain — fill-mode anchor discovery: locating the native content
@@ -527,6 +538,30 @@ const (
 	// author who mistyped a marker learns about it rather than getting a
 	// document with a gap where the data was supposed to go.
 	VELLUM_ANCHOR_MARKER_MALFORMED Code = "VELLUM_ANCHOR_MARKER_MALFORMED"
+
+	// VELLUM_ANCHOR_DEFINED_NAME_UNSUPPORTED indicates an xlsx defined name
+	// discovery cannot turn into a [KindDefinedName] anchor: its formula is not
+	// a single-sheet, absolute, single-cell reference (a relative reference, a
+	// multi-cell range, a reference to another defined name, or anything a
+	// formula parser would be needed to resolve), or its formula does resolve
+	// to that shape but names a cell the worksheet's own XML does not carry —
+	// fill mode edits an existing <c> element and has no honest way to
+	// introduce one that was never there. Raised at discovery time, before any
+	// binding data exists, because whether a defined name is usable at all is
+	// a fact about the template alone.
+	VELLUM_ANCHOR_DEFINED_NAME_UNSUPPORTED Code = "VELLUM_ANCHOR_DEFINED_NAME_UNSUPPORTED"
+
+	// VELLUM_ANCHOR_TABLE_UNSUPPORTED indicates an xlsx Excel Table
+	// (ListObject) discovery cannot turn into [KindTableColumn] anchors: its
+	// data region — the rows of its own ref below the header — does not carry
+	// exactly one existing row (zero means there is no sample row to use as
+	// the row-insert repeat's template; more than one means Vellum cannot tell
+	// which is the sample), or a declared table column has no corresponding
+	// placeholder <c> cell in that one data row to splice a value into.
+	// Raised at discovery time for the same reason
+	// VELLUM_ANCHOR_DEFINED_NAME_UNSUPPORTED is: usability is a fact about the
+	// template, checkable before any binding runs.
+	VELLUM_ANCHOR_TABLE_UNSUPPORTED Code = "VELLUM_ANCHOR_TABLE_UNSUPPORTED"
 )
 
 // BIND domain — the fill-mode binding specification: the declarative,
@@ -548,11 +583,13 @@ const (
 	VELLUM_BIND_STATEMENT_KIND_UNKNOWN Code = "VELLUM_BIND_STATEMENT_KIND_UNKNOWN"
 
 	// VELLUM_BIND_REPEAT_TARGET_UNKNOWN indicates a repeat statement whose
-	// target is not "row" or "block". The zero value is not defaulted:
-	// DOCX repetition realizes two structurally different ways — splicing
-	// rows into a table versus splicing copies of a native content
-	// control's content — and guessing between them from the document
-	// rather than the binding is exactly what this field exists to avoid.
+	// target is not one of "row", "block" or "table_row". The zero value is
+	// not defaulted: a template format realizes repetition several
+	// structurally different ways — splicing rows into a DOCX table,
+	// splicing copies of a DOCX native content control's content, inserting
+	// rows into an xlsx Excel Table — and guessing between them from the
+	// document rather than the binding is exactly what this field exists to
+	// avoid.
 	VELLUM_BIND_REPEAT_TARGET_UNKNOWN Code = "VELLUM_BIND_REPEAT_TARGET_UNKNOWN"
 
 	// VELLUM_BIND_EXPR_MALFORMED indicates a FEEL expression string — a
@@ -762,10 +799,13 @@ var allCodes = []Code{
 	VELLUM_TEMPLATE_MARKER_BLOCK_UNSUPPORTED,
 	VELLUM_TEMPLATE_ASSET_MEDIA_UNSUPPORTED,
 	VELLUM_TEMPLATE_REPEAT_CONTAINER_INVALID,
+	VELLUM_TEMPLATE_TABLE_NOT_AT_SHEET_BOTTOM,
 
 	// ANCHOR
 	VELLUM_ANCHOR_DUPLICATE,
 	VELLUM_ANCHOR_MARKER_MALFORMED,
+	VELLUM_ANCHOR_DEFINED_NAME_UNSUPPORTED,
+	VELLUM_ANCHOR_TABLE_UNSUPPORTED,
 
 	// DEFRAG
 	VELLUM_DEFRAG_CONTAINER_NOT_FOUND,

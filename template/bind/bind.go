@@ -55,17 +55,19 @@ func ValidStatementKind(k StatementKind) bool {
 	return false
 }
 
-// RepeatTarget says which of the two ways DOCX repetition realizes a
-// [Repeat] statement splices into.
+// RepeatTarget says which of the ways a fill-mode template's own format
+// realizes repetition a [Repeat] statement splices into.
 //
-// A repeated anchor lands in the template one of two structurally different
-// ways: inside a table row, where repetition means splicing N rows into the
-// table the anchor's row belongs to, or inside a whole native content
-// control block, where repetition means splicing N copies of the control's
-// content. The two need different splice logic, and this field is what
-// tells the execution layer (E10-S3) which one to run, rather than making it
-// infer intent by inspecting where the body's anchors happen to sit in the
-// document tree.
+// A repeated anchor lands in the template one of several structurally
+// different ways: inside a DOCX table row, where repetition means splicing N
+// rows into the table the anchor's row belongs to; inside a whole DOCX
+// native content control block, where repetition means splicing N copies of
+// the control's content; or inside an xlsx Excel Table's one sample data
+// row, where repetition means inserting N rows at the bottom of the sheet
+// and updating the table's own ref to match. Each needs different splice
+// logic, and this field is what tells the execution layer (E10-S3, extended
+// for xlsx by E11-S1) which one to run, rather than making it infer intent
+// by inspecting where the body's anchors happen to sit in the document tree.
 //
 // This is a deliberate design choice, not the only one available: the
 // execution layer *could* discover the target by walking the template for
@@ -88,10 +90,21 @@ const (
 	// RepeatTargetBlock repeats a native content control block: the
 	// control's content is spliced N times.
 	RepeatTargetBlock RepeatTarget = "block"
+
+	// RepeatTargetTableRow repeats an xlsx Excel Table's one sample data row:
+	// N rows are spliced into the worksheet where the template carried one,
+	// and the table's own ref attribute is updated to match. Added in E11-S1
+	// alongside xlsx's KindTableColumn anchor kind. Restricted to a table
+	// whose sample row is the last content in its worksheet — row insertion
+	// invalidates every absolute reference below the insertion point, so a
+	// template that fails that check is rejected with
+	// [verr.VELLUM_TEMPLATE_TABLE_NOT_AT_SHEET_BOTTOM] before any splicing
+	// happens, not after.
+	RepeatTargetTableRow RepeatTarget = "table_row"
 )
 
 // allRepeatTargets is the registry, hand-maintained and ordered.
-var allRepeatTargets = []RepeatTarget{RepeatTargetRow, RepeatTargetBlock}
+var allRepeatTargets = []RepeatTarget{RepeatTargetRow, RepeatTargetBlock, RepeatTargetTableRow}
 
 // AllRepeatTargets returns a copy of the repeat-target vocabulary, in
 // declaration order.
@@ -345,7 +358,7 @@ func (s *Statement) validate(path []string) error {
 		}
 		if !ValidRepeatTarget(r.Target) {
 			return verr.NewCodedErrorWithDetails(verr.VELLUM_BIND_REPEAT_TARGET_UNKNOWN,
-				"repeat statement declares a target that is not \"row\" or \"block\"",
+				"repeat statement declares a target that is not in the known vocabulary",
 				withList(where, "known", repeatTargetStrings()))
 		}
 		if err := validateStatements(r.Body, appendPath(path, "repeat", "body")); err != nil {

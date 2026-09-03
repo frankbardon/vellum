@@ -157,15 +157,26 @@ func TestInspect_DOCXDiscoversAnchors(t *testing.T) {
 	}
 }
 
-func TestInspect_XLSXIsRejectedNotEmpty(t *testing.T) {
+// TestInspect_XLSXSucceedsWithNoAnchorsForNonMatchingContent proves XLSX is
+// no longer the rejected format E9-S2 left it as — E11-S1 wired
+// anchor.discoverXLSX in. buildPackage's own fixture is DOCX-shaped content
+// carried under an xlsx main part's content type (it declares no <sheets>
+// and no <definedNames>), so this legitimately discovers zero anchors rather
+// than proving anything about a real workbook; see
+// template/anchor/xlsx_test.go for genuine xlsx-shaped discovery coverage,
+// and TestFill_XLSX* below for an end-to-end xlsx fill.
+func TestInspect_XLSXSucceedsWithNoAnchorsForNonMatchingContent(t *testing.T) {
 	raw := buildPackage(t, "/xl/workbook.xml", ctWorkbook, true)
 	tpl, err := template.Open(bytes.NewReader(raw), int64(len(raw)))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	_, err = template.Inspect(tpl)
-	if !verr.HasCode(err, verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED) {
-		t.Fatalf("err = %v, want VELLUM_TEMPLATE_FORMAT_UNSUPPORTED", err)
+	report, err := template.Inspect(tpl)
+	if err != nil {
+		t.Fatalf("Inspect: %v", err)
+	}
+	if len(report.Anchors) != 0 {
+		t.Errorf("Anchors = %+v, want none", report.Anchors)
 	}
 }
 

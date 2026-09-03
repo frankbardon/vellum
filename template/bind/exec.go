@@ -156,9 +156,25 @@ func execStatement(s *Statement, scope Scope, ev Evaluator, frame Frame, assetPk
 	}
 }
 
-// execBind evaluates b.Expr to a single [numfmt.Value], formats it through
-// b.Format, wraps the formatted text as a one-block, one-paragraph,
-// one-run [fragment.Sequence] and splices it into b.Anchor's own location.
+// execBind evaluates b.Expr to a single [numfmt.Value] and splices it into
+// b.Anchor's own location, one of two ways depending on the anchor's own
+// Kind.
+//
+// For every DOCX anchor kind (native, marker) the value is formatted through
+// b.Format into text, wrapped as a one-block, one-paragraph, one-run
+// [fragment.Sequence], and spliced via [splice.SpliceInto] — unchanged from
+// E10-S3.
+//
+// For an xlsx cell anchor (KindDefinedName, KindTableColumn) the value
+// splices directly as a typed cell — see [isCellAnchor] and
+// [splice.SpliceCell]'s own doc for why a spreadsheet cell's type is part of
+// what fill mode writes rather than merely how a rendered string looks.
+// b.Format — an xlsx number-format *code*, meant to render a value into DOCX
+// run text — has no role for a cell splice, whose displayed formatting is
+// already governed by the target cell's own untouched style, and is silently
+// not applied there: a binding author reusing the same Bind shape for both a
+// DOCX marker and an xlsx cell should not have to omit a field on the xlsx
+// side just because it does not apply there.
 func execBind(b *Bind, scope Scope, ev Evaluator, frame Frame, assetPkg *opc.Package, repls *ReplacementSet) error {
 	a, ok := frame.Anchors[b.Anchor]
 	if !ok {
@@ -168,6 +184,15 @@ func execBind(b *Bind, scope Scope, ev Evaluator, frame Frame, assetPkg *opc.Pac
 	val, err := EvaluateScalar(ev, b.Expr, scope)
 	if err != nil {
 		return err
+	}
+
+	if isCellAnchor(a.Kind) {
+		repl, err := splice.SpliceCell(frame.SrcPkg, a, val)
+		if err != nil {
+			return err
+		}
+		repls.Add(a.Part, repl)
+		return nil
 	}
 
 	format, err := numfmt.Parse(b.Format)
@@ -189,6 +214,13 @@ func execBind(b *Bind, scope Scope, ev Evaluator, frame Frame, assetPkg *opc.Pac
 	}
 	repls.Add(a.Part, repl)
 	return nil
+}
+
+// isCellAnchor reports whether k is one of xlsx's two typed-cell anchor
+// kinds, splicing through [splice.SpliceCell] rather than the
+// fragment.Sequence/rendered-text path every DOCX anchor kind uses.
+func isCellAnchor(k anchor.Kind) bool {
+	return k == anchor.KindDefinedName || k == anchor.KindTableColumn
 }
 
 // execIf evaluates iv.When and runs Then or Else with the same scope — an

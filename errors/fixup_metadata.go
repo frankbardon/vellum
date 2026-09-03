@@ -673,7 +673,15 @@ var codeMetadata = map[Code]Metadata{
 		Message: "a repeat statement's body anchors cannot be reconciled to one splice container",
 		Fixups: []Fixup{{
 			Action: FixupRepairInput,
-			Hint:   "The error's details name the repeat's declared target and every anchor it reached. For target \"row\", every one of those anchors must sit inside the same single <w:tr> in the template; for target \"block\", inside the same single <w:sdt>. Move the anchors in the template so they share one container, or split the repeat into two if it is really describing two different regions, or point Over at a non-empty list if the body simply names no anchor at all.",
+			Hint:   "The error's details name the repeat's declared target and every anchor it reached. For target \"row\", every one of those anchors must sit inside the same single <w:tr> in the template; for target \"block\", inside the same single <w:sdt>; for target \"table_row\", every one must belong to the same Excel Table's one data row. Move the anchors in the template so they share one container, or split the repeat into two if it is really describing two different regions, or point Over at a non-empty list if the body simply names no anchor at all.",
+		}},
+	},
+
+	VELLUM_TEMPLATE_TABLE_NOT_AT_SHEET_BOTTOM: {
+		Message: "a table_row repeat targets a table whose sample row is not the last content in the worksheet",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "Move the table (or whatever content sits below it) so the table's own sample row is the last row of content in the sheet, then re-export. Row-insert repetition splices new rows in where the template carried one, and content below the insertion point would have every absolute row reference silently invalidated — a formula, a second table, a chart source range — so Vellum refuses rather than producing a workbook that opens looking correct and is not.",
 		}},
 	},
 
@@ -690,6 +698,22 @@ var codeMetadata = map[Code]Metadata{
 		Fixups: []Fixup{{
 			Action: FixupRepairInput,
 			Hint:   "Close every {{ with a matching }} before the paragraph ends, and give the marker a non-empty name. Vellum does not guess at a malformed marker's intent.",
+		}},
+	},
+
+	VELLUM_ANCHOR_DEFINED_NAME_UNSUPPORTED: {
+		Message: "an xlsx defined name does not resolve to a single-sheet, absolute, single-cell reference this version supports",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "Give the defined name a formula of the exact shape SheetName!$COL$ROW — one sheet, one cell, both column and row absolute ($-prefixed). A relative reference, a multi-cell range, and a formula pointing at another defined name are all unsupported; the error's details name which defined name and formula text failed. If the target cell is the problem instead — the formula resolves but the worksheet's own XML has no <c> element at that reference — add a placeholder cell there (even an empty, styled one) in the authoring application before re-exporting the template.",
+		}},
+	},
+
+	VELLUM_ANCHOR_TABLE_UNSUPPORTED: {
+		Message: "an xlsx Excel Table's shape does not support row-insert repetition",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "A table bound with a table_row repeat must carry exactly one existing data row — the sample/placeholder row a repeat clones per item — and that row must carry a placeholder cell for every one of the table's declared columns. The error's details name the table and the reason: zero or more than one data row, or which column has no placeholder cell. Edit the table in Excel so it has one full sample row, then re-export.",
 		}},
 	},
 
@@ -730,12 +754,12 @@ var codeMetadata = map[Code]Metadata{
 	},
 
 	VELLUM_BIND_REPEAT_TARGET_UNKNOWN: {
-		Message: "a repeat statement declares a target that is not \"row\" or \"block\"",
+		Message: "a repeat statement declares a target that is not in the known vocabulary",
 		Fixups: []Fixup{{
 			Action:   FixupSetField,
 			Path:     []string{"Statements", "*", "Repeat", "Target"},
-			Hint:     "State explicitly which DOCX repetition mechanism this repeat uses: \"row\" splices copies of a table row, \"block\" splices copies of a native content control's content. Vellum will not infer it from where the anchor sits in the template.",
-			Examples: []any{"row", "block"},
+			Hint:     "State explicitly which repetition mechanism this repeat uses: \"row\" splices copies of a DOCX table row, \"block\" splices copies of a DOCX native content control's content, \"table_row\" inserts rows into an xlsx Excel Table's one sample data row. Vellum will not infer it from where the anchor sits in the template.",
+			Examples: []any{"row", "block", "table_row"},
 		}},
 	},
 

@@ -168,24 +168,20 @@ var matrix = Matrix{
 	},
 	{Feature: FeatureFill, Format: artifact.FormatXLSX, Outcome: Renders},
 	{
-		Feature: FeatureFillBindRepeat, Format: artifact.FormatXLSX, Outcome: Rejects,
-		Code: verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
-		Note: "anchor.Discover has no XLSX discoverer wired yet (E11's job — a ListObject range or a defined name, not a w:sdt or a {{marker}}), so no binding statement of any kind executes against a workbook template today, whatever FeatureFill above optimistically claims.",
+		Feature: FeatureFillBindRepeat, Format: artifact.FormatXLSX, Outcome: Renders,
+		Note: "E11-S1: anchor.Discover wires a defined-name and an Excel Table (ListObject) column discoverer, and RepeatTargetTableRow realizes repetition as row insertion at the table's own one sample data row. Restricted to a table whose sample row is the sheet's own last content — row insertion invalidates every absolute reference below the insertion point (a formula, a second table, a chart source range) — a template that fails that check is rejected with VELLUM_TEMPLATE_TABLE_NOT_AT_SHEET_BOTTOM before any splicing happens. The table's own ref attribute is updated to match the final row count on every fill, including a zero-item repeat, which shrinks it back to the header row alone.",
 	},
 	{
-		Feature: FeatureFillBindIf, Format: artifact.FormatXLSX, Outcome: Rejects,
-		Code: verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
-		Note: "As fill.bind.repeat: no anchor kind is discovered for this format yet.",
+		Feature: FeatureFillBindIf, Format: artifact.FormatXLSX, Outcome: Renders,
+		Note: "E11-S1: usable against a defined-name or table-column anchor the same way it is against a DOCX one.",
 	},
 	{
-		Feature: FeatureFillBindWith, Format: artifact.FormatXLSX, Outcome: Rejects,
-		Code: verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
-		Note: "As fill.bind.repeat: no anchor kind is discovered for this format yet.",
+		Feature: FeatureFillBindWith, Format: artifact.FormatXLSX, Outcome: Renders,
+		Note: "E11-S1: as fill.bind.if.",
 	},
 	{
-		Feature: FeatureFillBindSkip, Format: artifact.FormatXLSX, Outcome: Rejects,
-		Code: verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
-		Note: "As fill.bind.repeat: no anchor kind is discovered for this format yet.",
+		Feature: FeatureFillBindSkip, Format: artifact.FormatXLSX, Outcome: Renders,
+		Note: "E11-S1: as fill.bind.if.",
 	},
 
 	// ---- PPTX: a deck. Notes are native here and nowhere else. ----

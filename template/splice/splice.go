@@ -65,6 +65,15 @@ func SpliceInto(srcPkg, assetPkg *opc.Package, a anchor.Anchor, seq fragment.Seq
 		return spliceNative(assetPkg, a, src, seq)
 	case anchor.KindMarker:
 		return spliceMarker(a, src, seq)
+	case anchor.KindDefinedName, anchor.KindTableColumn:
+		// An xlsx cell anchor splices a typed numfmt.Value, not a rendered
+		// fragment.Sequence — see [SpliceCell]. Reaching here is a caller bug
+		// (template/bind's own execBind routes these two kinds to SpliceCell
+		// directly), never something an untrusted template or binding can
+		// trigger.
+		return xmlcopy.Replacement{}, verr.NewCodedErrorWithDetails(verr.VELLUM_INTERNAL_INVARIANT,
+			"an xlsx cell anchor was routed through SpliceInto's fragment.Sequence path instead of SpliceCell's typed-value path",
+			map[string]any{"anchor": a.Name, "kind": string(a.Kind)})
 	default:
 		return xmlcopy.Replacement{}, verr.NewCodedErrorWithDetails(verr.VELLUM_INTERNAL_INVARIANT,
 			"the anchor carries a kind splice does not recognise",

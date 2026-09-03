@@ -14,8 +14,8 @@ import (
 // package does not need to import it, which is what keeps
 // template.Inspect -> anchor.Discover from being an import cycle.
 //
-// A format with no discoverer wired — XLSX and PPTX today, whose anchor
-// kinds are E11's job — fails loudly with
+// A format with no discoverer wired — PPTX today, whose shape-name anchor
+// kind is E11-S2's job — fails loudly with
 // [verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED] rather than returning an empty
 // inventory. An empty inventory is indistinguishable from "this template
 // genuinely has no anchors", which is a different fact from "Vellum cannot
@@ -25,6 +25,8 @@ func Discover(pkg *opc.Package, format artifact.Format, mainPart string) (*Inven
 	switch format {
 	case artifact.FormatDOCX:
 		return discoverDOCX(pkg, mainPart)
+	case artifact.FormatXLSX:
+		return discoverXLSX(pkg, mainPart)
 	default:
 		return nil, verr.NewCodedErrorWithDetails(verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
 			"anchor discovery is not implemented for this template format",
