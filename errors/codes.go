@@ -830,11 +830,13 @@ const (
 	VELLUM_MCP_UNKNOWN_TOOL Code = "VELLUM_MCP_UNKNOWN_TOOL"
 
 	// VELLUM_MCP_NOT_IMPLEMENTED indicates a tool the catalog registers — so
-	// a client discovers it via tools/list — but whose content is not yet
-	// available: skills and examples serve go:embed packs E13 builds, not
-	// this story. A stub registration rather than an absent tool, the same
-	// discipline VELLUM_CLI_NOT_IMPLEMENTED already established for the
-	// CLI's own mcp and doctor stubs.
+	// a client discovers it via tools/list — but whose handler has no
+	// content to serve yet. A stub registration rather than an absent tool,
+	// the same discipline VELLUM_CLI_NOT_IMPLEMENTED already established for
+	// the CLI's own mcp and doctor stubs before they were wired for real.
+	// Every tool the catalog registers today is fully wired; this code has
+	// no current caller and exists for the next tool that ships registered
+	// before its content does.
 	VELLUM_MCP_NOT_IMPLEMENTED Code = "VELLUM_MCP_NOT_IMPLEMENTED"
 )
 

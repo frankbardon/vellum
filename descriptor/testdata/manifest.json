@@ -1102,11 +1102,11 @@
     },
     {
       "name": "vellum_skills",
-      "description": "Read a skill document from the embedded skill pack. Not yet available: lands in E13."
+      "description": "Read a skill document from the embedded skill pack by name, or list every available name when none is given."
     },
     {
       "name": "vellum_examples",
-      "description": "Read an example specification from the embedded example pack. Not yet available: lands in E13."
+      "description": "Read an example specification from the embedded example pack by name, or list every available name when none is given."
     }
   ],
   "error_domains": [
@@ -1236,4 +1236,4 @@
   "error_codes_count": 95,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: 3cfa349d189ab5874fbe29aaa181434274ca1ad989b30226d68116e6393ebe44
+// golden-hash: 75aab3195dcf45b38271fda9fc1ccc225b0148453b886fc15d72a6bb2782eaf8

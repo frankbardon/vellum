@@ -200,10 +200,9 @@ func All() ([]Doc, error) {
 }
 
 // Get returns the document named name (a [Doc.Stem] value, e.g.
-// "block-heading"), and whether it was found. The shape a future
-// "vellum_skills" tool handler is expected to call once that wiring lands —
-// see mcp.SkillsIn.Name and mcp/handlers.go's handleSkills, currently a
-// VELLUM_MCP_NOT_IMPLEMENTED stub this story does not wire up.
+// "block-heading"), and whether it was found. See mcp.SkillsIn.Name and
+// mcp/handlers.go's handleSkills, the "vellum_skills" tool handler that
+// calls this.
 func Get(name string) (Doc, bool, error) {
 	all, err := All()
 	if err != nil {

@@ -137,27 +137,43 @@ type ManifestOut struct {
 	Manifest *descriptor.Manifest `json:"manifest"`
 }
 
-// SkillsIn is [toolmeta.NameSkills]'s input: the skill document's name.
-// Unused today — see [handleSkills] — carried on the contract now so E13's
-// real implementation is additive rather than a breaking schema change.
+// SkillsIn is [toolmeta.NameSkills]'s input: the skill document's name (a
+// [skills.Doc.Stem] value, e.g. "block-heading"). Empty selects the listing
+// form — see [SkillsOut].
 type SkillsIn struct {
 	Name string `json:"name,omitempty"`
 }
 
-// SkillsOut is [toolmeta.NameSkills]'s output: the skill document's raw
-// content. Unused today.
+// SkillsOut is [toolmeta.NameSkills]'s output. A non-empty [SkillsIn.Name]
+// that matched a document returns Content — the whole file, frontmatter and
+// body, exactly as embedded ([skills.Doc.Raw]) — and leaves Names empty. An
+// empty Name returns every available document's [skills.Doc.Stem] in Names,
+// sorted, and leaves Content empty. The two fields are mutually exclusive on
+// the wire (both "omitempty") so a client can tell which form it got by
+// which field is present, rather than by whether Name was empty on the way
+// in.
 type SkillsOut struct {
-	Content string `json:"content"`
+	Content string   `json:"content,omitempty"`
+	Names   []string `json:"names,omitempty"`
 }
 
 // ExamplesIn is [toolmeta.NameExamples]'s input: the example specification's
-// name. Unused today — see [handleExamples].
+// name (an [examples.Doc.Stem] value, e.g. "block-heading"). Empty selects
+// the listing form — see [ExamplesOut].
 type ExamplesIn struct {
 	Name string `json:"name,omitempty"`
 }
 
-// ExamplesOut is [toolmeta.NameExamples]'s output: the example
-// specification's raw content. Unused today.
+// ExamplesOut is [toolmeta.NameExamples]'s output, mirroring [SkillsOut]'s
+// own shape: Content carries one document's raw bytes ([examples.Doc.Raw])
+// as a string — encoding/json's own []byte-to-string conversion, since a
+// spec.Spec or a bind.Binding is textual JSON, not a binary payload — found
+// by name; Names carries every available document's [examples.Doc.Stem],
+// sorted, when Name was empty. examples.Doc carries no description field
+// (unlike skills.Doc.Frontmatter), so the listing is names only, keeping the
+// two tools' listing shape identical rather than one carrying descriptions
+// the other cannot.
 type ExamplesOut struct {
-	Content string `json:"content"`
+	Content string   `json:"content,omitempty"`
+	Names   []string `json:"names,omitempty"`
 }

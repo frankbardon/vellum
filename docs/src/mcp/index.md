@@ -80,26 +80,19 @@ identically on the first call and the thousandth in one running process.
 | `vellum_boxes` | Return the asset slots a theme offers a format. | [Themes](../spec/themes.md#layouts-pages-and-box-roles) |
 | `vellum_schema` | Return the published JSON Schema for a specification. | [Payload schema](../contract/payload-schema.md) |
 | `vellum_manifest` | Return the manifest describing what Vellum can do. | [Payload schema](../contract/payload-schema.md) |
-| `vellum_skills` | Read a skill document from the embedded skill pack by name. | — |
-| `vellum_examples` | Read an example specification from the embedded example pack by name. | [Quickstart](../getting-started/quickstart.md) |
+| `vellum_skills` | Read a skill document from the embedded skill pack by name, or list every available name. | — |
+| `vellum_examples` | Read an example specification from the embedded example pack by name, or list every available name. | [Quickstart](../getting-started/quickstart.md) |
 
-Eight of these — `compose` through `manifest` — are fully wired to the
-facade today: each is a thin, tested handler over exactly one
-`*vellum.Vellum` method, following the identical shape internal/cli's own
-verb files use.
-
-**`vellum_skills` and `vellum_examples` are a known, currently open gap.**
-Both are registered — a client sees them in `tools/list`, with real
-descriptions — but calling either today returns
-`VELLUM_MCP_NOT_IMPLEMENTED`. This is despite the skill pack (`skills/`) and
-the example pack (`examples/`) both being real, complete, go:embed'd content
-today: the two tool handlers themselves were stubbed when the tool catalog
-was first registered, before either pack existed to serve, and wiring them
-to the packs that now exist has not yet landed. An agent wanting a skill
-file or an example today reads it from the repository's `skills/` or
-`examples/` directory directly (or, for a skill file, from whichever
-mechanism actually delivered this documentation pack to it) rather than
-through these two tool calls.
+All ten tools are fully wired today. Eight of them — `compose` through
+`manifest` — are thin, tested handlers over exactly one `*vellum.Vellum`
+method, following the identical shape internal/cli's own verb files use.
+`vellum_skills` and `vellum_examples` read the embedded `skills/` and
+`examples/` packs directly instead, since neither pack's content depends on
+a `*vellum.Vellum` instance: a non-empty `name` looks a document up by its
+filename stem (e.g. `block-heading`) and returns the whole file; an empty
+`name` returns every available stem instead, sorted. A `name` that matches
+nothing in the pack is `VELLUM_MCP_INVALID_INPUT`, naming the value it was
+given and the full set of names that would have matched.
 
 ## See also
 

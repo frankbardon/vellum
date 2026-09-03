@@ -174,8 +174,11 @@ func TestToolHandle_ErrorReturnMatchesEnvelopeErrors(t *testing.T) {
 	t.Run("compose_malformed_json", func(t *testing.T) {
 		check(t, toolmeta.NameCompose, json.RawMessage(`not json`))
 	})
-	t.Run("skills_stub", func(t *testing.T) {
+	t.Run("skills_empty_name_lists", func(t *testing.T) {
 		check(t, toolmeta.NameSkills, json.RawMessage(`{}`))
+	})
+	t.Run("skills_unknown_name", func(t *testing.T) {
+		check(t, toolmeta.NameSkills, json.RawMessage(`{"name":"does-not-exist"}`))
 	})
 	t.Run("manifest_empty_args", func(t *testing.T) {
 		check(t, toolmeta.NameManifest, nil)

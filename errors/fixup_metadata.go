@@ -945,7 +945,7 @@ var codeMetadata = map[Code]Metadata{
 		Message: "this tool is registered but its content is not yet available",
 		Fixups: []Fixup{{
 			Action: FixupRepairInput,
-			Hint:   "skills and examples serve content a later story embeds. Call an already-implemented tool, or wait for that story to merge.",
+			Hint:   "call an already-implemented tool (see tools/list), or wait for the tool's content to be wired up.",
 		}},
 	},
 

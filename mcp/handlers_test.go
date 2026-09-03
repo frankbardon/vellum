@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/frankbardon/vellum/artifact"
@@ -323,15 +325,143 @@ func TestHandleFill_MalformedDataIsMCPInvalidInput(t *testing.T) {
 	assertOneError(t, env, verr.VELLUM_MCP_INVALID_INPUT)
 }
 
-func TestHandleSkillsAndExamples_NotYetImplemented(t *testing.T) {
+// TestHandleSkills_FoundByName checks the found-by-name path against a
+// document known to exist — this tool's own skill file, tool-skills.md,
+// whose stem is "tool-skills" — asserting Content carries the whole raw
+// file (frontmatter included) and Names is empty, since the two are
+// mutually exclusive on the wire.
+func TestHandleSkills_FoundByName(t *testing.T) {
 	catalog := mcp.NewCatalog(testVellum(t))
-
-	for _, name := range []string{toolmeta.NameSkills, toolmeta.NameExamples} {
-		t.Run(name, func(t *testing.T) {
-			env := dispatch(t, catalog, name, map[string]any{})
-			assertOneError(t, env, verr.VELLUM_MCP_NOT_IMPLEMENTED)
-		})
+	env := dispatch(t, catalog, toolmeta.NameSkills, map[string]any{"name": "tool-skills"})
+	if len(env.Errors) != 0 {
+		t.Fatalf("errors = %+v, want none", env.Errors)
 	}
+	var out struct {
+		Content string   `json:"content"`
+		Names   []string `json:"names"`
+	}
+	if err := json.Unmarshal(env.Data, &out); err != nil {
+		t.Fatalf("decoding data: %v", err)
+	}
+	if !strings.HasPrefix(out.Content, "---\n") {
+		t.Errorf("content = %q, want the raw file starting with its frontmatter delimiter", firstLine(out.Content))
+	}
+	if !strings.Contains(out.Content, "tool-skills") {
+		t.Error("content does not mention its own stem")
+	}
+	if len(out.Names) != 0 {
+		t.Errorf("names = %v, want empty on a found-by-name response", out.Names)
+	}
+}
+
+// TestHandleSkills_NotFoundByName checks that a name matching nothing in
+// the pack is VELLUM_MCP_INVALID_INPUT, not VELLUM_MCP_NOT_IMPLEMENTED —
+// this tool is fully wired, so an unknown name is an ordinary input error,
+// the same code parseFormat raises for an unrecognised format.
+func TestHandleSkills_NotFoundByName(t *testing.T) {
+	catalog := mcp.NewCatalog(testVellum(t))
+	env := dispatch(t, catalog, toolmeta.NameSkills, map[string]any{"name": "does-not-exist"})
+	assertOneError(t, env, verr.VELLUM_MCP_INVALID_INPUT)
+	if details := env.Errors[0].Details; details["name"] != "does-not-exist" {
+		t.Errorf("error details = %+v, want name = %q", details, "does-not-exist")
+	}
+}
+
+// TestHandleSkills_EmptyNameLists checks the listing form: an empty name
+// returns every available stem, sorted, and no content.
+func TestHandleSkills_EmptyNameLists(t *testing.T) {
+	catalog := mcp.NewCatalog(testVellum(t))
+	env := dispatch(t, catalog, toolmeta.NameSkills, map[string]any{})
+	if len(env.Errors) != 0 {
+		t.Fatalf("errors = %+v, want none", env.Errors)
+	}
+	var out struct {
+		Content string   `json:"content"`
+		Names   []string `json:"names"`
+	}
+	if err := json.Unmarshal(env.Data, &out); err != nil {
+		t.Fatalf("decoding data: %v", err)
+	}
+	if out.Content != "" {
+		t.Errorf("content = %q, want empty on a listing response", out.Content)
+	}
+	if len(out.Names) == 0 {
+		t.Fatal("names is empty, want at least this tool's own skill files")
+	}
+	if !slices.Contains(out.Names, "tool-skills") {
+		t.Errorf("names = %v, want it to contain %q", out.Names, "tool-skills")
+	}
+	if !slices.IsSorted(out.Names) {
+		t.Errorf("names = %v, want sorted", out.Names)
+	}
+}
+
+// TestHandleExamples_FoundByName mirrors TestHandleSkills_FoundByName
+// against the examples pack, whose Doc.Raw is []byte rather than a parsed
+// Frontmatter/Body split — the wire Content is that []byte converted to a
+// string, so it round-trips as the JSON the example file itself is.
+func TestHandleExamples_FoundByName(t *testing.T) {
+	catalog := mcp.NewCatalog(testVellum(t))
+	env := dispatch(t, catalog, toolmeta.NameExamples, map[string]any{"name": "block-heading"})
+	if len(env.Errors) != 0 {
+		t.Fatalf("errors = %+v, want none", env.Errors)
+	}
+	var out struct {
+		Content string   `json:"content"`
+		Names   []string `json:"names"`
+	}
+	if err := json.Unmarshal(env.Data, &out); err != nil {
+		t.Fatalf("decoding data: %v", err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(out.Content), &doc); err != nil {
+		t.Fatalf("content is not valid JSON: %v\n%s", err, out.Content)
+	}
+	if len(out.Names) != 0 {
+		t.Errorf("names = %v, want empty on a found-by-name response", out.Names)
+	}
+}
+
+func TestHandleExamples_NotFoundByName(t *testing.T) {
+	catalog := mcp.NewCatalog(testVellum(t))
+	env := dispatch(t, catalog, toolmeta.NameExamples, map[string]any{"name": "does-not-exist"})
+	assertOneError(t, env, verr.VELLUM_MCP_INVALID_INPUT)
+}
+
+func TestHandleExamples_EmptyNameLists(t *testing.T) {
+	catalog := mcp.NewCatalog(testVellum(t))
+	env := dispatch(t, catalog, toolmeta.NameExamples, map[string]any{})
+	if len(env.Errors) != 0 {
+		t.Fatalf("errors = %+v, want none", env.Errors)
+	}
+	var out struct {
+		Content string   `json:"content"`
+		Names   []string `json:"names"`
+	}
+	if err := json.Unmarshal(env.Data, &out); err != nil {
+		t.Fatalf("decoding data: %v", err)
+	}
+	if out.Content != "" {
+		t.Errorf("content = %q, want empty on a listing response", out.Content)
+	}
+	if len(out.Names) == 0 {
+		t.Fatal("names is empty, want at least one example file")
+	}
+	if !slices.Contains(out.Names, "block-heading") {
+		t.Errorf("names = %v, want it to contain %q", out.Names, "block-heading")
+	}
+	if !slices.IsSorted(out.Names) {
+		t.Errorf("names = %v, want sorted", out.Names)
+	}
+}
+
+// firstLine is a small test helper so a failed content-prefix assertion
+// prints something legible rather than an entire skill file.
+func firstLine(s string) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		return s[:i]
+	}
+	return s
 }
 
 // TestHandlers_NeverPanicOnGarbageInput exercises every registered tool

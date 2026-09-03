@@ -45,13 +45,9 @@ const (
 // Skills and Examples are the registered [ToolMeta] values, in FR-U3's own
 // order — the same order [AllTools] returns them in.
 //
-// Skills and Examples are registered here — so a client can discover them
-// via tools/list and read what they are for — before either has real
-// content behind it: both serve go:embed packs E13 builds under skills/ and
-// examples/, which do not exist yet. Calling either tool today reports
-// VELLUM_MCP_NOT_IMPLEMENTED, the same "stub, not a gap pretending to be
-// done" discipline internal/cli's mcp and doctor stubs used before this
-// story landed them for real.
+// Skills and Examples serve the go:embed packs under skills/ and examples/
+// directly: a name looks one document up by its stem, and an empty name
+// lists every document the pack carries.
 var (
 	Compose = ToolMeta{
 		Name:        NameCompose,
@@ -87,11 +83,11 @@ var (
 	}
 	Skills = ToolMeta{
 		Name:        NameSkills,
-		Description: "Read a skill document from the embedded skill pack. Not yet available: lands in E13.",
+		Description: "Read a skill document from the embedded skill pack by name, or list every available name when none is given.",
 	}
 	Examples = ToolMeta{
 		Name:        NameExamples,
-		Description: "Read an example specification from the embedded example pack. Not yet available: lands in E13.",
+		Description: "Read an example specification from the embedded example pack by name, or list every available name when none is given.",
 	}
 )
 
