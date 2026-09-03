@@ -8,8 +8,8 @@ import (
 // Offsets are int64 to match encoding/xml.Decoder.InputOffset, which is what
 // every Span in this package is ultimately derived from.
 type Span struct {
-	Start int64
-	End   int64
+	Start int64 `json:"start"`
+	End   int64 `json:"end"`
 }
 
 // Empty reports whether the span covers no bytes. A zero-width span is not

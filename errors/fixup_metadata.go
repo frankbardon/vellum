@@ -619,6 +619,39 @@ var codeMetadata = map[Code]Metadata{
 		FixupNotApplicable: true,
 	},
 
+	VELLUM_TEMPLATE_INVALID: {
+		Message: "the package is not a fillable OOXML template",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "Open the file in Word, Excel or PowerPoint and re-save it as .docx, .xlsx or .pptx. Fill mode looks for a package-relationship of type officeDocument whose target is present and whose declared content type is a recognised DOCX, XLSX or PPTX main part; a package assembled by another tool, or a PDF, has neither.",
+		}},
+	},
+
+	VELLUM_TEMPLATE_FORMAT_UNSUPPORTED: {
+		Message: "anchor discovery is not implemented yet for this template format",
+		Fixups: []Fixup{{
+			Action:   FixupChangeFormat,
+			Hint:     "Author the template as .docx until XLSX and PPTX anchor discovery lands. The error's details name the format that was asked for.",
+			Examples: []any{"docx"},
+		}},
+	},
+
+	VELLUM_ANCHOR_DUPLICATE: {
+		Message: "two anchors in the same part share one name",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "Rename one of the colliding content-control tags or {{markers}} in the authoring application so every anchor name is unique within the part. Vellum has no rule for choosing between two anchors that claim the same name.",
+		}},
+	},
+
+	VELLUM_ANCHOR_MARKER_MALFORMED: {
+		Message: "a {{ }} marker in the document text is malformed",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "Close every {{ with a matching }} before the paragraph ends, and give the marker a non-empty name. Vellum does not guess at a malformed marker's intent.",
+		}},
+	},
+
 	VELLUM_INTERNAL_INVARIANT: {
 		Message: "an internal invariant was violated",
 		// No input change resolves this. It is always a Vellum bug, and

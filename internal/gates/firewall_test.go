@@ -122,6 +122,64 @@ func TestNoImagetestOnTheLibraryPath(t *testing.T) {
 			"and does not re-encode them.")
 }
 
+// TestNoEncodingXMLInFill firewalls fill mode's own packages against
+// encoding/xml, checking direct imports only.
+//
+// template and its siblings (template/anchor today; template/defrag,
+// template/splice and template/bind as they land) sit on top of xmlcopy,
+// which is the one package in the fill-mode stack allowed to import
+// encoding/xml — see its package doc for why. Everything above it reads
+// structure through xmlcopy.Walk and edits through xmlcopy.Apply, so that
+// every touch to a source part goes through the byte-span discipline that is
+// fill mode's non-destructiveness guarantee. A direct import of encoding/xml
+// anywhere in this subtree is a decode-mutate-re-encode shortcut waiting to
+// reintroduce exactly the byte-mangling xmlcopy exists to avoid.
+//
+// Checked as a direct import, not a transitive dependency: template imports
+// opc, and opc itself parses its relationships and content-types parts with
+// encoding/xml, so a transitive "go list -deps" check would flag that
+// legitimate, unrelated use. What matters here is what a fill-mode package
+// writes in its own import block.
+//
+// The package list is discovered by walking template/... rather than
+// hard-coded, so a package added under template/ later — defrag, splice,
+// bind — is covered automatically rather than needing this test edited, the
+// same reasoning TestNoUnsortedMapIteration's outputPathPackages floor uses
+// for the opposite failure mode.
+func TestNoEncodingXMLInFill(t *testing.T) {
+	pkgs := fillModePackages(t)
+	if len(pkgs) == 0 {
+		t.Fatal("no packages found under template/; the pattern is wrong and this gate would pass vacuously")
+	}
+	for _, pkg := range pkgs {
+		out, err := exec.Command("go", "list", "-f", `{{join .Imports "\n"}}`, pkg).CombinedOutput()
+		if err != nil {
+			t.Fatalf("go list %s: %v\n%s", pkg, err, out)
+		}
+		for _, line := range strings.Split(string(out), "\n") {
+			if strings.TrimSpace(line) == "encoding/xml" {
+				t.Errorf("%s imports encoding/xml directly; read structure through xmlcopy.Walk instead", pkg)
+			}
+		}
+	}
+}
+
+// fillModePackages lists every package under template/, as it exists today.
+func fillModePackages(t *testing.T) []string {
+	t.Helper()
+	out, err := exec.Command("go", "list", modulePath(t)+"/template/...").CombinedOutput()
+	if err != nil {
+		t.Fatalf("go list: %v\n%s", err, out)
+	}
+	var pkgs []string
+	for _, line := range strings.Split(string(out), "\n") {
+		if p := strings.TrimSpace(line); p != "" {
+			pkgs = append(pkgs, p)
+		}
+	}
+	return pkgs
+}
+
 // assertNotReachableFromShipped fails when any target is in the dependency
 // graph of a package outside internal/.
 func assertNotReachableFromShipped(t *testing.T, targets []string, why string) {

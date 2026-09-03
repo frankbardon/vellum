@@ -976,6 +976,7 @@
     "PDF",
     "PDFA",
     "TEMPLATE",
+    "ANCHOR",
     "INTERNAL"
   ],
   "error_codes": [
@@ -1034,9 +1035,13 @@
     "VELLUM_PDFA_NONCONFORMANT",
     "VELLUM_TEMPLATE_XML_MALFORMED",
     "VELLUM_TEMPLATE_XML_SPAN_INVALID",
+    "VELLUM_TEMPLATE_INVALID",
+    "VELLUM_TEMPLATE_FORMAT_UNSUPPORTED",
+    "VELLUM_ANCHOR_DUPLICATE",
+    "VELLUM_ANCHOR_MARKER_MALFORMED",
     "VELLUM_INTERNAL_INVARIANT"
   ],
-  "error_codes_count": 56,
+  "error_codes_count": 60,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: 731667914e7d2de5041b45daa91e353f8b3070ead270d1415ae6a681cc7b10bf
+// golden-hash: 9072610e28ca76b073ef59decbf7dc18d377fad352f7f20ebafcd395598998a9

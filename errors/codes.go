@@ -440,6 +440,49 @@ const (
 	// bytes produces this — only a bug in the caller assembling replacements
 	// — so it is an internal-invariant class of error.
 	VELLUM_TEMPLATE_XML_SPAN_INVALID Code = "VELLUM_TEMPLATE_XML_SPAN_INVALID"
+
+	// VELLUM_TEMPLATE_INVALID indicates a package [template.Open] cannot treat
+	// as a fillable OOXML template: no package-relationship of type
+	// officeDocument, one whose target the package does not contain, or one
+	// whose target's declared content type is not a recognised DOCX, XLSX or
+	// PPTX main part. PDF is not an OPC package at all and so never reaches
+	// this check with real PDF bytes; a package that merely does not resolve
+	// to one of the three OOXML main content types — including one built to
+	// look PDF-shaped — is refused the same way, because fill mode edits an
+	// OPC package surgically and a format outside that set is not one.
+	VELLUM_TEMPLATE_INVALID Code = "VELLUM_TEMPLATE_INVALID"
+
+	// VELLUM_TEMPLATE_FORMAT_UNSUPPORTED indicates [anchor.Discover] was asked
+	// to inspect a template format with no discoverer wired yet — XLSX and
+	// PPTX, whose anchor kinds (ListObject ranges, defined names, shape names)
+	// are E11's job. Returning an empty inventory instead would be
+	// indistinguishable from "this template genuinely has no anchors", which
+	// is a different fact, so the gap is a loud, coded refusal rather than a
+	// silent one.
+	VELLUM_TEMPLATE_FORMAT_UNSUPPORTED Code = "VELLUM_TEMPLATE_FORMAT_UNSUPPORTED"
+)
+
+// ANCHOR domain — fill-mode anchor discovery: locating the native content
+// controls and marker text a binding will later splice data into.
+const (
+	// VELLUM_ANCHOR_DUPLICATE indicates two anchors in the same part share one
+	// name: two w:sdt content controls carrying the same w:tag, a {{marker}}
+	// repeating the name of an earlier marker, or a marker colliding with a
+	// content control's tag. A binding has no way to choose between two
+	// anchors claiming the same name, so this is rejected at discovery time
+	// rather than deferred to whichever binding story trips over it first.
+	// Repeat semantics — the same anchor legitimately appearing once per
+	// repeated row or slide — is an E10/E11 concept that does not exist yet
+	// and this rule will need revisiting once it does.
+	VELLUM_ANCHOR_DUPLICATE Code = "VELLUM_ANCHOR_DUPLICATE"
+
+	// VELLUM_ANCHOR_MARKER_MALFORMED indicates {{ }} marker syntax in the
+	// document text that does not close before the paragraph ends, or that
+	// closes around an empty or all-whitespace name. Vellum has no lenient
+	// mode: a malformed marker is refused rather than silently skipped, so an
+	// author who mistyped a marker learns about it rather than getting a
+	// document with a gap where the data was supposed to go.
+	VELLUM_ANCHOR_MARKER_MALFORMED Code = "VELLUM_ANCHOR_MARKER_MALFORMED"
 )
 
 // INTERNAL domain — invariants that no author input can violate.
@@ -544,6 +587,12 @@ var allCodes = []Code{
 	// TEMPLATE
 	VELLUM_TEMPLATE_XML_MALFORMED,
 	VELLUM_TEMPLATE_XML_SPAN_INVALID,
+	VELLUM_TEMPLATE_INVALID,
+	VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
+
+	// ANCHOR
+	VELLUM_ANCHOR_DUPLICATE,
+	VELLUM_ANCHOR_MARKER_MALFORMED,
 
 	// INTERNAL
 	VELLUM_INTERNAL_INVARIANT,
