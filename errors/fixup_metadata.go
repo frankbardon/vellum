@@ -636,6 +636,39 @@ var codeMetadata = map[Code]Metadata{
 		}},
 	},
 
+	VELLUM_TEMPLATE_SDT_CONTENT_MISSING: {
+		Message: "the content control has no w:sdtContent child to splice into",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "Open the content control in Word and type or paste placeholder content into it before saving the template. A content control's sdtContent is optional in the schema, but fill mode needs somewhere inside the control to place the bound content.",
+		}},
+	},
+
+	VELLUM_TEMPLATE_BLOCK_UNSUPPORTED: {
+		Message: "template/splice does not render this block kind into a content control",
+		Fixups: []Fixup{{
+			Action: FixupRemoveField,
+			Hint:   "Bind this anchor to content built only from heading, text, table and asset blocks. Splicing a page break, notes or spacer block into a content control is not implemented.",
+		}},
+	},
+
+	VELLUM_TEMPLATE_MARKER_BLOCK_UNSUPPORTED: {
+		Message: "a {{marker}} anchor accepts exactly one heading-or-text block, and nothing else",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "A {{marker}} sits inline inside a run, in the middle of an existing paragraph, so only a single run of text can go there. Convert the template's placeholder to a native content control (a Rich Text or Plain Text content control with a matching w:tag) if the bound content is a table, an image, or more than one paragraph.",
+		}},
+	},
+
+	VELLUM_TEMPLATE_ASSET_MEDIA_UNSUPPORTED: {
+		Message: "the asset's media type cannot be embedded into a DOCX content control",
+		Fixups: []Fixup{{
+			Action:   FixupSupplyAsset,
+			Hint:     "Supply the asset as PNG or JPEG bytes. Those are the two media types fill mode's DOCX splice embeds, matching the capability matrix's DOCX asset rows.",
+			Examples: []any{"image/png", "image/jpeg"},
+		}},
+	},
+
 	VELLUM_ANCHOR_DUPLICATE: {
 		Message: "two anchors in the same part share one name",
 		Fixups: []Fixup{{

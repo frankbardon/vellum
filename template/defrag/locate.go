@@ -53,6 +53,25 @@ type Site struct {
 	// match ends, mirroring Prefix. Nil when the match ends exactly on a
 	// run boundary.
 	Suffix *Piece
+
+	// RunRPr is the verbatim source bytes of the *first* run the match
+	// touches — f.runs[startIdx]'s own <w:rPr>...</w:rPr>, deep-cloned like
+	// [Piece.RPr] — or nil if that run carried no rPr, or if the match
+	// touches no run at all (a zero-width insertion into a run-less
+	// container).
+	//
+	// Populated unconditionally, unlike Prefix and Suffix, specifically to
+	// close a formatting-basis gap: when a match consumes one or more runs
+	// *entirely* — the common case for a {{marker}} that is the whole of its
+	// own run — Prefix and Suffix are both nil (per the package doc's
+	// "scope boundaries" section, a fully-consumed run carries no Piece
+	// forward), which leaves a caller substituting new content with no
+	// formatting to draw from at all. RunRPr is that formatting basis: a
+	// caller (template/splice) uses it as the rPr for newly rendered runs
+	// whether or not Prefix or Suffix happen to be present, rather than
+	// switching between two different sources of "what did this text look
+	// like" depending on where the match landed.
+	RunRPr []byte
 }
 
 // Locate computes the [Site] needed to replace [matchStart, matchEnd) — rune
@@ -101,6 +120,7 @@ func (f *Flat) Locate(matchStart, matchEnd int) (Site, error) {
 
 	site := Site{
 		Affected: xmlcopy.Span{Start: startRun.span.Start, End: endRun.span.End},
+		RunRPr:   cloneBytes(startRun.rpr),
 	}
 	if matchStart > startRun.textStart {
 		site.Prefix = buildPiece(startRun, 0, matchStart-startRun.textStart)
@@ -141,6 +161,7 @@ func (f *Flat) locateInsertion(pos int) Site {
 				Affected: r.span,
 				Prefix:   buildPiece(r, 0, pos-r.textStart),
 				Suffix:   buildPiece(r, pos-r.textStart, r.textLen),
+				RunRPr:   cloneBytes(r.rpr),
 			}
 		}
 	}
@@ -153,7 +174,7 @@ func (f *Flat) locateInsertion(pos int) Site {
 	for i := range f.runs {
 		r := &f.runs[i]
 		if r.textStart == pos {
-			return Site{Affected: xmlcopy.Span{Start: r.span.Start, End: r.span.Start}}
+			return Site{Affected: xmlcopy.Span{Start: r.span.Start, End: r.span.Start}, RunRPr: cloneBytes(r.rpr)}
 		}
 	}
 

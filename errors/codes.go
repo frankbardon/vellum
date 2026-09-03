@@ -460,6 +460,39 @@ const (
 	// is a different fact, so the gap is a loud, coded refusal rather than a
 	// silent one.
 	VELLUM_TEMPLATE_FORMAT_UNSUPPORTED Code = "VELLUM_TEMPLATE_FORMAT_UNSUPPORTED"
+
+	// VELLUM_TEMPLATE_SDT_CONTENT_MISSING indicates a native anchor's w:sdt
+	// element carries no w:sdtContent child. CT_SdtBlock declares sdtContent
+	// optional, so a genuinely empty content control — one Word lets an
+	// author create and never fill in — reaches splice with nothing to
+	// replace, and there is no honest span to substitute into.
+	VELLUM_TEMPLATE_SDT_CONTENT_MISSING Code = "VELLUM_TEMPLATE_SDT_CONTENT_MISSING"
+
+	// VELLUM_TEMPLATE_BLOCK_UNSUPPORTED indicates a fragment.Block whose kind
+	// template/splice does not render into a content control: none of
+	// Paragraph, Table or Asset is set (a page break, notes or spacer block,
+	// or a future kind splice has not been taught yet). Unlike
+	// VELLUM_TEMPLATE_MARKER_BLOCK_UNSUPPORTED this is not a permanent scope
+	// boundary — a native content control is block-level and could in
+	// principle carry one of these kinds — it is simply not implemented yet.
+	VELLUM_TEMPLATE_BLOCK_UNSUPPORTED Code = "VELLUM_TEMPLATE_BLOCK_UNSUPPORTED"
+
+	// VELLUM_TEMPLATE_MARKER_BLOCK_UNSUPPORTED indicates a fragment.Sequence
+	// handed to a marker anchor's splice that is not exactly one Paragraph
+	// block: zero blocks, more than one, or a Table or Asset block. This is a
+	// permanent scope boundary, not a gap: a {{marker}} sits inline inside a
+	// run position in the middle of a paragraph, and block-level content — a
+	// table, an image, several paragraphs — cannot be inserted there without
+	// breaking well-formedness (a w:tbl cannot appear inside a w:r). Content
+	// needing that shape belongs behind a native content control instead.
+	VELLUM_TEMPLATE_MARKER_BLOCK_UNSUPPORTED Code = "VELLUM_TEMPLATE_MARKER_BLOCK_UNSUPPORTED"
+
+	// VELLUM_TEMPLATE_ASSET_MEDIA_UNSUPPORTED indicates an asset block
+	// splice was asked to embed whose media type is neither image/png nor
+	// image/jpeg — the same accepted set the DOCX capability matrix already
+	// declares, enforced again here because fill mode has no separate
+	// validate-time capability check in front of a splice.
+	VELLUM_TEMPLATE_ASSET_MEDIA_UNSUPPORTED Code = "VELLUM_TEMPLATE_ASSET_MEDIA_UNSUPPORTED"
 )
 
 // ANCHOR domain — fill-mode anchor discovery: locating the native content
@@ -611,6 +644,10 @@ var allCodes = []Code{
 	VELLUM_TEMPLATE_XML_SPAN_INVALID,
 	VELLUM_TEMPLATE_INVALID,
 	VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
+	VELLUM_TEMPLATE_SDT_CONTENT_MISSING,
+	VELLUM_TEMPLATE_BLOCK_UNSUPPORTED,
+	VELLUM_TEMPLATE_MARKER_BLOCK_UNSUPPORTED,
+	VELLUM_TEMPLATE_ASSET_MEDIA_UNSUPPORTED,
 
 	// ANCHOR
 	VELLUM_ANCHOR_DUPLICATE,
