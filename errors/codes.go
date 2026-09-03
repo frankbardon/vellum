@@ -515,6 +515,46 @@ const (
 	// splicing happens, not after, so a caller never receives output that
 	// looks correct and corrupts references invisibly.
 	VELLUM_TEMPLATE_TABLE_NOT_AT_SHEET_BOTTOM Code = "VELLUM_TEMPLATE_TABLE_NOT_AT_SHEET_BOTTOM"
+
+	// VELLUM_TEMPLATE_SHAPE_TXBODY_MISSING indicates a shape anchor's own
+	// <p:sp> element carries no <p:txBody> child. CT_Shape declares txBody
+	// optional — a purely decorative auto-shape with no text ever typed into
+	// it is a real, if unusual, case — so a shape anchor discovered by its
+	// own name can still reach splice with nothing to place text into, and
+	// there is no honest span to substitute a new one at.
+	VELLUM_TEMPLATE_SHAPE_TXBODY_MISSING Code = "VELLUM_TEMPLATE_SHAPE_TXBODY_MISSING"
+
+	// VELLUM_TEMPLATE_SHAPE_BLOCK_UNSUPPORTED indicates a fragment.Sequence
+	// handed to a pptx shape anchor's splice carries a block that is not a
+	// Paragraph: a Table or an Asset block. This is a permanent scope
+	// boundary, the shape-text counterpart of
+	// VELLUM_TEMPLATE_MARKER_BLOCK_UNSUPPORTED: a <p:txBody> is text-only by
+	// the DrawingML schema itself — a table needs its own sibling
+	// <p:graphicFrame> in the slide's shape tree and a picture its own
+	// sibling <p:pic>, neither of which fits inside one shape's own text
+	// body. Content needing that shape belongs behind its own shape in the
+	// template, not spliced into another shape's text.
+	VELLUM_TEMPLATE_SHAPE_BLOCK_UNSUPPORTED Code = "VELLUM_TEMPLATE_SHAPE_BLOCK_UNSUPPORTED"
+
+	// VELLUM_TEMPLATE_SLIDE_REPEAT_EMPTIES_DECK indicates a "slide" repeat
+	// evaluated to zero items and the slide it targets is the presentation's
+	// only slide. A zero-item repeat legitimately removes the template's own
+	// un-repeated slide the same way it removes a table row or a table_row's
+	// worth of worksheet rows, but a deck left with zero total slides is not
+	// a file PowerPoint opens — the same "would produce a file the target
+	// reader refuses" reasoning as VELLUM_TEMPLATE_TABLE_NOT_AT_SHEET_BOTTOM,
+	// checked before any part is written rather than after.
+	VELLUM_TEMPLATE_SLIDE_REPEAT_EMPTIES_DECK Code = "VELLUM_TEMPLATE_SLIDE_REPEAT_EMPTIES_DECK"
+
+	// VELLUM_TEMPLATE_SLIDE_ID_RANGE_EXCEEDED indicates a "slide" repeat's
+	// own deterministic sldId numbering (one past the highest sldId already
+	// in the template, incrementing per clone) would reach or exceed
+	// 2147483648 — the identifier PresentationML reserves as the first
+	// sldMasterId/sldLayoutId. The two identifier spaces are disjoint by
+	// contract (see CLAUDE.md's own byte-layout invariant on the point), so
+	// a slide repeat is refused rather than producing a deck whose slide and
+	// master identifier spaces collide.
+	VELLUM_TEMPLATE_SLIDE_ID_RANGE_EXCEEDED Code = "VELLUM_TEMPLATE_SLIDE_ID_RANGE_EXCEEDED"
 )
 
 // ANCHOR domain — fill-mode anchor discovery: locating the native content
@@ -800,6 +840,10 @@ var allCodes = []Code{
 	VELLUM_TEMPLATE_ASSET_MEDIA_UNSUPPORTED,
 	VELLUM_TEMPLATE_REPEAT_CONTAINER_INVALID,
 	VELLUM_TEMPLATE_TABLE_NOT_AT_SHEET_BOTTOM,
+	VELLUM_TEMPLATE_SHAPE_TXBODY_MISSING,
+	VELLUM_TEMPLATE_SHAPE_BLOCK_UNSUPPORTED,
+	VELLUM_TEMPLATE_SLIDE_REPEAT_EMPTIES_DECK,
+	VELLUM_TEMPLATE_SLIDE_ID_RANGE_EXCEEDED,
 
 	// ANCHOR
 	VELLUM_ANCHOR_DUPLICATE,

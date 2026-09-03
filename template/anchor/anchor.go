@@ -1,6 +1,7 @@
 // Package anchor discovers the places a fill-mode binding will splice data
-// into: DOCX's native content controls and {{marker}} text, and — as of
-// E11-S1 — xlsx's defined names and Excel Table (ListObject) columns.
+// into: DOCX's native content controls and {{marker}} text, xlsx's defined
+// names and Excel Table (ListObject) columns (E11-S1), and — as of E11-S2 —
+// pptx's shape names.
 //
 // Discovery is read-only. It locates anchors and reports their location —
 // enough for a later story (defrag, splice) to find its way back to the
@@ -18,14 +19,20 @@
 // binding author would write unprompted: the table names the group, the
 // column names the field, and a "." reads the same way a dotted path does
 // everywhere else in this codebase's own FEEL expressions.
+//
+// # pptx anchor naming
+//
+// A shape anchor's Name is its own <p:cNvPr name="..."> attribute, exactly as
+// the template author (or PowerPoint's own default-naming) set it — never a
+// fallback to the shape's alt text. See [KindShape]'s own doc comment for why
+// that reading was chosen over the alternative the design considered.
 package anchor
 
 import "github.com/frankbardon/vellum/xmlcopy"
 
 // Kind distinguishes the anchor mechanisms a template format offers: DOCX's
-// content control and marker text, and — as of E11-S1 — xlsx's defined name
-// and Excel Table column. A pptx shape name is E11-S2's job and is
-// deliberately not anticipated here.
+// content control and marker text, xlsx's defined name and Excel Table
+// column (E11-S1), and pptx's shape name (E11-S2).
 type Kind string
 
 const (
@@ -55,20 +62,70 @@ const (
 	// anchor is. See [Anchor.Table] for the extra location information this
 	// kind carries beyond Span.
 	KindTableColumn Kind = "table_column"
+
+	// KindShape is a pptx shape identified by its own <p:cNvPr name="...">
+	// attribute — a top-level text-frame shape (a <p:sp> that is a direct
+	// child of a slide's own <p:spTree>, matching PRD FR-F2's "shape names").
+	//
+	// FR-F2 also says "with alt-text fallback", which this package resolves
+	// as: Name is always the shape's own name attribute — never descr — and
+	// descr, when present, is carried separately as [Anchor.Alias], exactly
+	// mirroring how a DOCX native anchor already carries w:tag -> Name and
+	// w:alias -> Alias as two distinct fields rather than one falling back to
+	// the other. Two reasons drove this over the alternative reading (name
+	// when non-empty, else descr as a literal binding key): first,
+	// consistency — every other Kind in this package that carries a
+	// human-readable label alongside its binding key (KindNative) already
+	// keeps the two separate, and a shape anchor mixing "the binding key" and
+	// "the accessible description" into one field depending on which
+	// happened to be set would be the one Kind in the vocabulary that
+	// behaves differently. Second, and more concretely: PowerPoint assigns
+	// every shape a non-empty default name ("TextBox 3", "Content
+	// Placeholder 2") whether or not a template author ever renamed it, so a
+	// shape with a genuinely empty name attribute essentially does not occur
+	// in a real deck — the fallback case reading (b) exists for almost never
+	// fires in practice, while descr (alt text) is authored for a screen
+	// reader and is prose, not a binding key a template author would
+	// deliberately choose. A shape's own name — set through PowerPoint's
+	// Selection Pane rename, the same deliberate authoring action a DOCX
+	// content control's w:tag represents — is the binding key; descr stays
+	// what it already is anywhere else in this codebase, an accessible
+	// description carried alongside it.
+	//
+	// A shape whose own name attribute is empty is simply not discovered as
+	// an anchor at all — not an error, since most shapes in a real deck are
+	// unlabeled placeholders or decoration and that is expected, not a
+	// defect, mirroring how a DOCX w:sdt with no w:tag is skipped rather than
+	// rejected.
+	//
+	// Because every shape PowerPoint auto-names is a candidate, a real deck's
+	// discovered inventory for this Kind will typically be larger than the
+	// set a binding actually references — narrowing that down to "which
+	// anchors this binding cares about" is [Binding.OptionalAnchors]' job,
+	// not discovery's.
+	//
+	// Scope: only a <p:sp> shape's own text frame is discovered — a picture,
+	// a table (graphicFrame) or a shape nested inside a group is out of this
+	// story's v1 scope and is silently not discovered, mirroring the
+	// deliberate scope boundary xlsx's KindTableColumn draws around "one
+	// sample data row" rather than chasing every possible shape.
+	KindShape Kind = "shape"
 )
 
 // Anchor is one fillable location discovered in a template.
 type Anchor struct {
 	// Name is the anchor's binding key: the content control's w:tag value for
-	// a native anchor, or the text between {{ and }} for a marker.
+	// a native anchor, the text between {{ and }} for a marker, or a shape's
+	// own <p:cNvPr name="..."> for a KindShape anchor.
 	Name string `json:"name"`
 
 	// Kind is which mechanism this anchor uses.
 	Kind Kind `json:"kind"`
 
-	// Alias is the content control's human-readable w:alias, when the
-	// template's author set one. Empty for a marker anchor, which carries no
-	// separate label.
+	// Alias is a human-readable label carried alongside Name: the content
+	// control's w:alias for a native anchor, or a shape's own <p:cNvPr
+	// descr="..."> (its alt text) for a KindShape anchor. Empty for a marker
+	// anchor, which carries no separate label.
 	Alias string `json:"alias,omitempty"`
 
 	// Part is the OPC part name the anchor was found in, e.g.
@@ -101,6 +158,14 @@ type Anchor struct {
 	// several DOCX markers sharing one paragraph already share a Span. Span
 	// alone does not say which cell within that row is this column's own;
 	// [Anchor.Table.Column] does.
+	//
+	// For a shape anchor this is the whole <p:sp>...</p:sp> element, open tag
+	// through close tag — mirroring a native anchor's own whole-w:sdt
+	// convention exactly, since both are "the whole container; find the
+	// text-holding child inside it at splice time" shapes. Splicing locates
+	// the shape's own <p:txBody> child within this span rather than assuming
+	// a fixed offset, the same way splicing a native anchor locates its own
+	// w:sdtContent child within the w:sdt's Span.
 	Span xmlcopy.Span `json:"span"`
 
 	// Table carries the extra location information a KindTableColumn anchor

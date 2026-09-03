@@ -245,24 +245,20 @@ var matrix = Matrix{
 		Note: "A table longer than a slide continues onto the next with its headers repeated. Capacity is theme-derived rather than measured, so the split is reproducible."},
 	{Feature: FeatureFill, Format: artifact.FormatPPTX, Outcome: Renders},
 	{
-		Feature: FeatureFillBindRepeat, Format: artifact.FormatPPTX, Outcome: Rejects,
-		Code: verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
-		Note: "anchor.Discover has no PPTX discoverer wired yet (E11's job — a shape name, not a w:sdt or a {{marker}}), so no binding statement of any kind executes against a deck template today, whatever FeatureFill above optimistically claims.",
+		Feature: FeatureFillBindRepeat, Format: artifact.FormatPPTX, Outcome: Renders,
+		Note: "E11-S2: anchor.Discover wires a shape-name (KindShape) discoverer in, and RepeatTargetSlide realizes repetition as whole-slide cloning: N new ppt/slides/slideN-fillK.xml parts, each with its own copied relationships part and [Content_Types].xml override, a relationship from ppt/presentation.xml to each, and a fresh, deterministic <p:sldId> per clone (one past the highest sldId already reachable, staying strictly below the disjoint sldMasterId/sldLayoutId space). Every anchor a slide repeat's body references must be a shape anchor on one single slide part, mirroring the same single-container reconciliation every other repeat target already enforces. A zero-item repeat targeting the presentation's only slide is rejected with VELLUM_TEMPLATE_SLIDE_REPEAT_EMPTIES_DECK rather than producing a deck PowerPoint refuses to open.",
 	},
 	{
-		Feature: FeatureFillBindIf, Format: artifact.FormatPPTX, Outcome: Rejects,
-		Code: verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
-		Note: "As fill.bind.repeat: no anchor kind is discovered for this format yet.",
+		Feature: FeatureFillBindIf, Format: artifact.FormatPPTX, Outcome: Renders,
+		Note: "E11-S2: usable against a shape anchor the same way it is against a DOCX or xlsx one.",
 	},
 	{
-		Feature: FeatureFillBindWith, Format: artifact.FormatPPTX, Outcome: Rejects,
-		Code: verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
-		Note: "As fill.bind.repeat: no anchor kind is discovered for this format yet.",
+		Feature: FeatureFillBindWith, Format: artifact.FormatPPTX, Outcome: Renders,
+		Note: "E11-S2: as fill.bind.if.",
 	},
 	{
-		Feature: FeatureFillBindSkip, Format: artifact.FormatPPTX, Outcome: Rejects,
-		Code: verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED,
-		Note: "As fill.bind.repeat: no anchor kind is discovered for this format yet.",
+		Feature: FeatureFillBindSkip, Format: artifact.FormatPPTX, Outcome: Renders,
+		Note: "E11-S2: as fill.bind.if.",
 	},
 
 	// ---- PDF: archival output, emitted directly. ----

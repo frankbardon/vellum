@@ -101,10 +101,22 @@ const (
 	// [verr.VELLUM_TEMPLATE_TABLE_NOT_AT_SHEET_BOTTOM] before any splicing
 	// happens, not after.
 	RepeatTargetTableRow RepeatTarget = "table_row"
+
+	// RepeatTargetSlide repeats a whole pptx slide: N new slide *parts* are
+	// added to the package where the template carried one un-repeated slide,
+	// each a filled copy, with matching relationships, content-type
+	// declarations and <p:sldId> entries — real OPC package-structure
+	// mutations, not a byte-span splice inside one part the way every other
+	// target is. Added in E11-S2 alongside pptx's KindShape anchor kind. See
+	// execSlideRepeat's own doc comment (repeat_slide.go) for why this
+	// target needs a structurally different execution path from the other
+	// three and cannot reuse execRepeat's shared extract/splice/concatenate
+	// pipeline.
+	RepeatTargetSlide RepeatTarget = "slide"
 )
 
 // allRepeatTargets is the registry, hand-maintained and ordered.
-var allRepeatTargets = []RepeatTarget{RepeatTargetRow, RepeatTargetBlock, RepeatTargetTableRow}
+var allRepeatTargets = []RepeatTarget{RepeatTargetRow, RepeatTargetBlock, RepeatTargetTableRow, RepeatTargetSlide}
 
 // AllRepeatTargets returns a copy of the repeat-target vocabulary, in
 // declaration order.

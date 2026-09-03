@@ -685,6 +685,45 @@ var codeMetadata = map[Code]Metadata{
 		}},
 	},
 
+	VELLUM_TEMPLATE_SHAPE_TXBODY_MISSING: {
+		Message: "the shape has no <p:txBody> child to splice into",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "Type placeholder text into the shape in PowerPoint before saving the template. A shape's own text body is optional in the schema, but fill mode needs somewhere inside the shape to place the bound content.",
+		}},
+	},
+
+	VELLUM_TEMPLATE_SHAPE_BLOCK_UNSUPPORTED: {
+		Message: "a pptx shape's own text body accepts only paragraph blocks",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "A shape's <p:txBody> is text-only by the DrawingML schema, so only heading/text blocks can splice into it. Move a table or an image to its own shape in the slide instead of binding it into this shape anchor.",
+		}},
+	},
+
+	VELLUM_TEMPLATE_SLIDE_REPEAT_EMPTIES_DECK: {
+		Message: "a zero-item slide repeat would remove the presentation's only slide",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "Either guarantee the repeat's own Over expression always evaluates to at least one item, or add a second slide to the template so the deck is never left with zero slides. PowerPoint does not open a presentation with none.",
+		}},
+	},
+
+	VELLUM_TEMPLATE_SLIDE_ID_RANGE_EXCEEDED: {
+		Message: "a slide repeat's own deterministic sldId numbering would collide with the master/layout identifier space",
+		// Reachable only by a repeat producing an astronomical number of
+		// slide clones in one Fill call (billions) against a template whose
+		// own sldId values are already near the top of the slide identifier
+		// range — not something a realistic binding or template triggers,
+		// so there is no actionable authoring fixup beyond "use fewer
+		// items", which the repeat's own data controls rather than the
+		// template.
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "Reduce the number of items the repeat's Over expression evaluates to, or start from a template whose own sldId values are not already close to the reserved master/layout identifier space (2147483648).",
+		}},
+	},
+
 	VELLUM_ANCHOR_DUPLICATE: {
 		Message: "two anchors in the same part share one name",
 		Fixups: []Fixup{{

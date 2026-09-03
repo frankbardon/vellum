@@ -180,15 +180,26 @@ func TestInspect_XLSXSucceedsWithNoAnchorsForNonMatchingContent(t *testing.T) {
 	}
 }
 
-func TestInspect_PPTXIsRejectedNotEmpty(t *testing.T) {
+// TestInspect_PPTXSucceedsWithNoAnchorsForNonMatchingContent proves PPTX is
+// no longer the rejected format E9-S2/E11-S1 left it as — E11-S2 wired
+// anchor.discoverPPTX in. buildPackage's own fixture is DOCX-shaped content
+// carried under a pptx main part's content type (it declares no
+// <p:sldIdLst>), so this legitimately discovers zero anchors rather than
+// proving anything about a real deck; see template/anchor/pptx_test.go for
+// genuine pptx-shaped discovery coverage, and TestFill_PPTX* below for an
+// end-to-end pptx fill.
+func TestInspect_PPTXSucceedsWithNoAnchorsForNonMatchingContent(t *testing.T) {
 	raw := buildPackage(t, "/ppt/presentation.xml", ctPresentation, true)
 	tpl, err := template.Open(bytes.NewReader(raw), int64(len(raw)))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	_, err = template.Inspect(tpl)
-	if !verr.HasCode(err, verr.VELLUM_TEMPLATE_FORMAT_UNSUPPORTED) {
-		t.Fatalf("err = %v, want VELLUM_TEMPLATE_FORMAT_UNSUPPORTED", err)
+	report, err := template.Inspect(tpl)
+	if err != nil {
+		t.Fatalf("Inspect: %v", err)
+	}
+	if len(report.Anchors) != 0 {
+		t.Errorf("Anchors = %+v, want none", report.Anchors)
 	}
 }
 

@@ -173,6 +173,14 @@ func shapeFor(target RepeatTarget) (repeatShape, bool) {
 // updated to cover the header row alone — a table with no data rows is a
 // table Excel still opens.
 func execRepeat(r *Repeat, scope Scope, ev Evaluator, frame Frame, assetPkg *opc.Package, repls *ReplacementSet) error {
+	if r.Target == RepeatTargetSlide {
+		// A slide repeat's container is a whole OPC part, not a byte span
+		// inside frame's own part — see execSlideRepeat's own doc comment
+		// (repeat_slide.go) for why this dispatches to a wholly separate
+		// execution path rather than joining the pipeline below.
+		return execSlideRepeat(r, scope, ev, frame, assetPkg, repls)
+	}
+
 	items, err := EvaluateList(ev, r.Over, scope)
 	if err != nil {
 		return err

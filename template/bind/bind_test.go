@@ -45,7 +45,7 @@ func TestValidStatementKind(t *testing.T) {
 
 func TestAllRepeatTargets_RegistryIsComplete(t *testing.T) {
 	targets := bind.AllRepeatTargets()
-	want := []bind.RepeatTarget{bind.RepeatTargetRow, bind.RepeatTargetBlock, bind.RepeatTargetTableRow}
+	want := []bind.RepeatTarget{bind.RepeatTargetRow, bind.RepeatTargetBlock, bind.RepeatTargetTableRow, bind.RepeatTargetSlide}
 	if len(targets) != len(want) {
 		t.Fatalf("AllRepeatTargets returned %d, want %d: %v", len(targets), len(want), targets)
 	}

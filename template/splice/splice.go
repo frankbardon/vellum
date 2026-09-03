@@ -65,6 +65,8 @@ func SpliceInto(srcPkg, assetPkg *opc.Package, a anchor.Anchor, seq fragment.Seq
 		return spliceNative(assetPkg, a, src, seq)
 	case anchor.KindMarker:
 		return spliceMarker(a, src, seq)
+	case anchor.KindShape:
+		return spliceShape(a, src, seq)
 	case anchor.KindDefinedName, anchor.KindTableColumn:
 		// An xlsx cell anchor splices a typed numfmt.Value, not a rendered
 		// fragment.Sequence — see [SpliceCell]. Reaching here is a caller bug

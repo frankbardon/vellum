@@ -93,7 +93,11 @@
         "text.script.cyrillic",
         "text.script.other",
         "overflow.continue_repeat_headers",
-        "fill"
+        "fill",
+        "fill.bind.repeat",
+        "fill.bind.if",
+        "fill.bind.with",
+        "fill.bind.skip"
       ],
       "note": "A deck. The only format with a native speaker-note channel, and the only one where Vellum computes the overflow split itself."
     },
@@ -746,30 +750,26 @@
     {
       "feature": "fill.bind.repeat",
       "format": "pptx",
-      "outcome": "rejects",
-      "code": "VELLUM_TEMPLATE_FORMAT_UNSUPPORTED",
-      "note": "anchor.Discover has no PPTX discoverer wired yet (E11's job — a shape name, not a w:sdt or a {{marker}}), so no binding statement of any kind executes against a deck template today, whatever FeatureFill above optimistically claims."
+      "outcome": "renders",
+      "note": "E11-S2: anchor.Discover wires a shape-name (KindShape) discoverer in, and RepeatTargetSlide realizes repetition as whole-slide cloning: N new ppt/slides/slideN-fillK.xml parts, each with its own copied relationships part and [Content_Types].xml override, a relationship from ppt/presentation.xml to each, and a fresh, deterministic \u003cp:sldId\u003e per clone (one past the highest sldId already reachable, staying strictly below the disjoint sldMasterId/sldLayoutId space). Every anchor a slide repeat's body references must be a shape anchor on one single slide part, mirroring the same single-container reconciliation every other repeat target already enforces. A zero-item repeat targeting the presentation's only slide is rejected with VELLUM_TEMPLATE_SLIDE_REPEAT_EMPTIES_DECK rather than producing a deck PowerPoint refuses to open."
     },
     {
       "feature": "fill.bind.if",
       "format": "pptx",
-      "outcome": "rejects",
-      "code": "VELLUM_TEMPLATE_FORMAT_UNSUPPORTED",
-      "note": "As fill.bind.repeat: no anchor kind is discovered for this format yet."
+      "outcome": "renders",
+      "note": "E11-S2: usable against a shape anchor the same way it is against a DOCX or xlsx one."
     },
     {
       "feature": "fill.bind.with",
       "format": "pptx",
-      "outcome": "rejects",
-      "code": "VELLUM_TEMPLATE_FORMAT_UNSUPPORTED",
-      "note": "As fill.bind.repeat: no anchor kind is discovered for this format yet."
+      "outcome": "renders",
+      "note": "E11-S2: as fill.bind.if."
     },
     {
       "feature": "fill.bind.skip",
       "format": "pptx",
-      "outcome": "rejects",
-      "code": "VELLUM_TEMPLATE_FORMAT_UNSUPPORTED",
-      "note": "As fill.bind.repeat: no anchor kind is discovered for this format yet."
+      "outcome": "renders",
+      "note": "E11-S2: as fill.bind.if."
     },
     {
       "feature": "block.heading",
@@ -1154,6 +1154,10 @@
     "VELLUM_TEMPLATE_ASSET_MEDIA_UNSUPPORTED",
     "VELLUM_TEMPLATE_REPEAT_CONTAINER_INVALID",
     "VELLUM_TEMPLATE_TABLE_NOT_AT_SHEET_BOTTOM",
+    "VELLUM_TEMPLATE_SHAPE_TXBODY_MISSING",
+    "VELLUM_TEMPLATE_SHAPE_BLOCK_UNSUPPORTED",
+    "VELLUM_TEMPLATE_SLIDE_REPEAT_EMPTIES_DECK",
+    "VELLUM_TEMPLATE_SLIDE_ID_RANGE_EXCEEDED",
     "VELLUM_ANCHOR_DUPLICATE",
     "VELLUM_ANCHOR_MARKER_MALFORMED",
     "VELLUM_ANCHOR_DEFINED_NAME_UNSUPPORTED",
@@ -1173,7 +1177,7 @@
     "VELLUM_BIND_ANCHOR_UNRECONCILED",
     "VELLUM_INTERNAL_INVARIANT"
   ],
-  "error_codes_count": 81,
+  "error_codes_count": 85,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: 5fd82431219dfcf877f1cb14dd06cf21b3a7dd9274845f955a6feb8512771166
+// golden-hash: fafb8ebe5975f6b061157a0f73666117e62113e52ed0e0bf7ea26f1d720edf4b
