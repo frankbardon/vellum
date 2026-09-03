@@ -595,6 +595,7 @@ Environment variables:
 - `VELLUM_REQUIRE_OPTIONAL_GATES` — turns a missing external tool from a skip into a failure. Unset lets a developer without veraPDF or LibreOffice run the suite; CI sets it so a gate cannot pass forever without ever running. Shared across the externally-provisioned gates rather than one variable per tool.
 - `VELLUM_DETTEST_CASE` — names the single case a re-executed child process emits, for `TestDeterminismCrossProcess`. Set by the harness, never by hand.
 - `VELLUM_SPEC_HASH_CHILD` — marks the re-executed child process in `TestSpecHashPinnedVectors`' cross-process arm. Set by the harness, never by hand.
+- `VELLUM_BIND_HASH_CHILD` — marks the re-executed child process in `template/bind`'s `TestHash_StableAcrossProcesses`, the same cross-process hash-stability check `TestSpecHashPinnedVectors` runs for `spec.Spec`. Set by the harness, never by hand.
 
 ## Dependencies
 

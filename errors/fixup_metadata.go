@@ -703,6 +703,34 @@ var codeMetadata = map[Code]Metadata{
 		FixupNotApplicable: true,
 	},
 
+	VELLUM_BIND_INVALID: {
+		Message: "the binding document is structurally invalid",
+		Fixups: []Fixup{{
+			Action: FixupRepairInput,
+			Hint:   "The error's details name the offending field or statement path. A binding needs at least one top-level statement, and every statement needs the fields its kind requires: bind needs an anchor and an expression, repeat needs an over expression and a loop-variable name, if needs a when expression, with needs a scope-variable name and a value expression.",
+		}},
+	},
+
+	VELLUM_BIND_STATEMENT_KIND_UNKNOWN: {
+		Message: "a statement declares a kind that is not in the vocabulary",
+		Fixups: []Fixup{{
+			Action:   FixupReplaceValue,
+			Path:     []string{"Statements", "*", "Kind"},
+			Hint:     "Use one of the declared statement kinds. The control layer is deliberately thin — repetition and branching around FEEL expressions — and is not a place to invent a fifth kind.",
+			Examples: []any{"bind", "repeat", "if", "with"},
+		}},
+	},
+
+	VELLUM_BIND_REPEAT_TARGET_UNKNOWN: {
+		Message: "a repeat statement declares a target that is not \"row\" or \"block\"",
+		Fixups: []Fixup{{
+			Action:   FixupSetField,
+			Path:     []string{"Statements", "*", "Repeat", "Target"},
+			Hint:     "State explicitly which DOCX repetition mechanism this repeat uses: \"row\" splices copies of a table row, \"block\" splices copies of a native content control's content. Vellum will not infer it from where the anchor sits in the template.",
+			Examples: []any{"row", "block"},
+		}},
+	},
+
 	VELLUM_INTERNAL_INVARIANT: {
 		Message: "an internal invariant was violated",
 		// No input change resolves this. It is always a Vellum bug, and

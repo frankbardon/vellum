@@ -518,6 +518,33 @@ const (
 	VELLUM_ANCHOR_MARKER_MALFORMED Code = "VELLUM_ANCHOR_MARKER_MALFORMED"
 )
 
+// BIND domain — the fill-mode binding specification: the declarative,
+// hashable document mapping a template's anchors onto FEEL expressions,
+// with a thin control layer of repeat, if and with statements.
+const (
+	// VELLUM_BIND_INVALID indicates a binding that is structurally invalid:
+	// malformed JSON or YAML, an unknown field, no top-level statements, a
+	// statement whose kind and carried arm disagree, or a statement missing
+	// one of its own required fields (a bind with no anchor or expression, a
+	// repeat with no over or loop-variable name, an if with no when
+	// expression, a with with no scope-variable name or value expression).
+	// It does not cover the content of any FEEL expression, which this
+	// package never parses.
+	VELLUM_BIND_INVALID Code = "VELLUM_BIND_INVALID"
+
+	// VELLUM_BIND_STATEMENT_KIND_UNKNOWN indicates a statement declares a
+	// kind that is not in the vocabulary (bind, repeat, if, with).
+	VELLUM_BIND_STATEMENT_KIND_UNKNOWN Code = "VELLUM_BIND_STATEMENT_KIND_UNKNOWN"
+
+	// VELLUM_BIND_REPEAT_TARGET_UNKNOWN indicates a repeat statement whose
+	// target is not "row" or "block". The zero value is not defaulted:
+	// DOCX repetition realizes two structurally different ways — splicing
+	// rows into a table versus splicing copies of a native content
+	// control's content — and guessing between them from the document
+	// rather than the binding is exactly what this field exists to avoid.
+	VELLUM_BIND_REPEAT_TARGET_UNKNOWN Code = "VELLUM_BIND_REPEAT_TARGET_UNKNOWN"
+)
+
 // DEFRAG domain — fill-mode run defragmentation: flattening a container's
 // w:r runs into matchable text and computing the resplice site around a
 // match.
@@ -656,6 +683,11 @@ var allCodes = []Code{
 	// DEFRAG
 	VELLUM_DEFRAG_CONTAINER_NOT_FOUND,
 	VELLUM_DEFRAG_RANGE_INVALID,
+
+	// BIND
+	VELLUM_BIND_INVALID,
+	VELLUM_BIND_STATEMENT_KIND_UNKNOWN,
+	VELLUM_BIND_REPEAT_TARGET_UNKNOWN,
 
 	// INTERNAL
 	VELLUM_INTERNAL_INVARIANT,

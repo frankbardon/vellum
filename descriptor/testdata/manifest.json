@@ -978,6 +978,7 @@
     "TEMPLATE",
     "ANCHOR",
     "DEFRAG",
+    "BIND",
     "INTERNAL"
   ],
   "error_codes": [
@@ -1046,9 +1047,12 @@
     "VELLUM_ANCHOR_MARKER_MALFORMED",
     "VELLUM_DEFRAG_CONTAINER_NOT_FOUND",
     "VELLUM_DEFRAG_RANGE_INVALID",
+    "VELLUM_BIND_INVALID",
+    "VELLUM_BIND_STATEMENT_KIND_UNKNOWN",
+    "VELLUM_BIND_REPEAT_TARGET_UNKNOWN",
     "VELLUM_INTERNAL_INVARIANT"
   ],
-  "error_codes_count": 66,
+  "error_codes_count": 69,
   "schema_id": "https://frankbardon.github.io/vellum/spec-schema-1.0.json"
 }
-// golden-hash: 271dc6aac874c417f73b8378a46f57c82b20e24dd10d4510ca232aa824d5a34c
+// golden-hash: 28a70683950c13fee7b4f920420fcf6b0f3a588dbb16355325e5846d0781a93a
