@@ -1,0 +1,16 @@
+{
+  "format_version": "1.0",
+  "statements": [
+    {
+      "kind": "with",
+      "with": {
+        "as": "cust",
+        "value": "customer",
+        "body": [
+          { "kind": "bind", "bind": { "anchor": "customer_name", "expr": "cust.name" } }
+        ]
+      }
+    }
+  ],
+  "optional_anchors": ["vip_note", "item_name", "item_qty"]
+}

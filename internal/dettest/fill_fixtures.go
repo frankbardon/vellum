@@ -134,6 +134,21 @@ func fillDOCXData() bind.Scope {
 	}
 }
 
+// FillDOCXFixture returns the raw bytes of this package's own fill-docx
+// determinism case's template — a real, already-exercised docx carrying a
+// plain marker anchor ("customer_name"), an if-driven marker
+// ("vip_note"), and a table row repeated by ("item_name", "item_qty").
+// Exported so examples/'s own fill-mode gate can bind its own, differently
+// focused [bind.Binding] documents against a real template without
+// fabricating a second one from scratch. See fillDOCXBody for the exact
+// anchors this template discovers.
+func FillDOCXFixture() ([]byte, error) { return fillDOCXFixture() }
+
+// FillDOCXData returns the [bind.Scope] this package's own fill-docx case
+// binds against — a customer (with a name and a vip flag) and a list of
+// line items, matching [FillDOCXFixture]'s own anchors.
+func FillDOCXData() bind.Scope { return fillDOCXData() }
+
 func writeFillDOCX(w io.Writer, epoch time.Time) error {
 	raw, err := fillDOCXFixture()
 	if err != nil {

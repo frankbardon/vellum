@@ -1,0 +1,17 @@
+{
+  "format_version": "1.0",
+  "title": "block-text example",
+  "sections": [
+    {
+      "id": "overview",
+      "blocks": [
+        {
+          "kind": "text",
+          "text": {
+            "content": "Revenue grew 12% quarter over quarter, driven by strong renewal rates in the enterprise segment."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "format_version": "1.0",
+  "title": "block-spacer example",
+  "sections": [
+    {
+      "id": "overview",
+      "blocks": [
+        { "kind": "spacer", "spacer": { "height": { "value": 12, "unit": "pt" } } }
+      ]
+    }
+  ]
+}

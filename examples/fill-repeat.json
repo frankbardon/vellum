@@ -1,0 +1,18 @@
+{
+  "format_version": "1.0",
+  "statements": [
+    {
+      "kind": "repeat",
+      "repeat": {
+        "over": "items",
+        "as": "item",
+        "target": "row",
+        "body": [
+          { "kind": "bind", "bind": { "anchor": "item_name", "expr": "item.name" } },
+          { "kind": "bind", "bind": { "anchor": "item_qty", "expr": "item.qty" } }
+        ]
+      }
+    }
+  ],
+  "optional_anchors": ["customer_name", "vip_note"]
+}

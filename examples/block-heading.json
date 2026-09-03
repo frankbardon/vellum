@@ -1,0 +1,12 @@
+{
+  "format_version": "1.0",
+  "title": "block-heading example",
+  "sections": [
+    {
+      "id": "overview",
+      "blocks": [
+        { "kind": "heading", "heading": { "level": 1, "content": "Quarterly Results" } }
+      ]
+    }
+  ]
+}

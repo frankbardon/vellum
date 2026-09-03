@@ -1,0 +1,21 @@
+{
+  "format_version": "1.0",
+  "statements": [
+    {
+      "kind": "if",
+      "if": {
+        "when": "customer.vip",
+        "then": [
+          {
+            "kind": "bind",
+            "bind": { "anchor": "vip_note", "expr": "\"VIP customer — priority handling.\"" }
+          }
+        ],
+        "else": [
+          { "kind": "bind", "bind": { "anchor": "vip_note", "expr": "\"\"" } }
+        ]
+      }
+    }
+  ],
+  "optional_anchors": ["customer_name", "item_name", "item_qty"]
+}

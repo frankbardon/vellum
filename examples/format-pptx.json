@@ -1,0 +1,58 @@
+{
+  "format_version": "1.0",
+  "title": "Quarterly Review Deck",
+  "sections": [
+    {
+      "id": "title",
+      "blocks": [
+        { "kind": "heading", "heading": { "level": 1, "content": "Quarterly Review" } },
+        { "kind": "text", "text": { "content": "Prepared for the leadership offsite." } }
+      ]
+    },
+    {
+      "id": "chart",
+      "blocks": [
+        { "kind": "heading", "heading": { "level": 2, "content": "Revenue Trend" } },
+        {
+          "kind": "asset",
+          "asset": {
+            "handle": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+            "alt_text": "Revenue trend chart"
+          }
+        },
+        {
+          "kind": "notes",
+          "notes": {
+            "content": "Emphasise the enterprise renewal rate when presenting this slide — the one format with a native speaker-note channel."
+          }
+        }
+      ]
+    },
+    {
+      "id": "results",
+      "blocks": [
+        { "kind": "heading", "heading": { "level": 2, "content": "Results by Region" } },
+        {
+          "kind": "table",
+          "table": {
+            "caption": "Revenue by region",
+            "column_headers": [
+              { "label": "Region" },
+              { "label": "Revenue (USD)" }
+            ],
+            "body": [
+              [
+                { "value": { "kind": "text", "text": "Americas" } },
+                { "value": { "kind": "number", "number": 812000 } }
+              ],
+              [
+                { "value": { "kind": "text", "text": "EMEA" } },
+                { "value": { "kind": "number", "number": 501000 } }
+              ]
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

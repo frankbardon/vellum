@@ -1,0 +1,61 @@
+{
+  "format_version": "1.0",
+  "title": "Quarterly Business Review",
+  "sections": [
+    {
+      "id": "overview",
+      "blocks": [
+        { "kind": "heading", "heading": { "level": 1, "content": "Quarterly Business Review" } },
+        {
+          "kind": "text",
+          "text": {
+            "content": "This report summarises performance for the quarter just ended, with detail on revenue by region."
+          }
+        },
+        {
+          "kind": "asset",
+          "asset": {
+            "handle": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+            "alt_text": "Company logo"
+          }
+        },
+        { "kind": "spacer", "spacer": { "height": { "value": 12, "unit": "pt" } } }
+      ]
+    },
+    {
+      "id": "results",
+      "blocks": [
+        { "kind": "heading", "heading": { "level": 2, "content": "Results by Region" } },
+        {
+          "kind": "table",
+          "table": {
+            "caption": "Revenue by region",
+            "column_headers": [
+              { "label": "Region" },
+              { "label": "Revenue (USD)" }
+            ],
+            "body": [
+              [
+                { "value": { "kind": "text", "text": "Americas" } },
+                { "value": { "kind": "number", "number": 812000 } }
+              ],
+              [
+                { "value": { "kind": "text", "text": "EMEA" } },
+                { "value": { "kind": "number", "number": 501000 } }
+              ],
+              [
+                { "value": { "kind": "text", "text": "APAC" } },
+                { "value": { "kind": "number", "number": 276000 } }
+              ]
+            ]
+          }
+        },
+        { "kind": "page_break", "page_break": {} },
+        {
+          "kind": "text",
+          "text": { "content": "Detailed regional commentary continues on the next page." }
+        }
+      ]
+    }
+  ]
+}

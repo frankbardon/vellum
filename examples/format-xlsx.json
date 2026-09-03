@@ -1,0 +1,64 @@
+{
+  "format_version": "1.0",
+  "title": "Quarterly Revenue Workbook",
+  "sections": [
+    {
+      "id": "q1",
+      "blocks": [
+        {
+          "kind": "table",
+          "table": {
+            "caption": "Q1 revenue by region",
+            "column_headers": [
+              { "label": "Region" },
+              { "label": "Revenue (USD)" }
+            ],
+            "body": [
+              [
+                { "value": { "kind": "text", "text": "Americas" } },
+                { "value": { "kind": "number", "number": 812000 } }
+              ],
+              [
+                { "value": { "kind": "text", "text": "EMEA" } },
+                { "value": { "kind": "number", "number": 501000 } }
+              ],
+              [
+                { "value": { "kind": "text", "text": "APAC" } },
+                { "value": { "kind": "number", "number": 276000 } }
+              ]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "q2",
+      "blocks": [
+        {
+          "kind": "table",
+          "table": {
+            "caption": "Q2 revenue by region",
+            "column_headers": [
+              { "label": "Region" },
+              { "label": "Revenue (USD)" }
+            ],
+            "body": [
+              [
+                { "value": { "kind": "text", "text": "Americas" } },
+                { "value": { "kind": "number", "number": 865000 } }
+              ],
+              [
+                { "value": { "kind": "text", "text": "EMEA" } },
+                { "value": { "kind": "number", "number": 519000 } }
+              ],
+              [
+                { "value": { "kind": "text", "text": "APAC" } },
+                { "value": { "kind": "number", "number": 301000 } }
+              ]
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "format_version": "1.0",
+  "title": "block-page-break example",
+  "sections": [
+    {
+      "id": "overview",
+      "blocks": [
+        { "kind": "text", "text": { "content": "End of section one." } },
+        { "kind": "page_break", "page_break": {} },
+        { "kind": "text", "text": { "content": "Start of section two." } }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "format_version": "1.0",
+  "title": "block-table example",
+  "sections": [
+    {
+      "id": "overview",
+      "blocks": [
+        {
+          "kind": "table",
+          "table": {
+            "caption": "Revenue by quarter",
+            "column_headers": [
+              { "label": "Quarter" },
+              { "label": "Revenue (USD)" }
+            ],
+            "body": [
+              [
+                { "value": { "kind": "text", "text": "Q1" } },
+                { "value": { "kind": "number", "number": 125000 } }
+              ],
+              [
+                { "value": { "kind": "text", "text": "Q2" } },
+                { "value": { "kind": "number", "number": 138500 } }
+              ]
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

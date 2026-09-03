@@ -1,0 +1,17 @@
+{
+  "format_version": "1.0",
+  "title": "block-notes example",
+  "sections": [
+    {
+      "id": "overview",
+      "blocks": [
+        {
+          "kind": "notes",
+          "notes": {
+            "content": "Internal: confirm these figures with finance before external distribution."
+          }
+        }
+      ]
+    }
+  ]
+}

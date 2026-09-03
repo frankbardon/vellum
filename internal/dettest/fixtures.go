@@ -108,6 +108,18 @@ func composeFonts() asset.Resolver {
 	})
 }
 
+// ComposeTheme exports [composeTheme] for examples/'s own PDF format gate,
+// which needs the same embeddable-faced theme this package's own
+// pdf-compose case renders against — the built-in theme's three faces are
+// declared non-embeddable and PDF/A-2b requires every font embedded, so a
+// PDF example composed with the plain built-in theme would fail at
+// VELLUM_FONT_EMBED_UNSUPPORTED before ever reaching a writer.
+func ComposeTheme() (*theme.Theme, error) { return composeTheme() }
+
+// ComposeFonts exports [composeFonts] for the same reason [ComposeTheme] is
+// exported: the one font program [ComposeTheme]'s faces name.
+func ComposeFonts() asset.Resolver { return composeFonts() }
+
 // writePDFCompose composes the block-model document.
 func writePDFCompose(w io.Writer, epoch time.Time) error {
 	th, err := composeTheme()
