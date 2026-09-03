@@ -599,6 +599,7 @@ Environment variables:
 - `VELLUM_DETTEST_CASE` — names the single case a re-executed child process emits, for `TestDeterminismCrossProcess`. Set by the harness, never by hand.
 - `VELLUM_SPEC_HASH_CHILD` — marks the re-executed child process in `TestSpecHashPinnedVectors`' cross-process arm. Set by the harness, never by hand.
 - `VELLUM_BIND_HASH_CHILD` — marks the re-executed child process in `template/bind`'s `TestHash_StableAcrossProcesses`, the same cross-process hash-stability check `TestSpecHashPinnedVectors` runs for `spec.Spec`. Set by the harness, never by hand.
+- `VELLUM_COVERAGE_FLOOR_CHILD` — marks the `go test ./...` subprocess `TestPerPackageCoverageFloors` spawns to collect per-package statement coverage, so that subprocess's own run of `internal/gates` does not spawn another subprocess in turn. Set by the harness, never by hand.
 
 ## Dependencies
 

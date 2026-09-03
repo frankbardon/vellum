@@ -33,7 +33,7 @@ stderr. Every command's own exit code follows one convention:
 | `vellum capabilities --format <fmt> [--json]` | Report the declared (feature, format) outcome matrix. |
 | `vellum schema` | Write the published JSON Schema for a specification, raw and unwrapped. |
 | `vellum provenance <artifact-file> [--json]` | Report an artifact's own embedded provenance record, if it carries one, without opening it in any external tool. |
-| `vellum mcp` | Run the MCP server. **Not yet implemented** — lands in E12-S2; returns `VELLUM_CLI_NOT_IMPLEMENTED` today. |
+| `vellum mcp` | Run a Model Context Protocol server, exposing every `vellum_*` tool over stdin/stdout as newline-delimited JSON-RPC, for an MCP client to launch as a subprocess and connect to. Runs until the connection ends. No `--json` mode: MCP is itself the wire protocol this verb speaks. |
 | `vellum doctor [--dir <path>] [--json]` | Check the local environment: the built-in theme and its fonts, `VELLUM_THEME_DIR`/`VELLUM_ASSET_DIR`/`VELLUM_MAX_ASSET_BYTES`/`VELLUM_SOURCE_DATE_EPOCH`, the PDF/A sRGB ICC profile, and write permission on `--dir` (default: the current working directory). Every check runs regardless of an earlier failure; exits non-zero (`VELLUM_CLI_DOCTOR_FAILED`) when any check failed. |
 
 Run `vellum <command> --help` for a command's exact flags; this page is the

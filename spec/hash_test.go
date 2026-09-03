@@ -279,14 +279,76 @@ func TestHash_DoesNotMutate(t *testing.T) {
 	}
 }
 
-// TestHash_PinnedVector is the gate. This value was computed once; changing it
-// changes the identity of every artifact every consumer has cached.
-func TestHash_PinnedVector(t *testing.T) {
-	const want = "4a9722728134cc516a8b844b81c7accb"
-	got := hashFixture().Hash()
-	if got != want {
-		t.Errorf("fixture hash = %q, want %q\n"+
-			"Changing this changes the identity of every artifact every consumer has cached. "+
-			"If intended, bump spec.FormatVersion in the same change.", got, want)
+// nestedHeaderHashFixture is a spec whose only content is a table with a
+// three-level column header tree — deeper than hashFixture's own two levels —
+// so the pinned-vector family exercises HeaderTree recursion rather than only
+// the flat case.
+func nestedHeaderHashFixture() *spec.Spec {
+	return &spec.Spec{
+		Title: "Nested Headers",
+		Sections: []spec.Section{{
+			ID:     "s1",
+			Layout: "body",
+			Blocks: []spec.Block{
+				{Kind: spec.BlockTable, Table: &spec.Table{
+					ColumnHeaders: spec.HeaderTree{
+						{Label: "Region", Children: []spec.HeaderNode{
+							{Label: "North", Children: []spec.HeaderNode{
+								{Label: "Q1"}, {Label: "Q2"},
+							}},
+							{Label: "South"},
+						}},
+					},
+					Body: [][]spec.Cell{{
+						{Value: num(1)}, {Value: num(2)}, {Value: num(3)},
+					}},
+				}},
+			},
+		}},
+	}
+}
+
+// TestSpecHashPinnedVectors is the gate: a small family of committed
+// (spec, hash) vectors, not just one. Each was computed once; changing any of
+// them changes the identity of every artifact every consumer has cached for a
+// spec of that shape.
+//
+// The family exists rather than a single fixture because a hash bug can be
+// shape-specific — normalisation that only ever ran against a spec carrying
+// every optional field would not notice a defaulting bug that only a bare,
+// all-zero-value spec exercises, and a flat table would not notice a
+// HeaderTree recursion bug a nested one does.
+//
+// Named exactly as CLAUDE.md's "Non-Skippable CI Gates" section names it
+// (without an underscore, unlike this file's other TestHash_* names) so that
+// TestClaudeMdMentionsAllNonSkippableGates' reserved-prefix walk finds a real
+// function for the line it already lists — before this test existed under
+// this name, that line was enforcing nothing.
+func TestSpecHashPinnedVectors(t *testing.T) {
+	tests := []struct {
+		name string
+		spec func() *spec.Spec
+		want string
+	}{
+		// The fixture already used throughout this file: every block kind,
+		// nested marks, an annotated total cell, explicit spans.
+		{"every field populated", hashFixture, "4a9722728134cc516a8b844b81c7accb"},
+		// The all-zero-value spec: every default normalisation rule at once,
+		// with nothing else to mask a bug in one of them.
+		{"minimal spec", func() *spec.Spec { return &spec.Spec{} }, "6b9206db0343bf243df2a9226d9d527e"},
+		// A column header tree three levels deep, where hashFixture's own is
+		// two.
+		{"nested table headers", nestedHeaderHashFixture, "1560678b2c1bb073ecdc8e55f58f34ea"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.spec().Hash()
+			if got != tt.want {
+				t.Errorf("hash = %q, want %q\n"+
+					"Changing this changes the identity of every artifact every consumer has cached "+
+					"for a spec of this shape. If intended, bump spec.FormatVersion in the same change.",
+					got, tt.want)
+			}
+		})
 	}
 }
