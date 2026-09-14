@@ -5,7 +5,7 @@ go 1.26.1
 require (
 	github.com/go-text/typesetting v0.3.4
 	github.com/google/jsonschema-go v0.4.3
-	github.com/modelcontextprotocol/go-sdk v1.7.0
+	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/pbinitiative/feel v1.0.6
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/spf13/afero v1.15.0
