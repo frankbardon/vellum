@@ -3,7 +3,7 @@ module github.com/frankbardon/vellum
 go 1.26.1
 
 require (
-	github.com/go-text/typesetting v0.3.4
+	github.com/go-text/typesetting v0.3.5
 	github.com/google/jsonschema-go v0.4.3
 	github.com/modelcontextprotocol/go-sdk v1.7.0
 	github.com/pbinitiative/feel v1.0.6
